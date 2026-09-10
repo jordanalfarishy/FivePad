@@ -1,4 +1,4 @@
-# JustNotes — Product Requirements Document
+# FivePad — Product Requirements Document
 
 Lima slot catatan, satu daftar tugas, tersinkron antara macOS dan Android — dan selalu satu klik jauhnya dari menu bar.
 
@@ -40,11 +40,11 @@ Lima slot catatan, satu daftar tugas, tersinkron antara macOS dan Android — da
 
 ## 1. Ringkasan eksekutif
 
-JustNotes adalah aplikasi catatan cepat yang sengaja dibatasi: tepat lima slot catatan yang tidak bisa ditambah, ditambah satu daftar tugas global. Batasan itu bukan kekurangan — justru itulah produknya.
+FivePad adalah aplikasi catatan cepat yang sengaja dibatasi: tepat lima slot catatan yang tidak bisa ditambah, ditambah satu daftar tugas global. Batasan itu bukan kekurangan — justru itulah produknya.
 
-Aplikasi catatan pada umumnya kalah oleh keberhasilannya sendiri. Setelah ratusan catatan menumpuk, membuka aplikasi berarti menghadapi daftar, folder, dan tag — bukan menulis. JustNotes menghapus seluruh lapisan itu: yang ada hanya lima titik berwarna. Catatan keenam berarti kamu harus memutuskan mana dari lima yang sudah tidak penting.
+Aplikasi catatan pada umumnya kalah oleh keberhasilannya sendiri. Setelah ratusan catatan menumpuk, membuka aplikasi berarti menghadapi daftar, folder, dan tag — bukan menulis. FivePad menghapus seluruh lapisan itu: yang ada hanya lima titik berwarna. Catatan keenam berarti kamu harus memutuskan mana dari lima yang sudah tidak penting.
 
-Pembeda utamanya dari produk sejenis adalah jangkauan platform. Aplikasi minimalis sekelas ini nyaris seluruhnya eksklusif ekosistem Apple karena bersandar pada iCloud. JustNotes menargetkan **macOS dan Android sekaligus** dengan lapisan sinkronisasi sendiri, sehingga melayani kelompok yang selama ini tidak terlayani: pengguna Mac yang memakai ponsel Android.
+Pembeda utamanya dari produk sejenis adalah jangkauan platform. Aplikasi minimalis sekelas ini nyaris seluruhnya eksklusif ekosistem Apple karena bersandar pada iCloud. FivePad menargetkan **macOS dan Android sekaligus** dengan lapisan sinkronisasi sendiri, sehingga melayani kelompok yang selama ini tidak terlayani: pengguna Mac yang memakai ponsel Android.
 
 Di macOS, titik masuk utamanya bukan jendela aplikasi melainkan **ikon menu bar**: satu pintasan keyboard memunculkan panel untuk membaca dan mengedit catatan tanpa berpindah aplikasi, lalu hilang lagi. Target waktu dari tekan tombol sampai kursor siap mengetik adalah 120 milidetik.
 
@@ -92,7 +92,7 @@ Ada tiga masalah yang saling menguatkan pada alat catatan cepat saat ini.
 | **Pekerja lepas & konsultan** | Menangani tiga sampai lima klien aktif sekaligus. | Satu slot per klien memberi struktur tanpa perlu mengelola folder. Daftar tugas global menjawab "apa yang harus saya kerjakan sekarang". |
 | **Mahasiswa** | Laptop di kelas, ponsel di perjalanan. Sensitif terhadap harga. | Catatan kuliah dan daftar tugas yang berpindah sendiri antara laptop dan ponsel. Jenjang gratis harus benar-benar berguna. |
 
-> **Anti-persona.** Orang yang ingin memindahkan seluruh arsip catatannya ke JustNotes bukan target kita. Menolak kelompok ini secara sadar adalah bagian dari strategi produk — melayani mereka berarti membongkar batasan lima slot yang menjadi inti nilai jualnya.
+> **Anti-persona.** Orang yang ingin memindahkan seluruh arsip catatannya ke FivePad bukan target kita. Menolak kelompok ini secara sadar adalah bagian dari strategi produk — melayani mereka berarti membongkar batasan lima slot yang menjadi inti nilai jualnya.
 
 ---
 
@@ -101,11 +101,12 @@ Ada tiga masalah yang saling menguatkan pada alat catatan cepat saat ini.
 | Produk | Platform | Harga | Celah yang kita isi |
 |---|---|---|---|
 | **FiveNotes** (Apptorium) | macOS, iOS, watchOS | $7,99 sekali bayar | Referensi konsep terdekat dan eksekusinya rapi, tapi terkunci di iCloud. Tidak ada jalur ke Android sama sekali, dan todolist bukan warga kelas satu. |
+| **DoteNote** | Android | Gratis | Konsep lima slot berwarna yang nyaris identik — geser untuk berpindah, autosave, Material You — tapi hanya hidup di Android. Tidak ada aplikasi desktop, tidak ada menu bar, dan tidak ada jalan ke Mac. |
 | **Apple Notes** | Apple saja | Gratis | Tanpa batas catatan sehingga cepat menumpuk; tidak ada akses menu bar; tidak ada Android. |
 | **Google Keep** | Web, Android, iOS | Gratis | Lintas platform dan kuat di Android, tapi aplikasi Mac-nya hanya web. Tidak ada menu bar, tidak ada Markdown, dan modelnya kartu tak terbatas. |
 | **Obsidian / Notion** | Semua | Gratis–$10/bln | Terlalu berat untuk menangkap satu kalimat. Waktu buka sampai siap mengetik dihitung dalam detik, bukan milidetik. |
 
-> **Posisi.** JustNotes adalah satu-satunya aplikasi catatan berbatas-lima dengan akses menu bar macOS *dan* aplikasi Android sejati. Kalimat itulah yang harus bisa dibuktikan pada rilis M2 — sebelum itu, produk ini belum punya pembeda.
+> **Posisi.** FiveNotes menguasai sisi Apple, DoteNote menguasai sisi Android, dan tidak satu pun dari keduanya menjembatani celah di antaranya. FivePad adalah satu-satunya aplikasi catatan berbatas-lima yang menghadirkan lima slot yang *sama* di menu bar macOS dan di Android. Konsekuensinya tajam: sinkronisasi (M2) bukan sekadar jalur kritis — ia satu-satunya alasan produk ini berhak ada. Sebelum M2 selesai, FivePad hanyalah aplikasi lima-slot ketiga di pasar yang sudah punya dua.
 
 ---
 
@@ -392,7 +393,7 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 | **M4** | **Peluncuran publik** — sisa P1, ekspor, widget, tema | 3 minggu | Seluruh butir P1 selesai. Audit aksesibilitas lolos. Terbit di Google Play dan sebagai DMG bernotaris. |
 | **M5** | **Pendalaman** — butir P2, Shortcuts, enkripsi ujung-ke-ujung | 4 minggu | Enkripsi ujung-ke-ujung opsional dengan frasa sandi. Aksi Shortcuts dan skema URL tersedia. Pencarian lintas slot aktif. |
 
-> **Jalur kritis.** M2 adalah tahap paling berisiko dan paling menentukan. Sebelum M2 selesai, JustNotes hanyalah aplikasi catatan lokal biasa tanpa alasan kuat untuk dipilih. Bila jadwal tertekan, potong cakupan M4 — jangan pernah memangkas pengujian M2.
+> **Jalur kritis.** M2 adalah tahap paling berisiko dan paling menentukan. Sebelum M2 selesai, FivePad hanyalah aplikasi catatan lokal biasa tanpa alasan kuat untuk dipilih. Bila jadwal tertekan, potong cakupan M4 — jangan pernah memangkas pengujian M2.
 
 ---
 
