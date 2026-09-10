@@ -1,0 +1,474 @@
+# JustNotes — Product Requirements Document
+
+Lima slot catatan, satu daftar tugas, tersinkron antara macOS dan Android — dan selalu satu klik jauhnya dari menu bar.
+
+| | |
+|---|---|
+| **Versi** | 1.0 |
+| **Tanggal** | 11 September 2026 |
+| **Status** | Draft |
+| **Platform** | macOS 13+ · Android 8+ |
+| **Target rilis** | M1–M5 · ±19 minggu |
+
+> Versi web dokumen ini (dengan filter platform pada §8): https://claude.ai/code/artifact/ba54b8fd-ac3e-40fe-aad4-823538eac8c0
+
+---
+
+## Daftar isi
+
+1. [Ringkasan eksekutif](#1-ringkasan-eksekutif)
+2. [Latar belakang & masalah](#2-latar-belakang--masalah)
+3. [Tujuan & non-tujuan](#3-tujuan--non-tujuan)
+4. [Pengguna sasaran](#4-pengguna-sasaran)
+5. [Lanskap kompetitif](#5-lanskap-kompetitif)
+6. [Prinsip produk](#6-prinsip-produk)
+7. [Cakupan produk](#7-cakupan-produk)
+8. [Kebutuhan fungsional](#8-kebutuhan-fungsional)
+9. [Model data](#9-model-data)
+10. [Arsitektur sinkronisasi](#10-arsitektur-sinkronisasi)
+11. [Kebutuhan non-fungsional](#11-kebutuhan-non-fungsional)
+12. [Keputusan teknologi](#12-keputusan-teknologi)
+13. [Alur & layar utama](#13-alur--layar-utama)
+14. [Rencana rilis](#14-rencana-rilis)
+15. [Metrik keberhasilan](#15-metrik-keberhasilan)
+16. [Risiko & mitigasi](#16-risiko--mitigasi)
+17. [Pertanyaan terbuka](#17-pertanyaan-terbuka)
+18. [Di luar cakupan](#18-di-luar-cakupan)
+19. [Glosarium](#19-glosarium)
+
+---
+
+## 1. Ringkasan eksekutif
+
+JustNotes adalah aplikasi catatan cepat yang sengaja dibatasi: tepat lima slot catatan yang tidak bisa ditambah, ditambah satu daftar tugas global. Batasan itu bukan kekurangan — justru itulah produknya.
+
+Aplikasi catatan pada umumnya kalah oleh keberhasilannya sendiri. Setelah ratusan catatan menumpuk, membuka aplikasi berarti menghadapi daftar, folder, dan tag — bukan menulis. JustNotes menghapus seluruh lapisan itu: yang ada hanya lima titik berwarna. Catatan keenam berarti kamu harus memutuskan mana dari lima yang sudah tidak penting.
+
+Pembeda utamanya dari produk sejenis adalah jangkauan platform. Aplikasi minimalis sekelas ini nyaris seluruhnya eksklusif ekosistem Apple karena bersandar pada iCloud. JustNotes menargetkan **macOS dan Android sekaligus** dengan lapisan sinkronisasi sendiri, sehingga melayani kelompok yang selama ini tidak terlayani: pengguna Mac yang memakai ponsel Android.
+
+Di macOS, titik masuk utamanya bukan jendela aplikasi melainkan **ikon menu bar**: satu pintasan keyboard memunculkan panel untuk membaca dan mengedit catatan tanpa berpindah aplikasi, lalu hilang lagi. Target waktu dari tekan tombol sampai kursor siap mengetik adalah 120 milidetik.
+
+---
+
+## 2. Latar belakang & masalah
+
+Ada tiga masalah yang saling menguatkan pada alat catatan cepat saat ini.
+
+**01 — Gesekan menaruh pikiran.** Untuk mencatat satu kalimat, pengguna harus berpindah aplikasi, membuat catatan baru, memberi judul, lalu kembali. Biaya sepuluh detik itu cukup untuk membuat pikiran tersebut tidak jadi dicatat sama sekali.
+
+**02 — Penumpukan tanpa batas.** Aplikasi tanpa batas jumlah catatan berubah jadi tempat pembuangan. Tanpa paksaan untuk memangkas, isinya menjadi arsip yang tidak pernah dibuka, bukan ruang kerja aktif.
+
+**03 — Terkunci ekosistem.** Alat minimalis terbaik di macOS memakai iCloud, sehingga tidak ada jalan ke Android. Pengguna Mac + Android terpaksa memilih aplikasi lintas platform yang berat, atau hidup tanpa sinkronisasi.
+
+---
+
+## 3. Tujuan & non-tujuan
+
+### Tujuan
+
+- Menangkap pikiran dalam bawah 2 detik sejak niat muncul, di kedua platform.
+- Menjaga lima slot dan daftar tugas tetap identik di semua perangkat tanpa campur tangan pengguna.
+- Berfungsi penuh saat offline; sinkronisasi adalah bonus, bukan syarat.
+- Menjadikan menu bar macOS sebagai permukaan utama, bukan pelengkap.
+- Tidak pernah kehilangan tulisan pengguna — termasuk saat aplikasi ditutup paksa.
+- Menyimpan data sesedikit mungkin di server dan tidak mengumpulkan telemetri.
+
+### Non-tujuan
+
+- Bukan pengganti Notion, Obsidian, atau aplikasi manajemen pengetahuan.
+- Tidak ada folder, tag, backlink, atau hierarki apa pun.
+- Tidak ada kolaborasi, berbagi, atau komentar antarpengguna.
+- Tidak ada lampiran gambar, berkas, atau media pada fase awal.
+- Tidak mengejar kelengkapan fitur; setiap penambahan harus melewati §6.
+- Tidak ada fitur AI pada v1.
+
+---
+
+## 4. Pengguna sasaran
+
+| Persona | Konteks | Kebutuhan yang dilayani |
+|---|---|---|
+| **Developer lintas ekosistem** | Bekerja di MacBook, memakai ponsel Android. Sepanjang hari berpindah antara editor, terminal, dan browser. | Tempat menaruh potongan perintah, URL, dan catatan rapat tanpa meninggalkan jendela yang sedang aktif. Isinya harus ada di ponsel saat meninggalkan meja. |
+| **Pekerja lepas & konsultan** | Menangani tiga sampai lima klien aktif sekaligus. | Satu slot per klien memberi struktur tanpa perlu mengelola folder. Daftar tugas global menjawab "apa yang harus saya kerjakan sekarang". |
+| **Mahasiswa** | Laptop di kelas, ponsel di perjalanan. Sensitif terhadap harga. | Catatan kuliah dan daftar tugas yang berpindah sendiri antara laptop dan ponsel. Jenjang gratis harus benar-benar berguna. |
+
+> **Anti-persona.** Orang yang ingin memindahkan seluruh arsip catatannya ke JustNotes bukan target kita. Menolak kelompok ini secara sadar adalah bagian dari strategi produk — melayani mereka berarti membongkar batasan lima slot yang menjadi inti nilai jualnya.
+
+---
+
+## 5. Lanskap kompetitif
+
+| Produk | Platform | Harga | Celah yang kita isi |
+|---|---|---|---|
+| **FiveNotes** (Apptorium) | macOS, iOS, watchOS | $7,99 sekali bayar | Referensi konsep terdekat dan eksekusinya rapi, tapi terkunci di iCloud. Tidak ada jalur ke Android sama sekali, dan todolist bukan warga kelas satu. |
+| **Apple Notes** | Apple saja | Gratis | Tanpa batas catatan sehingga cepat menumpuk; tidak ada akses menu bar; tidak ada Android. |
+| **Google Keep** | Web, Android, iOS | Gratis | Lintas platform dan kuat di Android, tapi aplikasi Mac-nya hanya web. Tidak ada menu bar, tidak ada Markdown, dan modelnya kartu tak terbatas. |
+| **Obsidian / Notion** | Semua | Gratis–$10/bln | Terlalu berat untuk menangkap satu kalimat. Waktu buka sampai siap mengetik dihitung dalam detik, bukan milidetik. |
+
+> **Posisi.** JustNotes adalah satu-satunya aplikasi catatan berbatas-lima dengan akses menu bar macOS *dan* aplikasi Android sejati. Kalimat itulah yang harus bisa dibuktikan pada rilis M2 — sebelum itu, produk ini belum punya pembeda.
+
+---
+
+## 6. Prinsip produk
+
+Setiap usulan fitur diuji terhadap keempat prinsip ini. Usulan yang melanggar salah satunya ditolak, sekalipun banyak yang meminta.
+
+**P1 — Lima adalah lima.** Jumlah slot tidak pernah bertambah. Aturan ini ditegakkan di basis data lewat `check (slot between 1 and 5)`, bukan hanya di antarmuka, supaya tidak bisa dilanggar secara diam-diam lewat jalur mana pun.
+
+**P2 — Tanpa tombol simpan.** Pengguna tidak pernah diminta menyimpan, memberi judul, atau memilih lokasi. Mengetik sudah berarti menyimpan.
+
+**P3 — Offline adalah keadaan normal.** Setiap fitur dirancang untuk berjalan tanpa jaringan. Sinkronisasi adalah proses yang terjadi di latar belakang, bukan syarat sebelum pengguna boleh bekerja.
+
+**P4 — Data pengguna bukan produk kita.** Tanpa iklan, tanpa analitik pihak ketiga, tanpa pelatihan model. Isi catatan hanya disentuh untuk disinkronkan dan dicadangkan.
+
+---
+
+## 7. Cakupan produk
+
+### Palet lima slot
+
+Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak dapat diubah pengguna — konsistensinya yang membuat pengguna hafal "yang hijau itu urusan klien A" tanpa perlu membaca label.
+
+| Slot | Terang | Gelap |
+|---|---|---|
+| Slot 1 | `#C7442A` | `#EF7A5A` |
+| Slot 2 | `#B0741A` | `#E0A63F` |
+| Slot 3 | `#3B8A5B` | `#63BC85` |
+| Slot 4 | `#0B6E8F` | `#48BEDD` |
+| Slot 5 | `#6B4E9E` | `#A186D6` |
+
+### Modul & kepemilikan platform
+
+| Modul | Nama | Ada di |
+|---|---|---|
+| `FR-1` | Lima slot catatan | macOS + Android |
+| `FR-2` | Daftar tugas | macOS + Android |
+| `FR-3` | Akun & sinkronisasi | macOS + Android + backend |
+| `FR-4` | Menu bar & panel cepat | macOS saja |
+| `FR-5` | Jendela utama macOS | macOS saja |
+| `FR-6` | Aplikasi Android | Android saja |
+| `FR-7` | Pengaturan & data | macOS + Android |
+
+---
+
+## 8. Kebutuhan fungsional
+
+**P0** wajib ada untuk rilis pertama modul tersebut. **P1** direncanakan untuk v1.0 publik. **P2** boleh digeser ke rilis berikutnya tanpa memblokir peluncuran.
+
+### FR-1 — Lima slot catatan
+
+| ID | Prio | Platform | Kebutuhan |
+|---|---|---|---|
+| FR-1.1 | P0 | Semua | Aplikasi menyediakan tepat lima slot catatan permanen. Slot tidak dapat ditambah maupun dihapus, dan jumlahnya tidak dapat diubah lewat jalur mana pun termasuk impor. |
+| FR-1.2 | P0 | Semua | Setiap slot memiliki label yang dapat diubah pengguna, maksimal 24 karakter, dan satu warna tetap dari palet lima warna di §7. |
+| FR-1.3 | P0 | Semua | Isi catatan berupa teks polos dengan konvensi Markdown. Batas 50.000 karakter per slot; saat mendekati batas, tampilkan peringatan pada 45.000 karakter. |
+| FR-1.4 | P0 | Semua | Perubahan disimpan otomatis ke penyimpanan lokal 400 ms setelah pengguna berhenti mengetik, dan segera saat editor kehilangan fokus, aplikasi masuk ke background, atau panel ditutup. |
+| FR-1.5 | P0 | macOS | Berpindah slot lewat klik pada titik warna atau pintasan `⌘1`–`⌘5`. `⌘\` kembali ke slot yang sebelumnya aktif. |
+| FR-1.6 | P0 | Android | Berpindah slot lewat tap pada titik warna atau geser horizontal pada area editor. |
+| FR-1.7 | P1 | Semua | Markdown dirender langsung saat mengetik untuk: tebal, miring, judul H1–H3, daftar berpoin, daftar bernomor, kotak centang, tautan, kode sebaris, blok kode, dan kutipan. |
+| FR-1.8 | P1 | Semua | Kotak centang Markdown `- [ ]` dapat diklik atau di-tap untuk berubah status tanpa masuk ke mode edit teks. |
+| FR-1.9 | P1 | Semua | Penghitung kata dan karakter ditampilkan di kaki editor, dapat dimatikan lewat Pengaturan. |
+| FR-1.10 | P1 | Semua | Aksi "Salin seluruh isi slot" menyalin teks mentah Markdown ke papan klip. |
+| FR-1.11 | P1 | Semua | Aksi "Kosongkan slot" meminta konfirmasi, lalu menyimpan isi lama ke riwayat versi sebelum menghapusnya. |
+| FR-1.12 | P2 | macOS | Menyeret teks dari aplikasi lain ke sebuah titik warna menambahkan teks itu ke akhir slot bersangkutan, dipisahkan satu baris kosong. |
+| FR-1.13 | P2 | Semua | Pencarian teks di kelima slot sekaligus, dengan penanda jumlah hasil per slot dan sorotan pada kecocokan. |
+
+### FR-2 — Daftar tugas
+
+| ID | Prio | Platform | Kebutuhan |
+|---|---|---|---|
+| FR-2.1 | P0 | Semua | Satu daftar tugas global, terpisah dari kelima slot catatan dan tidak terikat pada salah satunya. |
+| FR-2.2 | P0 | Semua | Menambah tugas lewat satu kolom masukan. Menekan Enter menyimpan tugas dan mengosongkan kolom agar siap untuk entri berikutnya. Maksimal 500 karakter per tugas. |
+| FR-2.3 | P0 | Semua | Menandai tugas selesai atau belum lewat kotak centang, dengan perubahan tersimpan seketika. |
+| FR-2.4 | P0 | Semua | Mengubah teks tugas langsung di tempat, tanpa membuka layar atau dialog terpisah. |
+| FR-2.5 | P0 | Semua | Menghapus tugas: geser ke kiri di Android; tombol hapus yang muncul saat kursor di atas baris, atau menu klik kanan, di macOS. |
+| FR-2.6 | P0 | Semua | Kepala daftar menampilkan penghitung kemajuan dalam bentuk "n dari m selesai". |
+| FR-2.7 | P1 | Semua | Menyusun ulang tugas dengan seret dan lepas. Urutan disimpan sebagai kolom `position` dan ikut tersinkronisasi antar perangkat. |
+| FR-2.8 | P1 | Semua | Tugas yang selesai otomatis turun ke bagian bawah daftar. Perilaku ini dapat dimatikan lewat Pengaturan. |
+| FR-2.9 | P1 | Semua | Aksi "Bersihkan yang selesai" menghapus seluruh tugas berstatus selesai sekaligus, dengan opsi urungkan selama 5 detik. |
+| FR-2.10 | P1 | Semua | Tanggal dan waktu jatuh tempo opsional per tugas. Tugas yang lewat jatuh tempo ditandai dengan warna semantik, bukan hanya teks. |
+| FR-2.11 | P1 | Semua | Notifikasi lokal pada waktu jatuh tempo, dijadwalkan di perangkat sehingga tetap berjalan tanpa koneksi. |
+| FR-2.12 | P2 | Semua | Batas 500 tugas aktif. Melewati batas itu, tugas selesai yang paling lama diarsipkan otomatis dan tidak lagi disinkronkan. |
+| FR-2.13 | P2 | macOS | Menyeret satu baris teks ke ikon menu bar sambil menahan `⌥` menambahkannya sebagai tugas baru, bukan sebagai catatan. |
+
+### FR-3 — Akun & sinkronisasi
+
+| ID | Prio | Platform | Kebutuhan |
+|---|---|---|---|
+| FR-3.1 | P0 | Semua | Aplikasi berfungsi penuh tanpa akun dan tanpa koneksi internet. Akun hanya diperlukan untuk menyalakan sinkronisasi, dan tidak pernah diminta saat pertama membuka aplikasi. |
+| FR-3.2 | P0 | Backend | Autentikasi lewat surel dengan tautan masuk sekali pakai (magic link) dan lewat surel dengan kata sandi. |
+| FR-3.3 | P1 | Semua | Masuk dengan Google di kedua platform, dan Masuk dengan Apple di macOS. Masuk dengan Apple wajib ada jika aplikasi didistribusikan lewat Mac App Store dan sudah menawarkan login pihak ketiga lain. |
+| FR-3.4 | P0 | Semua | Saat pengguna masuk untuk pertama kali di perangkat yang sudah memuat data lokal, tampilkan pilihan eksplisit: gabungkan keduanya, pakai data cloud, atau pakai data lokal. Tidak boleh ada penggabungan diam-diam. |
+| FR-3.5 | P0 | Semua | Seluruh perubahan ditulis ke penyimpanan lokal lebih dulu, lalu masuk antrean kirim. Antarmuka tidak pernah menunggu jawaban server sebelum menampilkan hasil. |
+| FR-3.6 | P0 | Semua | Perubahan dari perangkat lain diterima lewat langganan realtime saat aplikasi aktif, dan lewat penarikan penuh saat aplikasi dibuka atau kembali ke latar depan. |
+| FR-3.7 | P0 | Backend | Penyelesaian konflik memakai *last-write-wins* per baris berdasarkan stempel waktu server, bukan stempel waktu perangkat. Rinciannya di §10. |
+| FR-3.8 | P0 | Semua | Indikator status sinkronisasi dengan empat keadaan: tersinkron, sedang menyinkronkan, luring, dan gagal. Keadaan gagal menyertakan alasan dan tombol coba lagi. |
+| FR-3.9 | P0 | Semua | Setiap perangkat terdaftar dengan pengenal, nama, dan platform. Daftar perangkat tampil di Pengaturan beserta opsi mencabut akses dari jarak jauh. |
+| FR-3.10 | P0 | Backend | Row Level Security aktif di seluruh tabel, memastikan pengguna hanya dapat membaca dan menulis baris miliknya sendiri. Tidak ada jalur akses yang melewati RLS. |
+| FR-3.11 | P1 | Semua | Riwayat versi menyimpan 10 revisi terakhir per slot selama 30 hari, dengan pratinjau dan aksi pulihkan. |
+| FR-3.12 | P1 | Semua | Saat perangkat lain menimpa slot yang baru saja diedit di perangkat ini, tampilkan panel kecil "versi lain menimpa perubahanmu" dengan tautan langsung ke riwayat versi. |
+| FR-3.13 | P2 | Semua | Keluar dari akun menawarkan pilihan menghapus atau mempertahankan data lokal, dengan bawaan mempertahankan. |
+
+### FR-4 — Menu bar & panel cepat (macOS)
+
+| ID | Prio | Kebutuhan |
+|---|---|---|
+| FR-4.1 | P0 | Ikon berada di menu bar sistem. Klik kiri membuka dan menutup panel cepat. |
+| FR-4.2 | P0 | Panel memuat baris lima titik warna, editor slot aktif, dan tab daftar tugas. Ukuran awal 360 × 480 pt, dapat diubah pengguna dan diingat antar sesi. |
+| FR-4.3 | P0 | Panel dan jendela utama berbagi satu sumber data. Mengetik di salah satunya langsung terlihat di yang lain tanpa perlu menutup atau menyegarkan. |
+| FR-4.4 | P0 | Pintasan global membuka dan menutup panel. Bawaannya `⌥Space`, dapat diganti di Pengaturan, dengan deteksi bentrok terhadap pintasan sistem dan aplikasi peluncur yang umum dipakai. |
+| FR-4.5 | P0 | Saat panel terbuka, kursor teks langsung berada di editor slot yang terakhir aktif. Pengguna dapat mengetik tanpa mengklik apa pun. |
+| FR-4.6 | P0 | Menekan `Esc` atau mengklik di luar panel akan menutupnya. Perubahan sudah tersimpan sebelum panel hilang; tidak ada dialog konfirmasi. |
+| FR-4.7 | P1 | Opsi "Tampilkan di posisi kursor" memunculkan panel di dekat penunjuk tetikus alih-alih di bawah ikon menu bar. |
+| FR-4.8 | P1 | Opsi "Selalu di atas" melepas panel menjadi jendela mengambang yang bertahan di atas aplikasi lain, termasuk saat aplikasi lain berada dalam mode layar penuh. |
+| FR-4.9 | P1 | Kolom tambah tugas cepat di kepala panel. Menekan Enter menambahkan tugas tanpa menutup panel dan tanpa memindahkan fokus dari kolom itu. |
+| FR-4.10 | P1 | Menjatuhkan teks ke ikon menu bar menambahkannya ke slot yang terakhir aktif, tanpa membuka panel. |
+| FR-4.11 | P1 | Opsi "Jalankan saat login", didaftarkan lewat layanan login modern, bukan item login warisan. |
+| FR-4.12 | P2 | Opsi menyembunyikan ikon Dock sehingga aplikasi hidup sepenuhnya di menu bar. |
+| FR-4.13 | P2 | Klik kanan pada ikon menu bar membuka menu ringkas berisi kelima slot, Pengaturan, dan Keluar. |
+
+### FR-5 — Jendela utama (macOS)
+
+| ID | Prio | Kebutuhan |
+|---|---|---|
+| FR-5.1 | P0 | Jendela utama menampilkan baris lima titik, editor, dan panel daftar tugas berdampingan. Ukuran minimum 480 × 420 pt. |
+| FR-5.2 | P1 | Ukuran huruf editor dapat diatur antara 12 dan 24 pt, tersimpan per perangkat dan tidak ikut tersinkronisasi. |
+| FR-5.3 | P1 | Mode fokus menyembunyikan daftar tugas dan baris titik, menyisakan editor saja. |
+| FR-5.4 | P1 | Tema terang dan gelap, mengikuti sistem secara bawaan, dengan opsi mengunci ke salah satunya. |
+
+### FR-6 — Aplikasi Android
+
+| ID | Prio | Kebutuhan |
+|---|---|---|
+| FR-6.1 | P0 | Layar tunggal berisi baris lima titik di bagian atas, editor di tengah, dan tab daftar tugas. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
+| FR-6.2 | P0 | Papan ketik muncul otomatis saat aplikasi dibuka dari widget atau ubin Pengaturan Cepat, tapi tidak saat dibuka dari peluncur. |
+| FR-6.3 | P1 | Widget layar utama ukuran 2×2 dan 4×2 menampilkan satu slot pilihan atau daftar tugas. Menyentuh widget membuka langsung ke isi tersebut. |
+| FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
+| FR-6.5 | P1 | Ubin Pengaturan Cepat membuka slot yang terakhir aktif dengan papan ketik langsung aktif. |
+| FR-6.6 | P2 | Dukungan warna dinamis Material You sebagai tema opsional, dengan palet lima slot tetap tidak berubah agar identitas warna terjaga. |
+
+### FR-7 — Pengaturan & data
+
+| ID | Prio | Platform | Kebutuhan |
+|---|---|---|---|
+| FR-7.1 | P0 | Semua | Halaman Pengaturan dibagi menjadi: Akun, Sinkronisasi, Tampilan, Pintasan (macOS), Notifikasi, dan Data. |
+| FR-7.2 | P1 | Semua | Ekspor ke berkas Markdown — lima berkas slot ditambah satu berkas daftar tugas — dan ke satu berkas JSON gabungan. |
+| FR-7.3 | P1 | Semua | Impor dari berkas JSON hasil ekspor, dengan pratinjau perubahan sebelum ditimpa dan opsi batal. |
+| FR-7.4 | P1 | Semua | Pencadangan lokal otomatis setiap hari, menyimpan tujuh salinan terakhir secara bergilir. |
+| FR-7.5 | P2 | macOS | Aksi Apple Shortcuts untuk membaca slot, menambahkan teks ke slot, dan menambah tugas; ditambah skema URL `justnotes://` untuk otomatisasi dari aplikasi lain. |
+
+---
+
+## 9. Model data
+
+Skema yang sama dipakai di Postgres (server) dan di basis data lokal masing-masing platform. Batasan lima slot ditegakkan di lapisan basis data, sesuai prinsip P1.
+
+```
+profiles
+  id              uuid pk        -- sama dengan auth.uid()
+  display_name    text
+  created_at      timestamptz
+
+notes
+  id              uuid pk
+  user_id         uuid fk → profiles.id
+  slot            smallint       -- check (slot between 1 and 5)
+  label           text           -- maks 24 karakter
+  color           smallint       -- indeks palet, 1..5
+  body            text           -- maks 50.000 karakter
+  updated_at      timestamptz    -- waktu server, otoritatif
+  client_updated_at timestamptz  -- waktu perangkat, untuk diagnosis
+  device_id       uuid
+  unique (user_id, slot)
+
+note_revisions
+  id              uuid pk
+  note_id         uuid fk → notes.id
+  body            text
+  created_at      timestamptz    -- dipangkas: 10 terakhir / 30 hari
+
+todos
+  id              uuid pk
+  user_id         uuid fk → profiles.id
+  text            text           -- maks 500 karakter
+  done            boolean
+  due_at          timestamptz    -- nullable
+  position        numeric        -- urutan pecahan, hindari re-index massal
+  updated_at      timestamptz
+  client_updated_at timestamptz
+  device_id       uuid
+  deleted_at      timestamptz    -- soft delete, dipanen setelah 30 hari
+
+devices
+  id              uuid pk
+  user_id         uuid fk → profiles.id
+  name            text           -- "MacBook Pro Jordan"
+  platform        text           -- 'macos' | 'android'
+  last_seen_at    timestamptz
+  revoked_at      timestamptz
+```
+
+> **Catatan implementasi.** Penghapusan tugas memakai *soft delete*, bukan penghapusan langsung. Tanpa itu, perangkat yang lama luring akan menganggap baris yang hilang sebagai baris baru dan menghidupkannya kembali saat menyinkron — bug klasik pada sistem sinkronisasi dua arah.
+
+> **Catatan implementasi.** Kolom `position` memakai angka pecahan, sehingga menyisipkan tugas di antara dua tugas lain cukup dengan mengambil nilai tengahnya. Ini menghindari penulisan ulang seluruh daftar setiap kali pengguna menggeser satu baris.
+
+---
+
+## 10. Arsitektur sinkronisasi
+
+Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dibuka, saat kembali ke latar depan, saat koneksi pulih, dan setiap kali antrean lokal berisi perubahan yang belum terkirim.
+
+1. **Tulis lokal** — Setiap perubahan langsung masuk ke basis data lokal dan ditandai *dirty*. Antarmuka menampilkan hasilnya seketika tanpa menunggu server.
+2. **Dorong** — Baris bertanda dirty dikirim ke server. Server menetapkan `updated_at` dari jamnya sendiri dan mengembalikan nilai itu, sehingga selisih jam antar perangkat tidak pernah memengaruhi hasil konflik.
+3. **Tarik** — Klien meminta seluruh baris dengan `updated_at` lebih baru dari penanda sinkronisasi terakhirnya, lalu menyimpan penanda baru dari respons server.
+4. **Dengarkan** — Selama aplikasi aktif, klien berlangganan kanal realtime untuk barisnya sendiri. Perubahan dari perangkat lain tiba tanpa perlu menarik ulang.
+
+### Aturan penyelesaian konflik
+
+| Situasi | Perilaku |
+|---|---|
+| **Dua perangkat mengedit slot yang sama** | Baris dengan `updated_at` server paling baru menang secara utuh. Versi yang kalah tetap tersimpan di `note_revisions` dan pengguna diberi tahu lewat FR-3.12. |
+| **Dua perangkat mengubah tugas yang sama** | Sama, last-write-wins per baris. Karena satu tugas hanya berisi teks pendek dan satu status, kehilangan akibat konflik bernilai kecil. |
+| **Satu perangkat menghapus, satu mengedit** | Penghapusan menang jika `deleted_at` lebih baru dari `updated_at` hasil edit. Selama 30 hari tugas masih bisa dipulihkan dari cadangan lokal. |
+| **Perangkat luring lama kembali daring** | Dorong dulu, baru tarik. Perubahan luring yang lebih tua otomatis kalah, dan seluruh isi lokalnya dicadangkan sebelum siklus dimulai. |
+
+> **Mengapa bukan CRDT.** CRDT seperti Yjs atau Automerge menyelesaikan penggabungan teks per karakter dan akan menghilangkan kehilangan data akibat konflik sepenuhnya. Biayanya adalah kompleksitas, ukuran aplikasi, dan riwayat operasi yang terus tumbuh. Untuk lima catatan milik satu orang, bentrokan sungguhan jarang terjadi — pengguna tunggal biasanya hanya mengetik di satu perangkat pada satu waktu. Last-write-wins ditambah riwayat versi sudah cukup untuk v1. Naik ke CRDT ditinjau ulang jika data lapangan menunjukkan tingkat konflik melebihi target di §15.
+
+---
+
+## 11. Kebutuhan non-fungsional
+
+| ID | Aspek | Target terukur |
+|---|---|---|
+| NFR-1 | **Waktu buka** | Panel menu bar siap menerima ketikan ≤ 120 ms sejak pintasan ditekan. Aplikasi macOS mulai dingin ≤ 400 ms; Android ≤ 800 ms. |
+| NFR-2 | **Responsivitas mengetik** | Jeda dari ketikan sampai karakter tampil ≤ 16 ms pada slot berisi 50.000 karakter, di kedua platform. |
+| NFR-3 | **Kecepatan sinkronisasi** | Perubahan sampai di perangkat lain yang sedang aktif ≤ 3 detik pada jaringan normal. Antrean luring bertahan sampai 30 hari tanpa kehilangan. |
+| NFR-4 | **Keutuhan data** | Tidak ada tulisan yang hilang saat aplikasi ditutup paksa. Penulisan lokal dipastikan turun ke disk sebelum antarmuka menyatakan tersimpan. |
+| NFR-5 | **Keandalan** | Sesi bebas macet ≥ 99,5%. Kegagalan sinkronisasi mencoba ulang dengan jeda menaik, maksimal 6 percobaan sebelum menyerah dan memberi tahu pengguna. |
+| NFR-6 | **Keamanan** | TLS 1.3 untuk seluruh lalu lintas. Token disimpan di Keychain (macOS) dan Android Keystore. RLS aktif di semua tabel tanpa pengecualian. |
+| NFR-7 | **Privasi** | Tanpa analitik pihak ketiga, tanpa iklan, tanpa pelatihan model atas isi catatan. Laporan macet bersifat opsional dan mati secara bawaan. |
+| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA. Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot selalu disertai label teks, tidak pernah menjadi satu-satunya pembeda. |
+| NFR-9 | **Kompatibilitas** | macOS 13 Ventura ke atas, Apple Silicon dan Intel. Android 8.0 (API 26) ke atas. |
+| NFR-10 | **Lokalisasi** | Bahasa Indonesia dan Inggris saat peluncuran. Seluruh teks dieksternalisasi sejak M1, tanpa string tertanam di kode. |
+| NFR-11 | **Ukuran unduhan** | macOS ≤ 25 MB. Android ≤ 15 MB per varian ABI. |
+
+---
+
+## 12. Keputusan teknologi
+
+| Komponen | Pilihan | Alasan |
+|---|---|---|
+| **Aplikasi macOS** | Swift + SwiftUI, dengan AppKit untuk ikon menu bar dan jendela panel | Panel menu bar yang mengambang di atas mode layar penuh dan pintasan global hanya bisa dibuat rapi lewat API asli. Ini fitur pembeda utama, jadi tidak boleh dikompromikan demi berbagi kode. |
+| **Aplikasi Android** | Kotlin + Jetpack Compose | Widget, ubin Pengaturan Cepat, dan integrasi lembar berbagi semuanya membutuhkan API Android asli. |
+| **Basis data lokal** | SQLite — GRDB di macOS, Room di Android | Skema identik di kedua sisi, sehingga logika sinkronisasi bisa ditulis dua kali dari satu spesifikasi tanpa perbedaan perilaku. |
+| **Backend** | Supabase — Postgres, Auth, Realtime, RLS | Autentikasi, langganan realtime, dan otorisasi tingkat baris tersedia sekaligus. Bisa dipindahkan sendiri karena intinya Postgres biasa. |
+| **Notifikasi** | UNUserNotificationCenter (macOS), WorkManager + AlarmManager (Android) | Pengingat dijadwalkan lokal agar tetap menyala tanpa koneksi dan tanpa mengirim isi tugas ke server push. |
+| **Distribusi** | DMG bernotaris + Mac App Store; Google Play | Jalur langsung memungkinkan uji coba tanpa akun toko; jalur toko menjangkau pengguna umum. |
+| **CI** | GitHub Actions | Membangun kedua platform, menjalankan uji, dan menandatangani rilis dari satu tempat. |
+
+> **Keputusan: dua basis kode asli, bukan satu lintas platform.** Flutter atau Compose Multiplatform akan memangkas pekerjaan antarmuka, tapi menempatkan risiko justru pada bagian yang membedakan produk ini: panel menu bar macOS. Membangun panel mengambang, pintasan global, dan target jatuh untuk drag lewat lapisan pembungkus berarti melawan kerangka kerja tepat pada fitur andalan. Alternatif tengah — Kotlin Multiplatform untuk model data dan mesin sinkronisasi saja — layak ditinjau ulang di M2, setelah aturan sinkronisasi terbukti stabil dan tidak lagi banyak berubah.
+
+---
+
+## 13. Alur & layar utama
+
+| Alur | Langkah |
+|---|---|
+| **Tangkap cepat** *(macOS · alur terpenting)* | Tekan `⌥Space` → panel muncul dengan kursor sudah di editor → ketik → tekan `Esc`. Total tanpa satu pun klik tetikus. Ini adalah alur yang diuji paling ketat terhadap NFR-1. |
+| **Buka pertama kali** | Aplikasi terbuka langsung ke Slot 1 dengan teks contoh yang menjelaskan konsep lima slot → pengguna mengetik dan teks contoh hilang → ajakan membuat akun baru muncul setelah pemakaian hari kedua, bukan di awal. |
+| **Menghubungkan perangkat kedua** | Pengaturan → Akun → masuk → aplikasi mendeteksi data lokal dan data cloud sama-sama ada → tampilkan tiga pilihan (gabungkan / pakai cloud / pakai lokal) dengan pratinjau jumlah baris di masing-masing → sinkronisasi pertama berjalan dengan indikator kemajuan. |
+| **Konflik terjadi** | Perangkat lain menimpa slot yang baru diedit → panel kecil muncul di atas editor → pengguna menekan "Lihat versi saya" → daftar revisi terbuka → pulihkan mengembalikan isi lama sebagai revisi baru, bukan dengan menimpa balik. |
+| **Mengetik saat luring** | Indikator status berubah jadi luring → pengguna tetap mengedit seperti biasa tanpa peringatan apa pun → saat koneksi pulih, status berubah jadi menyinkronkan lalu tersinkron, tanpa perlu tindakan pengguna. |
+
+---
+
+## 14. Rencana rilis
+
+| Tahap | Cakupan | Durasi | Kriteria selesai |
+|---|---|---|---|
+| **M1** | **Inti lokal** — FR-1, FR-2, FR-5, FR-6 (P0) | 5 minggu | Kedua aplikasi jalan mandiri tanpa akun. Lima slot dan daftar tugas berfungsi penuh, tersimpan lokal, dan tidak kehilangan data saat ditutup paksa. |
+| **M2** | **Akun & sinkronisasi** — FR-3, FR-7.1 | 4 minggu | Perubahan di Mac muncul di Android dalam 3 detik dan sebaliknya. Uji luring 7 hari lolos tanpa kehilangan atau duplikasi baris. Pembeda utama di §5 sudah dapat dibuktikan. |
+| **M3** | **Menu bar** — FR-4 | 3 minggu | Alur tangkap cepat memenuhi NFR-1 pada perangkat acuan. Panel dan jendela utama terbukti tidak pernah menampilkan isi yang berbeda. |
+| **M4** | **Peluncuran publik** — sisa P1, ekspor, widget, tema | 3 minggu | Seluruh butir P1 selesai. Audit aksesibilitas lolos. Terbit di Google Play dan sebagai DMG bernotaris. |
+| **M5** | **Pendalaman** — butir P2, Shortcuts, enkripsi ujung-ke-ujung | 4 minggu | Enkripsi ujung-ke-ujung opsional dengan frasa sandi. Aksi Shortcuts dan skema URL tersedia. Pencarian lintas slot aktif. |
+
+> **Jalur kritis.** M2 adalah tahap paling berisiko dan paling menentukan. Sebelum M2 selesai, JustNotes hanyalah aplikasi catatan lokal biasa tanpa alasan kuat untuk dipilih. Bila jadwal tertekan, potong cakupan M4 — jangan pernah memangkas pengujian M2.
+
+---
+
+## 15. Metrik keberhasilan
+
+| Metrik | Target | Cara ukur |
+|---|---|---|
+| **Perangkat tertaut** | ≥ 55% | Bagian pengguna aktif yang punya minimal dua perangkat terdaftar. Ini adalah metrik utama, karena membuktikan janji lintas platform benar-benar dipakai. |
+| **Retensi hari ke-7** | ≥ 40% | Pengguna yang membuka aplikasi pada hari ke-7 setelah pemasangan. |
+| **Pemakaian menu bar** | ≥ 70% | Bagian sesi macOS yang dimulai dari panel menu bar, bukan dari jendela utama. |
+| **Tingkat konflik** | ≤ 0,1% | Operasi sinkronisasi yang berakhir dengan satu versi tertimpa. Melewati ambang ini memicu peninjauan ulang keputusan CRDT di §10. |
+| **Sesi bebas macet** | ≥ 99,5% | Dari laporan macet opsional dan dasbor toko aplikasi. |
+| **Slot terpakai** | rata-rata ≥ 3 | Jumlah slot berisi per pengguna aktif. Angka yang bertahan di bawah 2 berarti batasan lima slot terlalu longgar; angka yang selalu 5 dengan banyak keluhan berarti terlalu ketat. |
+
+---
+
+## 16. Risiko & mitigasi
+
+| Risiko | Dampak | Mitigasi |
+|---|---|---|
+| **Biaya server tumbuh tanpa pendapatan** | Tinggi | Model harga wajib ditetapkan sebelum M2 dimulai, bukan menjelang peluncuran. Jenjang lokal-saja tetap gratis selamanya sehingga biaya hanya muncul dari pengguna yang menyinkron. |
+| **Kehilangan data akibat last-write-wins** | Tinggi | Riwayat versi (FR-3.11) dan pemberitahuan penimpaan (FR-3.12) keduanya berstatus P1, bukan opsional. Tingkat konflik dipantau sebagai metrik di §15. |
+| **Bentrok pintasan global** | Sedang | `⌥Space` banyak dipakai peluncur seperti Alfred dan Raycast. Deteksi bentrok saat pemasangan pertama dan tawarkan alternatif, alih-alih membiarkan pengguna menemukan sendiri bahwa pintasannya tidak berfungsi. |
+| **Doze mode menunda sinkronisasi Android** | Sedang | Jangan bergantung pada sinkronisasi latar belakang. Selalu tarik saat aplikasi kembali ke latar depan, dan tampilkan status jujur ketimbang menjanjikan kesegaran yang tidak bisa dijamin sistem. |
+| **Penolakan tinjauan App Store** | Sedang | Jika ada login pihak ketiga, Masuk dengan Apple wajib disediakan. Aturan pembelian dalam aplikasi diikuti sejak M2, bukan ditambal saat pengajuan. |
+| **Tekanan menambah slot keenam** | Sedang | Permintaan ini pasti datang dan harus ditolak — ia menghapus satu-satunya hal yang membedakan produk ini dari aplikasi catatan mana pun. §6 ada untuk menyelesaikan perdebatan itu tanpa mengulangnya tiap kali. |
+| **Dua basis kode menyimpang perilakunya** | Rendah | Aturan sinkronisasi diperlakukan sebagai spesifikasi bersama dengan rangkaian uji yang sama dijalankan di kedua platform terhadap satu kumpulan skenario. |
+
+---
+
+## 17. Pertanyaan terbuka
+
+| No | Pertanyaan | Batas | Rekomendasi |
+|---|---|---|---|
+| Q1 | **Model harga** | Sebelum M2 | Lokal gratis selamanya; sinkronisasi berlangganan murah. Sekali bayar tidak cocok karena biaya server bersifat berulang, sementara pendapatannya tidak. Ini pertanyaan paling mendesak di daftar ini. |
+| Q2 | **iOS masuk peta jalan?** | Sebelum M3 | Tunda sampai setelah M4. Menambahkannya sekarang berarti bersaing langsung dengan FiveNotes di kandang mereka, alih-alih melayani celah yang kita pilih. |
+| Q3 | **Daftar tugas per slot?** | Sebelum M1 | Tidak. Satu daftar global. Lima daftar tugas melipatgandakan permukaan produk dan melanggar prinsip P1 secara semangat. |
+| Q4 | **Enkripsi ujung-ke-ujung: pembeda utama atau fitur lanjutan?** | Sebelum M2 | Fitur lanjutan di M5. Menjadikannya inti akan menutup pemulihan kata sandi dan pratinjau notifikasi — beban yang berat untuk pengguna awal. |
+| Q5 | **Label bawaan kelima slot** | Sebelum M1 | Kosongkan labelnya dan tampilkan nomor saja. Label yang disarankan sistem akan mengarahkan pemakaian, padahal keluwesan makna tiap slot justru kekuatannya. |
+| Q6 | **Berapa lama uji coba gratis?** | Sebelum M4 | Ikuti pola 30 hari yang lazim di kelas ini, dihitung sejak akun dibuat dan bukan sejak pemasangan. |
+
+---
+
+## 18. Di luar cakupan
+
+### Ditolak secara permanen
+
+- Catatan tanpa batas atau slot keenam.
+- Folder, tag, atau hierarki apa pun.
+- Kolaborasi, berbagi catatan, dan komentar.
+- Iklan dan analitik pihak ketiga.
+
+### Mungkin nanti, bukan sekarang
+
+- Aplikasi iOS dan watchOS (lihat Q2).
+- Windows dan Linux.
+- Aplikasi web untuk akses darurat.
+- Lampiran gambar dan berkas.
+- Sinkronisasi lewat penyimpanan sendiri milik pengguna.
+- Ekstensi peramban untuk simpan cepat.
+
+---
+
+## 19. Glosarium
+
+| Istilah | Arti dalam dokumen ini |
+|---|---|
+| **Slot** | Satu dari lima wadah catatan permanen. Berbeda dari "catatan" pada aplikasi lain karena tidak bisa dibuat maupun dihapus — hanya diisi dan dikosongkan. |
+| **Panel cepat** | Jendela ringan yang muncul dari ikon menu bar macOS. Bukan jendela aplikasi utama, tapi berbagi data yang sama persis dengannya. |
+| **Offline-first** | Pendekatan di mana penyimpanan lokal adalah sumber kebenaran saat pengguna bekerja, dan server hanya menyatukan perangkat. Kebalikannya adalah antarmuka yang menunggu jawaban server sebelum menampilkan hasil. |
+| **Last-write-wins** | Aturan konflik di mana perubahan dengan stempel waktu server terbaru menang secara utuh atas baris yang sama. Disingkat LWW. |
+| **Baris dirty** | Baris lokal yang sudah berubah tapi belum berhasil dikirim ke server. Antrean baris dirty inilah yang membuat mode luring bekerja. |
+| **Penanda sinkronisasi** | Stempel waktu server dari penarikan terakhir yang berhasil. Klien memakainya untuk hanya meminta baris yang lebih baru dari itu. |
+| **Soft delete** | Menandai baris terhapus lewat kolom `deleted_at` alih-alih membuangnya. Diperlukan agar perangkat luring tidak menghidupkan kembali data yang sudah dihapus. |
+| **RLS** | Row Level Security. Aturan di Postgres yang membatasi baris mana yang boleh dibaca dan ditulis setiap pengguna, ditegakkan oleh basis data sendiri, bukan oleh kode aplikasi. |
+
+---
+
+*Dokumen ini ditinjau ulang di akhir setiap tahap M1–M5.*

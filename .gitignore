@@ -1,0 +1,41 @@
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# --- Xcode / Swift ---
+build/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+xcuserdata/
+*.moved-aside
+.swiftpm/
+.build/
+Packages/
+*.resolved
+
+# --- Android / Gradle ---
+*.iml
+.gradle/
+local.properties
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# --- Rahasia ---
+# Kunci Supabase, kredensial penandatanganan, dan berkas .env tidak pernah masuk repo.
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.mobileprovision
+secrets.xcconfig
