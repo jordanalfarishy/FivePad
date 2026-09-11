@@ -146,14 +146,29 @@ Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak
 
 > **Mengapa latar selayar penuh dilepas.** Versi sebelumnya mengecat seluruh layar dengan warna slot. Itu menarik pada tangkapan layar pertama, tapi berarti lima permukaan berbeda yang setiap nilainya harus diverifikasi sendiri-sendiri, dan warna pekat selebar layar membuat teks catatan — yang justru isi utamanya — harus bersaing dengan latarnya. Keputusan pemilik produk: satu permukaan gelap, dan warna slot dipadatkan ke dua tempat kecil yang justru paling sering dilihat.
 
-**Pembawa warna slot.** Hanya dua, dan keduanya di bilah atas:
+**Pembawa warna slot.** Tiga, semuanya di sepertiga atas layar:
 
 | Elemen | Slot aktif | Slot tidak aktif |
 |---|---|---|
 | Titik penanda | Aksen penuh, lingkaran 24 dp, cincin putih 2 dp **di luar** lingkaran | Aksen pada opasitas **0,24** |
 | Nama catatan | Aksen penuh (5,2–7,3:1 — lolos AA pada kelima slot) | — |
+| Pita 4 dp (node 5:1523) | Aksen penuh, berpola (lihat bawah) | — |
 
-Titik tidak aktif hanya mencapai **1,5–1,6:1** terhadap chrome. Sebagai *state* tidak-terpilih itu memang tujuannya, tapi titik inilah kontrol utama untuk berpindah slot (FR-1.6): pada 0,24 sasarannya sulit terlihat di bawah cahaya terang atau bagi mata yang lemah. Menaikkannya ke 0,40 memberi 2,2–2,3:1 tanpa mengganggu perbedaan dengan titik aktif, dan itu satu baris di `Color.kt`.
+Pita duduk tepat di bawah nama catatan. Saat catatan digulir, **namanya ikut pergi tapi pitanya menempel di tepi atas** — nama slot hanya perlu dilihat sesekali, sedangkan penanda slot tidak boleh pernah hilang dari layar.
+
+**Pola pita — akses buta warna.** Setiap slot punya pola isian sendiri, bukan hanya warna sendiri:
+
+| Slot | Pola |
+|---|---|
+| Slot 1 | Padat |
+| Slot 2 | Garis putus panjang (12 dp isi, 6 dp celah) |
+| Slot 3 | Titik pendek (4 dp isi, 4 dp celah) |
+| Slot 4 | Goresan miring 45° |
+| Slot 5 | Dua rel tipis dengan celah mendatar |
+
+Sekitar satu dari dua belas pria mengalami buta warna merah-hijau; bagi mereka Slot 1 (oranye) dan Slot 3 (hijau) adalah dua rona lumpur yang nyaris sama. Sejak latar selayar penuh dilepas, warna adalah satu-satunya yang menjawab "saya di slot mana" — pola menjadikannya dua saluran, sesuai NFR-8. Pembedanya adalah **panjang goresan dan arah**, bukan kerapatan saja: pada pita 4 dp, dua pola yang hanya berbeda kerapatan akan terbaca sama saat dilihat sambil lalu. Polanya selalu menyala tanpa sakelar — aksesibilitas di balik pengaturan adalah aksesibilitas yang tidak pernah ditemukan orang yang membutuhkannya, dan pada pita 4 dp biayanya bagi yang lain praktis nol.
+
+Titik tidak aktif hanya mencapai **1,5–1,6:1** terhadap chrome. Sebagai *state* tidak-terpilih itu memang tujuannya, tapi titik inilah kontrol utama untuk berpindah slot (FR-1.6): pada 0,24 sasarannya sulit terlihat di bawah cahaya terang atau bagi mata yang lemah. Menaikkannya ke 0,40 memberi 2,2–2,3:1 tanpa mengganggu perbedaan dengan titik aktif, dan itu satu baris di `Color.kt`. Pita berpola meringankan sebagian masalah ini — slot yang sedang aktif kini punya penanda yang tidak bergantung pada kemampuan membedakan lima titik redup — tapi tidak menghapusnya, karena yang perlu terlihat saat hendak berpindah justru titik tujuannya.
 
 Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama seperti penanda Markdown. Isi catatan sendiri putih penuh, 15,7:1.
 
@@ -265,7 +280,7 @@ Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama
 
 | ID | Prio | Kebutuhan |
 |---|---|---|
-| FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Permukaannya satu warna gelap untuk kedua tab; slot aktif ditandai **hanya** oleh titiknya (aksen penuh + cincin putih 2 dp, sisanya opasitas 0,24) dan oleh nama catatan yang mengambil warna titik itu. Nama slot **ikut menggulung bersama isinya**, tidak terpaku di bilah atas: di layar ponsel setiap baris yang dipaku memakan ruang menulis, sementara nama slot hanya perlu dilihat sesekali. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
+| FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Permukaannya satu warna gelap untuk kedua tab; slot aktif ditandai oleh titiknya (aksen penuh + cincin putih 2 dp, sisanya opasitas 0,24), oleh nama catatan yang mengambil warna titik itu, dan oleh pita 4 dp berpola di bawahnya yang menempel di tepi atas saat digulir. Nama slot **ikut menggulung bersama isinya**, tidak terpaku di bilah atas: di layar ponsel setiap baris yang dipaku memakan ruang menulis, sementara nama slot hanya perlu dilihat sesekali. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
 | FR-6.2 | P0 | Papan ketik muncul otomatis saat aplikasi dibuka dari widget atau ubin Pengaturan Cepat, tapi tidak saat dibuka dari peluncur. |
 | FR-6.3 | P1 | Widget layar utama ukuran 2×2 dan 4×2 menampilkan satu slot pilihan atau daftar tugas. Menyentuh widget membuka langsung ke isi tersebut. |
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
@@ -373,7 +388,7 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 | NFR-5 | **Keandalan** | Sesi bebas macet ≥ 99,5%. Kegagalan sinkronisasi mencoba ulang dengan jeda menaik, maksimal 6 percobaan sebelum menyerah dan memberi tahu pengguna. |
 | NFR-6 | **Keamanan** | TLS 1.3 untuk seluruh lalu lintas. Token disimpan di Keychain (macOS) dan Android Keystore. RLS aktif di semua tabel tanpa pengecualian. |
 | NFR-7 | **Privasi** | Tanpa analitik pihak ketiga, tanpa iklan, tanpa pelatihan model atas isi catatan. Laporan macet bersifat opsional dan mati secara bawaan. |
-| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA, diverifikasi pada satu-satunya tema yang ada (gelap). Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot selalu disertai label teks, tidak pernah menjadi satu-satunya pembeda. |
+| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA, diverifikasi pada satu-satunya tema yang ada (gelap). Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot tidak pernah menjadi satu-satunya pembeda: ia selalu disertai label teks, dan pita penanda slot membawa pola isian yang berbeda per slot sehingga tetap terbaca tanpa persepsi warna sama sekali. |
 | NFR-9 | **Kompatibilitas** | macOS 13 Ventura ke atas, Apple Silicon dan Intel. Android 8.0 (API 26) ke atas. |
 | NFR-10 | **Lokalisasi** | Bahasa Indonesia dan Inggris saat peluncuran. Seluruh teks dieksternalisasi sejak M1, tanpa string tertanam di kode. |
 | NFR-11 | **Ukuran unduhan** | macOS ≤ 25 MB. Android ≤ 15 MB per varian ABI. |

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
@@ -56,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -64,6 +66,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -415,7 +418,8 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
         var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            val bodyMinHeight = maxHeight - Tokens.titleRowHeight
+            val bodyMinHeight = maxHeight - Tokens.titleRowHeight - Tokens.stripeHeight
+            val titleHeightPx = with(LocalDensity.current) { Tokens.titleRowHeight.roundToPx() }
 
             Column(Modifier.verticalScroll(scroll)) {
                 // Judul ikut menggulung bersama isinya, bukan terpaku di bilah
@@ -426,6 +430,12 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
                     accent = accent,
                     onChange = { vm.onLabelChanged(slot, it.take(Note.MAX_LABEL_LENGTH)) },
                 )
+
+                // Tempat duduk pita saat daftar belum digulir. Pitanya sendiri
+                // digambar sebagai lapisan atas supaya bisa menempel di tepi,
+                // dan tanpa penyangga ini isi catatan akan tersembunyi di
+                // bawahnya sejak baris pertama.
+                Spacer(Modifier.height(Tokens.stripeHeight))
 
                 BasicTextField(
                     value = text,
@@ -499,6 +509,18 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
                     },
                 )
             }
+
+            // Pita menempel di tepi atas begitu judul tergulung habis: judul
+            // boleh pergi, penanda slot tidak. Offset-nya mengikuti penyangga
+            // di dalam gulungan sampai mentok di nol, jadi keduanya tidak
+            // pernah terlihat dua kali.
+            SlotStripe(
+                slot = slot,
+                colour = accent,
+                modifier = Modifier.offset {
+                    IntOffset(0, (titleHeightPx - scroll.value).coerceAtLeast(0))
+                },
+            )
 
             // Penghitung karakter hanya muncul saat ambang batas sudah dekat.
             // Di luar itu ia cuma hiasan yang tidak ada di desain, dan ruang

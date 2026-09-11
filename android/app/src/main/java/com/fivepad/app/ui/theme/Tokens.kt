@@ -41,6 +41,9 @@ object Tokens {
     /** Baris judul catatan — node 5:1463. */
     val titleRowHeight = 32.dp
 
+    /** Pita warna slot di bawah baris judul — node 5:1523. */
+    val stripeHeight = 4.dp
+
     // ---- Bilah bawah (node 3:262) ----
 
     val navHeight = 56.dp
