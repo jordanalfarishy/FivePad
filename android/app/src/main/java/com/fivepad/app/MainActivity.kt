@@ -24,6 +24,12 @@ class MainActivity : ComponentActivity() {
     private val request = mutableStateOf(LaunchRequest())
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Latar jendela disetel sebelum apa pun digambar. Layar pembukanya
+        // sendiri tetap gelap di kedua tema: jendela awal digambar sistem dari
+        // tema di manifes, sebelum satu baris kode aplikasi pun berjalan.
+        val preferences = (application as FivePadApplication).preferences
+        if (preferences.theme.value == ThemeMode.LIGHT) setTheme(R.style.Theme_FivePad_Light)
+
         // Harus dipanggil sebelum super.onCreate(): di sinilah tema pembuka
         // ditukar kembali ke tema aplikasi lewat postSplashScreenTheme.
         installSplashScreen()
@@ -31,7 +37,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         request.value = LaunchRequest.from(intent)
 
-        val preferences = (application as FivePadApplication).preferences
         setContent {
             val theme by preferences.theme.collectAsStateWithLifecycle()
 

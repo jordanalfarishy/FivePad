@@ -134,13 +134,15 @@ Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak
 
 **Aksen** — satu nilai per slot per tema. Bukan versi terang dan gelap dari warna yang sama: di atas latar terang, aksen tema gelap jatuh di bawah 2:1, jadi kelimanya dihitung ulang.
 
-| Slot | Gelap | Terang |
-|---|---|---|
-| Slot 1 | `#EF7A5A` | `#E73200` |
-| Slot 2 | `#E0A63F` | `#E49200` |
-| Slot 3 | `#63BC85` | `#1B8744` |
-| Slot 4 | `#48BEDD` | `#13A4CB` |
-| Slot 5 | `#A186D6` | `#5320B7` |
+| Slot | Gelap | Kontras | Terang | Kontras |
+|---|---|---|---|---|
+| Slot 1 | `#EF7A5A` | 5,68:1 | `#DB2F00` | 4,51:1 |
+| Slot 2 | `#E0A63F` | 7,25:1 | `#A06700` | 4,50:1 |
+| Slot 3 | `#63BC85` | 6,78:1 | `#1A8442` | 4,51:1 |
+| Slot 4 | `#48BEDD` | 7,24:1 | `#0E7D9B` | 4,51:1 |
+| Slot 5 | `#A186D6` | 5,16:1 | `#5320B7` | 8,83:1 |
+
+Kontras diukur terhadap chrome, permukaan tempat nama catatan berdiri. Nilai terang di Figma — `#E73200` `#E49200` `#1B8744` `#13A4CB` — hanya mencapai **2,37–4,34:1**: empat dari lima gagal AA sebagai teks. Masing-masing digelapkan pada hue yang sama sampai tepat menyentuh 4,5:1; yang kelima sudah lolos dan tidak disentuh. **Satu nilai per slot, bukan dua**, supaya titik, pita, judul, dan pil tetap satu warna — itulah yang membuat kedua ujung layar menjawab "slot mana" bersama-sama.
 
 **Permukaan** — kedua tab memakai permukaan yang sama, dan setiap nilai punya pasangan terangnya. Tidak ada latar selayar penuh per slot.
 
@@ -168,7 +170,7 @@ Sisanya diturunkan dari tinta dengan alpha yang sama di kedua tema — garis ram
 
 Pil navigasi menutup lingkarannya: warna yang sama muncul di tepi atas dan tepi bawah layar, jadi kedua ujungnya menjawab "slot mana" dengan satu warna. Tab Tugas memakai aksen aplikasi, bukan aksen slot — daftar tugas memang tidak milik slot mana pun.
 
-Nama catatan mencapai 5,2–7,3:1 di tema gelap, tapi hanya **2,4–8,8:1** di tema terang: Slot 2 (`#E49200`, 2,37:1) dan Slot 4 (`#13A4CB`, 2,77:1) gagal AA di sana. Nilai desain tetap dipakai; menaikkan gelapnya kedua warna itu akan memperbaikinya tanpa menyentuh yang lain.
+Nama catatan memakai aksen slot penuh dan lolos AA pada kesepuluh kombinasi slot × tema — lihat tabel aksen di atas.
 
 Pita duduk tepat di bawah nama catatan. Saat catatan digulir, **namanya ikut pergi tapi pitanya menempel di tepi atas** — nama slot hanya perlu dilihat sesekali, sedangkan penanda slot tidak boleh pernah hilang dari layar.
 
@@ -190,15 +192,22 @@ Slot 1 dan Slot 2 adalah pasangan paling berisiko tertukar, karena keduanya berb
 
 Polanya selalu menyala tanpa sakelar — aksesibilitas di balik pengaturan adalah aksesibilitas yang tidak pernah ditemukan orang yang membutuhkannya, dan pada pita 4 dp biayanya bagi yang lain praktis nol.
 
-Opasitas titik tidak aktif dinaikkan dari 0,24 (nilai Figma) ke **0,40**. Pada 0,24 titik tidak aktif hanya mencapai 1,5–1,6:1 terhadap chrome — memadai untuk sekadar menandai "bukan yang ini", tapi titik inilah juga kontrol untuk berpindah slot (FR-1.6), dan sasaran yang nyaris tak terlihat tidak bisa dibidik. Pada 0,40 nilainya **1,95–2,30:1** (Slot 5 ungu yang terendah) dan tetap jelas kalah dari titik aktif, yang tampil penuh sekaligus bercincin putih.
+Opasitas titik tidak aktif dinaikkan dari 0,24 (nilai Figma) ke **0,40** dan berhenti di sana. Titik yang tidak terpilih adalah *state* tidak aktif, yang dikecualikan WCAG 1.4.11; yang wajib teridentifikasi adalah yang terpilih, dan itu tampil beraksen penuh dengan cincin tinta 2 dp di luarnya — 12–15:1 terhadap chrome. Menaikkannya lebih jauh meratakan beda terpilih dan tidak terpilih: kerugian nyata demi kemenangan aksesibilitas yang semu. Pada 0,40 nilainya 1,7–2,3:1.
 
-Placeholder nama catatan memakai aksen pada 0,40 — gagal AA, sama seperti penanda Markdown. Isi catatan sendiri memakai tinta penuh: 17,6:1 di tema gelap, 12,8:1 di tema terang.
+Isi catatan memakai tinta penuh: 17,6:1 di tema gelap, 12,8:1 di tema terang.
 
-Teks redup 0,40 mencapai 3,81:1 di tema gelap tapi hanya **2,30:1** di tema terang — tinta gelap yang diencerkan kehilangan kontras lebih cepat daripada tinta putih. Nilai desain tetap dipakai di keduanya; menaikkannya ke 0,55 di tema terang saja akan menyamakan keduanya.
+**Teks sekunder** — label seksi, penanda Markdown, teks tugas selesai, panah, dan `⋮` — memakai alpha yang berbeda per tema, karena tinta gelap yang diencerkan kehilangan kontras jauh lebih cepat daripada tinta putih. Figma memakai 0,40 di keduanya, yang memberi 3,81:1 di gelap dan hanya 2,30:1 di terang; keduanya gagal. Nilai yang dipakai adalah yang terendah yang mencapai 4,5:1 pada permukaan terlemah tema itu: **0,47 di tema gelap** (terukur 4,76:1 pada layar) dan **0,65 di tema terang** (terukur 4,52:1).
 
-**Aksen aksi** — `#E6210F`, sama di kedua tema. Dipakai untuk tombol tambah, teks "New Group", kotak centang yang tercentang (tepi `#FF4332`), dan pil tab Tugas.
+Placeholder nama catatan memakai aksen slot pada alpha yang sama. Sebagai petunjuk isian ia tetap di bawah ambang; yang diketik pengguna tampil beraksen penuh.
 
-Warnanya diambil dari sudut terlipat pada ikon aplikasi, jadi warna tindakan dan warna merek akhirnya satu benda. Ia mencapai **3,84:1** di atas latar gelap dan **4,58:1** di atas kartu terang: lolos AA untuk komponen antarmuka dan teks besar di mana pun, dan lolos AA penuh untuk teks kecil hanya di atas kartu putih. Pendahulunya `#304678` hanya 1,90:1, jadi ini kenaikan lebih dari dua kali lipat — tapi label 14 sp "New Group" masih sedikit di bawah 4,5:1 di tema gelap.
+**Aksen aksi** — berbeda per tema, karena **satu merah tidak bisa lolos 4,5:1 di atas latar gelap dan latar terang sekaligus**: menaikkannya untuk yang satu menurunkannya untuk yang lain. Keduanya berada pada hue `#E6210F`, warna sudut terlipat pada ikon aplikasi, jadi warna tindakan dan warna merek tetap satu benda.
+
+| Tema | Aksen | Latar | Kartu | Pil (aksen 16%) |
+|---|---|---|---|---|
+| Gelap | `#FF5242` | 5,47:1 | 4,78:1 | 4,01:1 |
+| Terang | `#C71C0D` | 4,84:1 | 5,83:1 | 4,24:1 |
+
+Dipakai untuk tombol tambah, teks "New Group", kotak centang yang tercentang (tepi `#FF4332`), dan pil tab Tugas. Lolos AA di setiap permukaan tempat ia menjadi teks, kecuali satu: **angka "n/m" di dalam pil tab Tugas** (4,0–4,2:1). Latar pil adalah aksen itu sendiri pada 16%, jadi teks dan latarnya sehue — batas struktural desain, bukan akibat pilihan warnanya. Memperbaikinya berarti salah satu dari dua: angkanya memakai tinta alih-alih aksen, atau pilnya diperdalam jadi keping terisi dengan teks putih. Keduanya mengubah desain, jadi menunggu keputusan pemilik desain. Pendahulunya `#304678` hanya 1,90:1.
 
 ### Modul & kepemilikan platform
 
@@ -414,7 +423,7 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 | NFR-5 | **Keandalan** | Sesi bebas macet ≥ 99,5%. Kegagalan sinkronisasi mencoba ulang dengan jeda menaik, maksimal 6 percobaan sebelum menyerah dan memberi tahu pengguna. |
 | NFR-6 | **Keamanan** | TLS 1.3 untuk seluruh lalu lintas. Token disimpan di Keychain (macOS) dan Android Keystore. RLS aktif di semua tabel tanpa pengecualian. |
 | NFR-7 | **Privasi** | Tanpa analitik pihak ketiga, tanpa iklan, tanpa pelatihan model atas isi catatan. Laporan macet bersifat opsional dan mati secara bawaan. |
-| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA, diverifikasi pada **kedua** tema — setiap nilai dihitung dua kali sejak mode terang kembali. Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot tidak pernah menjadi satu-satunya pembeda: ia selalu disertai label teks, dan pita penanda slot membawa pola isian yang berbeda per slot sehingga tetap terbaca tanpa persepsi warna sama sekali. |
+| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA, diverifikasi pada **kedua** tema — setiap nilai dihitung dua kali sejak mode terang kembali, dan diukur ulang dari tangkapan layar perangkat, bukan hanya dari palet. Satu pengecualian tercatat dan disengaja: angka di dalam pil tab Tugas (4,0–4,2:1), yang teks dan latarnya sehue menurut desain. Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot tidak pernah menjadi satu-satunya pembeda: ia selalu disertai label teks, dan pita penanda slot membawa pola isian yang berbeda per slot sehingga tetap terbaca tanpa persepsi warna sama sekali. |
 | NFR-9 | **Kompatibilitas** | macOS 13 Ventura ke atas, Apple Silicon dan Intel. Android 8.0 (API 26) ke atas. |
 | NFR-10 | **Lokalisasi** | Bahasa Indonesia dan Inggris saat peluncuran. Seluruh teks dieksternalisasi sejak M1, tanpa string tertanam di kode. |
 | NFR-11 | **Ukuran unduhan** | macOS ≤ 25 MB. Android ≤ 15 MB per varian ABI. |

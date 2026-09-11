@@ -1,5 +1,6 @@
 package com.fivepad.app.ui
 
+import android.content.ClipData
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -65,14 +66,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
@@ -92,9 +93,7 @@ import com.fivepad.app.ui.markdown.checkboxAt
 import com.fivepad.app.ui.markdown.toggleCheckbox
 import com.fivepad.app.ui.theme.DOT_INACTIVE_ALPHA
 import com.fivepad.app.ui.theme.LocalFivePadColors
-import com.fivepad.app.ui.theme.MUTED_ALPHA
 import com.fivepad.app.ui.theme.PILL_ALPHA
-import com.fivepad.app.ui.theme.Accent
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -139,7 +138,7 @@ private fun MainScreen(
     var slotOptions by remember { mutableStateOf<Int?>(null) }
     var confirmClear by remember { mutableStateOf<Int?>(null) }
     var focusSlot by remember { mutableStateOf<Int?>(null) }
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val copiedMessage = stringResource(R.string.slot_copied)
 
@@ -277,7 +276,11 @@ private fun MainScreen(
                     icon = painterResource(R.drawable.ic_copy),
                     onClick = {
                         val body = state.draftFor(slot)
-                        clipboard.setText(AnnotatedString(body))
+                        scope.launch {
+                            clipboard.setClipEntry(
+                                ClipEntry(ClipData.newPlainText(LABEL_NOTE, body)),
+                            )
+                        }
                         // Android 13 ke atas sudah menampilkan konfirmasinya
                         // sendiri; menambah toast di sana berarti dua pesan
                         // untuk satu tindakan.
@@ -496,7 +499,7 @@ private fun BottomNav(
             NavItem(
                 selected = selected == TAB_TODOS,
                 label = stringResource(R.string.tab_tasks),
-                accent = Accent,
+                accent = colors.accent,
                 badge = if (totalCount > 0) {
                     stringResource(R.string.tab_tasks_count, doneCount, totalCount)
                 } else {
@@ -775,7 +778,7 @@ private fun SlotTitleField(
                             fontSize = 14.sp,
                             lineHeight = 24.sp,
                             fontWeight = FontWeight.Medium,
-                            color = accent.copy(alpha = MUTED_ALPHA),
+                            color = accent.copy(alpha = colors.mutedAlpha),
                         )
                     }
                     inner()
@@ -788,6 +791,9 @@ private fun SlotTitleField(
         )
     }
 }
+
+/** Label papan klip. Muncul di pratinjau tempel sebagian aplikasi. */
+private const val LABEL_NOTE = "FivePad note"
 
 /** Selama ini jendela urungkan berlaku, di layar catatan maupun layar tugas. */
 internal const val UNDO_WINDOW_MS = 5_000L

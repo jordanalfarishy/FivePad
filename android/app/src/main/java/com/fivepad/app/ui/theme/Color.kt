@@ -29,6 +29,20 @@ class FivePadColors(
     val checkboxStroke: Color,
     /** Aksen per slot. Nilainya berbeda antar tema agar kontrasnya tetap ada. */
     val slotAccents: List<Color>,
+    /**
+     * Aksen tindakan: tombol tambah, teks "New Group", kotak centang tercentang,
+     * dan pil tab Tugas. Berbeda per tema karena satu merah tidak bisa lolos
+     * 4,5:1 di atas latar gelap dan latar terang sekaligus — menaikkannya untuk
+     * yang satu menurunkannya untuk yang lain.
+     */
+    val accent: Color,
+    /**
+     * Opasitas teks sekunder. Nilai terendah yang mencapai 4,5:1 pada permukaan
+     * terlemah tema itu. Berbeda antar tema karena tinta gelap yang diencerkan
+     * kehilangan kontras jauh lebih cepat daripada tinta putih: 0,47 sudah cukup
+     * di tema gelap, tema terang butuh 0,65 untuk kelegapan yang sama.
+     */
+    val mutedAlpha: Float,
 ) {
     /**
      * Garis pemisah chrome dari isi.
@@ -42,7 +56,10 @@ class FivePadColors(
     val hairline: Color = if (isLight) ink.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.16f)
 
     /** Teks sekunder: label seksi, penanda Markdown, tugas selesai, placeholder. */
-    val muted: Color = ink.copy(alpha = MUTED_ALPHA)
+    val muted: Color = ink.copy(alpha = mutedAlpha)
+
+    /** Kotak centang yang sudah dicentang — isian beraksen, tepi lebih terang. */
+    val checkedFill: Color = accent
 
     /** Garis tepi tipis di dalam setiap titik slot. */
     val dotStroke: Color = ink.copy(alpha = 0.24f)
@@ -63,6 +80,8 @@ val DarkColors = FivePadColors(
     ink = Color(0xFFFFFFFF),
     checkboxFill = Color(0xFF48484B),
     checkboxStroke = Color(0xFF6B6B6B),
+    // Kelimanya mencapai 5,2–7,3:1 di atas chrome, jadi nilai Figma dipakai apa
+    // adanya — judul catatan yang memakainya sudah lolos AA.
     slotAccents = listOf(
         Color(0xFFEF7A5A),
         Color(0xFFE0A63F),
@@ -70,6 +89,8 @@ val DarkColors = FivePadColors(
         Color(0xFF48BEDD),
         Color(0xFFA186D6),
     ),
+    accent = Color(0xFFFF5242),
+    mutedAlpha = 0.47f,
 )
 
 val LightColors = FivePadColors(
@@ -81,40 +102,41 @@ val LightColors = FivePadColors(
     ink = Color(0xFF25242C),
     checkboxFill = Color(0xFFEFEFED),
     checkboxStroke = Color(0xFFD7D7D7),
-    // Bukan versi gelap dari warna yang sama: di atas latar terang, aksen yang
-    // dipakai tema gelap akan jatuh di bawah 2:1. Kelimanya nilai tersendiri.
+    /*
+     * Bukan versi gelap dari warna yang sama: di atas latar terang, aksen tema
+     * gelap jatuh di bawah 2:1. Kelimanya nilai tersendiri.
+     *
+     * Nilai Figma — #E73200 #E49200 #1B8744 #13A4CB #5320B7 — dipakai sebagai
+     * warna titik, tapi empat dari lima gagal AA sebagai teks judul catatan
+     * (2,37–4,34:1). Masing-masing digelapkan pada hue yang sama sampai tepat
+     * mencapai 4,5:1; yang kelima sudah lolos dan tidak disentuh. Satu nilai per
+     * slot, bukan dua, supaya titik, pita, judul, dan pil tetap satu warna —
+     * itulah yang membuat kedua ujung layar menjawab "slot mana" bersama-sama.
+     */
     slotAccents = listOf(
-        Color(0xFFE73200),
-        Color(0xFFE49200),
-        Color(0xFF1B8744),
-        Color(0xFF13A4CB),
+        Color(0xFFDB2F00),
+        Color(0xFFA06700),
+        Color(0xFF1A8442),
+        Color(0xFF0E7D9B),
         Color(0xFF5320B7),
     ),
+    accent = Color(0xFFC71C0D),
+    mutedAlpha = 0.65f,
 )
 
-/**
- * Aksen tindakan — sama di kedua tema.
- *
- * `#E6210F` diambil dari sudut terlipat pada ikon aplikasi, jadi warna tindakan
- * dan warna merek akhirnya satu benda. Ia mencapai 3,84:1 di atas latar gelap
- * dan 4,58:1 di atas kartu terang: lolos AA untuk komponen antarmuka dan teks
- * besar di mana pun, dan lolos AA penuh untuk teks kecil hanya di atas kartu
- * putih. Pendahulunya, `#304678`, hanya 1,90:1 — ini kenaikan dua kali lipat.
- */
-val Accent = Color(0xFFE6210F)
-
-/** Kotak centang yang sudah dicentang. */
-val CheckedFill = Accent
+/** Tepi kotak centang yang tercentang — selalu lebih terang dari isiannya. */
 val CheckedStroke = Color(0xFFFF4332)
 
 /**
- * Opasitas titik slot yang tidak aktif, dan teks redup.
+ * Opasitas titik slot yang tidak aktif.
  *
- * 0,40 di kedua tema. Di tema gelap teks redup mencapai 3,81:1; di tema terang
- * hanya 2,30:1, karena tinta gelap yang diencerkan kehilangan kontras lebih
- * cepat daripada tinta putih. Nilai desain tetap dipakai di keduanya.
+ * Tetap 0,40 sesuai desain. Titik yang tidak terpilih adalah *state* tidak
+ * aktif, yang dikecualikan WCAG 1.4.11, dan yang wajib teridentifikasi adalah
+ * yang terpilih — dan itu tampil beraksen penuh dengan cincin tinta 2 dp di
+ * luarnya, 12–15:1 terhadap chrome. Menaikkan alpha-nya lebih jauh justru
+ * meratakan beda terpilih dan tidak terpilih: kerugian nyata demi kemenangan
+ * aksesibilitas yang semu.
  */
-const val MUTED_ALPHA = 0.40f
 const val DOT_INACTIVE_ALPHA = 0.40f
 
 /** Latar pil navigasi yang aktif: warna tab itu sendiri, 16%. */

@@ -1,6 +1,17 @@
 <resources>
-    <!-- Aplikasi hanya bermode gelap; tidak ada varian values-night. -->
-    <style name="Theme.FivePad" parent="android:Theme.Material.NoActionBar" />
+    <!--
+      Dua tema, dipilih di dalam aplikasi lewat setTheme() sebelum super.onCreate().
+      Yang diatur hanya latar jendela: seluruh warna lain datang dari Compose.
+      Tanpa ini, pengguna mode terang melihat kilatan gelap di antara layar
+      pembuka dan bingkai pertama.
+    -->
+    <style name="Theme.FivePad" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background</item>
+    </style>
+
+    <style name="Theme.FivePad.Light" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/brand_background_light</item>
+    </style>
 
     <!--
       Tema pembuka. Android 12+ menampilkan splash apa pun yang kita mau atau

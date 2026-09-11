@@ -2,4 +2,5 @@
 <resources>
     <!-- Latar ikon adaptif dan splash — sama dengan latar aplikasi. -->
     <color name="brand_background">#19191B</color>
+    <color name="brand_background_light">#EAEAE8</color>
 </resources>

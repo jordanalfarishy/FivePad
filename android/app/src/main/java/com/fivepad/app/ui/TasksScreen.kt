@@ -64,8 +64,6 @@ import androidx.compose.ui.zIndex
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
-import com.fivepad.app.ui.theme.Accent
-import com.fivepad.app.ui.theme.CheckedFill
 import com.fivepad.app.ui.theme.CheckedStroke
 import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.Tokens
@@ -198,7 +196,7 @@ fun TasksScreen(
                 ) {
                     AddRow(
                         label = stringResource(R.string.group_new),
-                        labelColor = Accent,
+                        labelColor = colors.accent,
                         onClick = { addingGroup = true },
                     )
                 }
@@ -511,7 +509,7 @@ private fun AddRow(
     labelColor: Color,
     onClick: () -> Unit,
     icon: Int = R.drawable.ic_add,
-    iconColor: Color = Accent,
+    iconColor: Color? = null,
 ) {
     Row(
         Modifier
@@ -527,7 +525,7 @@ private fun AddRow(
         Icon(
             painterResource(icon),
             contentDescription = null,
-            tint = iconColor,
+            tint = iconColor ?: LocalFivePadColors.current.accent,
             modifier = Modifier.size(HANDLE_SIZE),
         )
         Text(
@@ -552,6 +550,7 @@ private fun TaskRow(
     onDragEnd: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val colors = LocalFivePadColors.current
     val dismiss = rememberSwipeToDismissBoxState()
 
     LaunchedEffect(dismiss.currentValue) {
@@ -581,7 +580,7 @@ private fun TaskRow(
                 Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(ROW_RADIUS))
-                    .background(if (editing) Accent else scheme.errorContainer)
+                    .background(if (editing) colors.accent else scheme.errorContainer)
                     .padding(horizontal = Tokens.space5),
                 contentAlignment = if (editing) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
@@ -713,7 +712,7 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
                 Modifier
                     .size(HANDLE_SIZE)
                     .clip(CircleShape)
-                    .background(CheckedFill)
+                    .background(colors.checkedFill)
                     .border(1.dp, CheckedStroke, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
