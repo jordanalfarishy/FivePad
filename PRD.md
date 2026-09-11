@@ -156,7 +156,7 @@ Palet dipakai dalam **dua peran yang berbeda**, dan keduanya tidak boleh tertuka
 
 Teks sekunder di atas latar slot memakai alpha **0,86** — nilai terendah yang masih mencapai 4,5:1 pada kelima slot.
 
-> **Mengapa satu palet, dan kenapa tab catatan tidak ikut berganti tema.** Warna aksen tidak bisa dipakai langsung sebagai latar: dengan teks putih, Slot 3 hanya mencapai 4,22:1 dan **gagal WCAG AA** (NFR-8), sementara Slot 2 jadi satu-satunya yang menuntut teks gelap sehingga terlihat seperti cacat. Upaya membuat palet terang terpisah justru memunculkan masalah kedua: warna yang disetel tepat di ambang tidak menyisakan ruang untuk teks sekunder sama sekali — placeholder pun mustahil digambar tanpa melanggar. Mempertahankan satu palet pekat menyelesaikan keduanya sekaligus, dan memberi keuntungan produk: Slot 3 selalu hijau yang sama, bukan dua hijau berbeda tergantung tema. Sisa aplikasi — tugas, pengaturan — tetap mengikuti tema.
+> **Mengapa satu palet.** Aplikasi ini hanya bermode gelap, jadi tidak ada palet kedua yang perlu diselaraskan. Warna aksen tidak bisa dipakai langsung sebagai latar: dengan teks putih, Slot 3 hanya mencapai 4,22:1 dan **gagal WCAG AA** (NFR-8), sementara Slot 2 jadi satu-satunya yang menuntut teks gelap sehingga terlihat seperti cacat. Upaya membuat palet terang terpisah justru memunculkan masalah kedua: warna yang disetel tepat di ambang tidak menyisakan ruang untuk teks sekunder sama sekali — placeholder pun mustahil digambar tanpa melanggar. Mempertahankan satu palet pekat menyelesaikan keduanya sekaligus, dan memberi keuntungan produk: Slot 3 selalu hijau yang sama, bukan dua hijau berbeda tergantung tema. Sisa aplikasi — tugas, pengaturan — tetap mengikuti tema.
 
 **Aksen aksi** — untuk tombol tambah dan tautan tindakan: `#304678` di mode terang (8,7:1), `#6380C1` di mode gelap. Nilai gelapnya disetel dari hue yang sama karena `#304678` hanya mencapai 1,90:1 di atas latar gelap dan praktis tak terbaca.
 
@@ -272,7 +272,7 @@ Teks sekunder di atas latar slot memakai alpha **0,86** — nilai terendah yang 
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
 | FR-6.5 | P1 | Ubin Pengaturan Cepat membuka slot yang terakhir aktif dengan papan ketik langsung aktif. |
 | FR-6.6 | P2 | Dukungan warna dinamis Material You sebagai tema opsional, dengan palet lima slot tetap tidak berubah agar identitas warna terjaga. |
-| FR-6.7 | P0 | Pilihan tema tiga keadaan: ikuti sistem, paksa terang, paksa gelap. Disimpan per perangkat dan **tidak** ikut tersinkronisasi, mengikuti preseden FR-5.2 — seseorang bisa saja ingin gelap di ponsel tapi terang di Mac. Pilihan tema berlaku untuk tab tugas dan pengaturan; **tab catatan sengaja tidak terpengaruh** dan selalu memakai latar slot yang sama (lihat §7). Ikon bilah status mengikuti warna di belakangnya, bukan tema. |
+| FR-6.7 | P0 | Aplikasi hanya bermode gelap. Tidak ada pilihan tema dan tidak ada varian terang — keputusan pemilik produk setelah mode terang sempat dibangun. Konsekuensinya disengaja: setiap nilai kontras cukup diverifikasi sekali, dan tidak ada kelas bug "benar di satu tema, rusak di tema lain". |
 
 ### FR-7 — Pengaturan & data
 
@@ -374,7 +374,7 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 | NFR-5 | **Keandalan** | Sesi bebas macet ≥ 99,5%. Kegagalan sinkronisasi mencoba ulang dengan jeda menaik, maksimal 6 percobaan sebelum menyerah dan memberi tahu pengguna. |
 | NFR-6 | **Keamanan** | TLS 1.3 untuk seluruh lalu lintas. Token disimpan di Keychain (macOS) dan Android Keystore. RLS aktif di semua tabel tanpa pengecualian. |
 | NFR-7 | **Privasi** | Tanpa analitik pihak ketiga, tanpa iklan, tanpa pelatihan model atas isi catatan. Laporan macet bersifat opsional dan mati secara bawaan. |
-| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA. Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot selalu disertai label teks, tidak pernah menjadi satu-satunya pembeda. |
+| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA, diverifikasi pada satu-satunya tema yang ada (gelap). Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot selalu disertai label teks, tidak pernah menjadi satu-satunya pembeda. |
 | NFR-9 | **Kompatibilitas** | macOS 13 Ventura ke atas, Apple Silicon dan Intel. Android 8.0 (API 26) ke atas. |
 | NFR-10 | **Lokalisasi** | Bahasa Indonesia dan Inggris saat peluncuran. Seluruh teks dieksternalisasi sejak M1, tanpa string tertanam di kode. |
 | NFR-11 | **Ukuran unduhan** | macOS ≤ 25 MB. Android ≤ 15 MB per varian ABI. |

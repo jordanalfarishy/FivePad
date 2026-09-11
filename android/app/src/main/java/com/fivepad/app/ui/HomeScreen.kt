@@ -1,6 +1,5 @@
 package com.fivepad.app.ui
 
-import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -31,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,7 +43,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -54,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -63,31 +59,21 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fivepad.app.R
 import com.fivepad.app.data.Note
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
-import com.fivepad.app.ui.theme.LocalIsDarkTheme
 import com.fivepad.app.ui.theme.LocalOnSlot
 import com.fivepad.app.ui.theme.LocalOnSlotSecondary
 import com.fivepad.app.ui.theme.LocalSlotAccents
 import com.fivepad.app.ui.theme.LocalSlotSurfaces
-import com.fivepad.app.ui.theme.ThemeMode
 import com.fivepad.app.ui.theme.Tokens
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(
-    themeMode: ThemeMode,
-    onThemeChange: (ThemeMode) -> Unit,
-    vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
-) {
+fun HomeScreen(vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
     if (showSettings) {
         BackHandler { showSettings = false }
-        SettingsScreen(
-            themeMode = themeMode,
-            onThemeChange = onThemeChange,
-            onBack = { showSettings = false },
-        )
+        SettingsScreen(onBack = { showSettings = false })
         return
     }
 
@@ -112,18 +98,8 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
     }
 
     val notesActive = tab == TAB_NOTES
-    val isDark = LocalIsDarkTheme.current
     val onSlotInk = LocalOnSlot.current
     val onSlotMuted = LocalOnSlotSecondary.current
-
-    // Latar slot selalu pekat di kedua tema, jadi di tab catatan ikon sistem
-    // selalu terang. Di tab tugas barulah ia mengikuti tema.
-    val view = LocalView.current
-    SideEffect {
-        val window = (view.context as Activity).window
-        WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars =
-            if (notesActive) false else !isDark
-    }
 
     val swipeTint = run {
         val offset = pager.currentPageOffsetFraction

@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -54,16 +56,11 @@ import androidx.compose.ui.unit.sp
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
-import com.fivepad.app.ui.theme.CheckboxFillDark
-import com.fivepad.app.ui.theme.CheckboxFillLight
-import com.fivepad.app.ui.theme.CheckboxStrokeDark
-import com.fivepad.app.ui.theme.CheckboxStrokeLight
-import com.fivepad.app.ui.theme.CheckedStrokeDark
-import com.fivepad.app.ui.theme.CheckedStrokeLight
-import com.fivepad.app.ui.theme.LocalIsDarkTheme
+import com.fivepad.app.ui.theme.CheckboxFill
+import com.fivepad.app.ui.theme.CheckboxStroke
+import com.fivepad.app.ui.theme.CheckedStroke
 import com.fivepad.app.ui.theme.MUTED_ALPHA_TASKS
-import com.fivepad.app.ui.theme.TaskSeparatorDark
-import com.fivepad.app.ui.theme.TaskSeparatorLight
+import com.fivepad.app.ui.theme.TaskSeparator
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.delay
 
@@ -90,8 +87,6 @@ fun TasksScreen(
     onDeleteGroup: (String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val dark = LocalIsDarkTheme.current
-    val separator = if (dark) TaskSeparatorDark else TaskSeparatorLight
 
     var pendingUndo by remember { mutableStateOf<String?>(null) }
     var renaming by remember { mutableStateOf<TodoGroup?>(null) }
@@ -153,7 +148,7 @@ fun TasksScreen(
                     }
                 }
 
-                item(key = "sep-$index") { Separator(separator) }
+                item(key = "sep-$index") { Separator() }
             }
 
             item {
@@ -210,12 +205,12 @@ fun TasksScreen(
 }
 
 @Composable
-private fun Separator(color: Color) {
+private fun Separator() {
     Box(
         Modifier
             .fillMaxWidth()
             .height(SEPARATOR_HEIGHT)
-            .background(color),
+            .background(TaskSeparator),
     )
 }
 
@@ -241,19 +236,26 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
         // Kelompok tanpa grup bukan grup, jadi tidak bisa diubah nama atau dihapus.
         if (group != null) {
             Box {
-                Box(
-                    Modifier
-                        .size(Tokens.touchTarget)
-                        .clip(CircleShape)
-                        .clickable { menuOpen = true },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_more_vert),
-                        contentDescription = stringResource(R.string.group_menu),
-                        tint = scheme.onSurface.copy(alpha = 0.6f),
-                        modifier = Modifier.size(18.dp),
-                    )
+                // Kotak tata letak tetap 24 dp seperti di Figma; area sentuhnya
+                // dilebarkan ke 48 dp lewat requiredSize, yang menembus batasan
+                // induk tanpa ikut menambah tinggi baris. Memakai size(48.dp)
+                // begitu saja akan memaksa judul grup setinggi 48 dp — itulah
+                // yang membuat jaraknya terlihat terlalu lebar.
+                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        Modifier
+                            .requiredSize(Tokens.touchTarget)
+                            .clip(CircleShape)
+                            .clickable { menuOpen = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painterResource(R.drawable.ic_more_vert),
+                            contentDescription = stringResource(R.string.group_menu),
+                            tint = scheme.onSurface.copy(alpha = 0.6f),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                     DropdownMenuItem(
@@ -314,11 +316,14 @@ private fun InlineAddRow(
             .clip(RoundedCornerShape(ROW_RADIUS))
             .then(if (editing) Modifier else Modifier.clickable { editing = true })
             .padding(horizontal = ROW_PAD, vertical = Tokens.space2)
-            .heightIn(min = 24.dp),
+            .heightIn(min = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+        // Figma menetapkan lebar 24 tapi tidak tingginya — tingginya mengikuti
+        // ikon 20 dp. Memakai size(24.dp) menambah 4 dp tak terlihat di tiap
+        // baris tambah, yang menumpuk jadi jarak antar grup terasa longgar.
+        Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
             Icon(
                 painterResource(R.drawable.ic_add),
                 contentDescription = null,
@@ -388,7 +393,6 @@ private fun TaskRow(
     onDelete: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val dark = LocalIsDarkTheme.current
     val dismiss = rememberSwipeToDismissBoxState()
 
     LaunchedEffect(dismiss.currentValue) {
@@ -428,7 +432,7 @@ private fun TaskRow(
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Checkbox(done = todo.done, dark = dark, onToggle = { onToggle(!todo.done) })
+            Checkbox(done = todo.done, onToggle = { onToggle(!todo.done) })
 
             BasicTextField(
                 value = text,
@@ -455,7 +459,7 @@ private fun TaskRow(
 }
 
 @Composable
-private fun Checkbox(done: Boolean, dark: Boolean, onToggle: () -> Unit) {
+private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     Box(
         Modifier
@@ -470,11 +474,7 @@ private fun Checkbox(done: Boolean, dark: Boolean, onToggle: () -> Unit) {
                     .size(20.dp)
                     .clip(CircleShape)
                     .background(scheme.primary)
-                    .border(
-                        1.dp,
-                        if (dark) CheckedStrokeDark else CheckedStrokeLight,
-                        CircleShape,
-                    ),
+                    .border(1.dp, CheckedStroke, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -489,12 +489,8 @@ private fun Checkbox(done: Boolean, dark: Boolean, onToggle: () -> Unit) {
                 Modifier
                     .size(19.dp)
                     .clip(CircleShape)
-                    .background(if (dark) CheckboxFillDark else CheckboxFillLight)
-                    .border(
-                        1.dp,
-                        if (dark) CheckboxStrokeDark else CheckboxStrokeLight,
-                        CircleShape,
-                    ),
+                    .background(CheckboxFill)
+                    .border(1.dp, CheckboxStroke, CircleShape),
             )
         }
     }
