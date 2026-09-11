@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Lapisan depan ikon adaptif. Kanvasnya 108dp sementara bagian yang dijamin
+  terlihat hanya 66dp di tengah — sisanya bisa terpotong bentuk peluncur mana
+  pun. Logo diskalakan ke 54dp: batas terjauhnya dari pusat jadi 34,4dp, masih di
+  dalam lingkaran topeng berjari-jari 36dp. Pada 60dp batas itu 37,7dp, dan
+  sudut-sudutnya terpotong — itulah yang terlihat di splash.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.15"
+        android:scaleY="0.15"
+        android:translateX="26.932"
+        android:translateY="26.625">
+        <path
+            android:fillColor="#E7E7E7"
+            android:pathData="M295.281 0C331.521 0.000242476 360.898 29.3785 360.898 65.6182V221.461L217.359 365H65.6182C29.3784 365 0 335.622 0 299.382V65.6182C0 29.3784 29.3784 0 65.6182 0H295.281Z" />
+        <path
+            android:fillColor="#BFBFBF"
+            android:pathData="M237.865 252.219L237.865 256.32L0.000189543 256.32L0.000189901 252.219L237.865 252.219Z" />
+        <path
+            android:fillColor="#FF3700"
+            android:pathData="M49.21360000000001,79.015 a33.9026,33.9026 0 1,0 67.8052,0 a33.9026,33.9026 0 1,0 -67.8052,0 Z" />
+        <path
+            android:fillColor="#FFA910"
+            android:pathData="M145.72639999999998,79.015 a33.9026,33.9026 0 1,0 67.8052,0 a33.9026,33.9026 0 1,0 -67.8052,0 Z" />
+        <path
+            android:fillColor="#269752"
+            android:pathData="M242.2394,79.015 a33.9026,33.9026 0 1,0 67.8052,0 a33.9026,33.9026 0 1,0 -67.8052,0 Z" />
+        <path
+            android:fillColor="#E6210F"
+            android:pathData="M217.36 365V278.877C217.36 247.167 243.066 221.461 274.776 221.461H360.899L217.36 365Z" />
+        <path
+            android:fillColor="#BFBFBF"
+            android:pathData="M360.899 149.691L360.899 153.792L0.000189543 153.792L0.000189901 149.691L360.899 149.691Z" />
+        <path
+            android:fillColor="#BFBFBF"
+            android:pathData="M92.2751 151.742L92.2751 365L88.174 365L88.174 151.742L92.2751 151.742Z" />
+    </group>
+</vector>
