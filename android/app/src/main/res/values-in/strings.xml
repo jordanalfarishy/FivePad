@@ -19,6 +19,8 @@
     <string name="task_text_hint">Apa yang perlu dikerjakan?</string>
     <string name="task_delete">Hapus</string>
     <string name="task_deleted">Tugas dihapus</string>
+    <string name="task_rename">Ubah nama tugas</string>
+    <string name="task_options">Opsi tugas</string>
     <string name="task_undo">Urungkan</string>
 
     <!-- Grup -->

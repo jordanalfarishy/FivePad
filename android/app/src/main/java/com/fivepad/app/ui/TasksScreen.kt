@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -22,8 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +71,12 @@ private val ROW_PAD = 12.dp
 private val ROW_GAP = 8.dp
 private val SEPARATOR_HEIGHT = 7.dp
 
+/** 8 atas + 20 isi + 8 bawah, sesuai `px-[12px] py-[8px]` di Figma. */
+private val ADD_ROW_HEIGHT = 36.dp
+
+/** 12 atas + 24 isi + 12 bawah, sesuai `p-[12px]` di Figma. */
+private val TASK_ROW_HEIGHT = 48.dp
+
 @Composable
 fun TasksScreen(
     state: HomeUiState,
@@ -87,9 +90,10 @@ fun TasksScreen(
     onDeleteGroup: (String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-
     var pendingUndo by remember { mutableStateOf<String?>(null) }
-    var renaming by remember { mutableStateOf<TodoGroup?>(null) }
+    var groupOptions by remember { mutableStateOf<TodoGroup?>(null) }
+    var renamingGroup by remember { mutableStateOf<TodoGroup?>(null) }
+    var renamingTask by remember { mutableStateOf<Todo?>(null) }
 
     LaunchedEffect(pendingUndo) {
         if (pendingUndo != null) {
@@ -113,8 +117,7 @@ fun TasksScreen(
                     ) {
                         SectionHeader(
                             group = section.group,
-                            onRename = { renaming = section.group },
-                            onDelete = { section.group?.let { onDeleteGroup(it.id) } },
+                            onOptions = { groupOptions = section.group },
                         )
 
                         if (section.todos.isNotEmpty()) {
@@ -129,6 +132,7 @@ fun TasksScreen(
                                         todo = todo,
                                         onToggle = { onToggle(todo.id, it) },
                                         onEdit = { onEditTask(todo.id, it) },
+                                        onRename = { renamingTask = todo },
                                         onDelete = {
                                             onDeleteTask(todo.id)
                                             pendingUndo = todo.id
@@ -191,15 +195,48 @@ fun TasksScreen(
         }
     }
 
-    renaming?.let { group ->
-        TextPromptDialog(
+    groupOptions?.let { group ->
+        OptionsSheet(
+            title = group.name,
+            actions = listOf(
+                SheetAction(
+                    label = stringResource(R.string.group_rename),
+                    onClick = { renamingGroup = group },
+                ),
+                SheetAction(
+                    label = stringResource(R.string.group_delete),
+                    // Menyebut apa yang TIDAK terjadi, karena itulah yang
+                    // ditakutkan saat menghapus wadah berisi sesuatu.
+                    description = stringResource(R.string.group_delete_explainer),
+                    destructive = true,
+                    onClick = { onDeleteGroup(group.id) },
+                ),
+            ),
+            onDismiss = { groupOptions = null },
+        )
+    }
+
+    renamingGroup?.let { group ->
+        TextPromptSheet(
             title = stringResource(R.string.group_rename),
             initial = group.name,
             hint = stringResource(R.string.group_name_hint),
             confirmLabel = stringResource(R.string.dialog_save),
             maxLength = TodoGroup.MAX_NAME_LENGTH,
-            onDismiss = { renaming = null },
-            onConfirm = { onRenameGroup(group.id, it); renaming = null },
+            onDismiss = { renamingGroup = null },
+            onConfirm = { onRenameGroup(group.id, it) },
+        )
+    }
+
+    renamingTask?.let { todo ->
+        TextPromptSheet(
+            title = stringResource(R.string.task_rename),
+            initial = todo.text,
+            hint = stringResource(R.string.task_text_hint),
+            confirmLabel = stringResource(R.string.dialog_save),
+            maxLength = Todo.MAX_TEXT_LENGTH,
+            onDismiss = { renamingTask = null },
+            onConfirm = { onEditTask(todo.id, it) },
         )
     }
 }
@@ -215,9 +252,8 @@ private fun Separator() {
 }
 
 @Composable
-private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () -> Unit) {
+private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
-    var menuOpen by remember { mutableStateOf(false) }
 
     Row(
         Modifier
@@ -235,45 +271,22 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
         )
         // Kelompok tanpa grup bukan grup, jadi tidak bisa diubah nama atau dihapus.
         if (group != null) {
-            Box {
-                // Kotak tata letak tetap 24 dp seperti di Figma; area sentuhnya
-                // dilebarkan ke 48 dp lewat requiredSize, yang menembus batasan
-                // induk tanpa ikut menambah tinggi baris. Memakai size(48.dp)
-                // begitu saja akan memaksa judul grup setinggi 48 dp — itulah
-                // yang membuat jaraknya terlihat terlalu lebar.
-                Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                    Box(
-                        Modifier
-                            .requiredSize(Tokens.touchTarget)
-                            .clip(CircleShape)
-                            .clickable { menuOpen = true },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painterResource(R.drawable.ic_more_vert),
-                            contentDescription = stringResource(R.string.group_menu),
-                            tint = scheme.onSurface.copy(alpha = 0.6f),
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.group_rename)) },
-                        onClick = { menuOpen = false; onRename() },
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Column {
-                                Text(stringResource(R.string.group_delete))
-                                Text(
-                                    stringResource(R.string.group_delete_explainer),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = scheme.onSurfaceVariant,
-                                )
-                            }
-                        },
-                        onClick = { menuOpen = false; onDelete() },
+            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                // Kotak tata letak tetap 24 dp; area sentuh dilebarkan ke 48 dp
+                // lewat requiredSize, yang menembus batasan induk tanpa ikut
+                // menambah tinggi baris.
+                Box(
+                    Modifier
+                        .requiredSize(Tokens.touchTarget)
+                        .clip(CircleShape)
+                        .clickable(onClick = onOptions),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_more_vert),
+                        contentDescription = stringResource(R.string.group_menu),
+                        tint = scheme.onSurface.copy(alpha = 0.6f),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
@@ -282,7 +295,7 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
 }
 
 /**
- * Baris "New Task" / "New Group" yang berubah jadi kolom isian di tempat.
+ * Baris "Add task" / "New group" yang berubah jadi kolom isian di tempat.
  *
  * [hadFocus] bukan hiasan: `onFocusChanged` menyala sekali saat komposisi
  * pertama dengan `isFocused = false`, dan tanpa penjaga ini baris langsung
@@ -315,14 +328,13 @@ private fun InlineAddRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(ROW_RADIUS))
             .then(if (editing) Modifier else Modifier.clickable { editing = true })
-            .padding(horizontal = ROW_PAD, vertical = Tokens.space2)
-            .heightIn(min = 20.dp),
+            .height(ADD_ROW_HEIGHT)
+            .padding(horizontal = ROW_PAD),
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Figma menetapkan lebar 24 tapi tidak tingginya — tingginya mengikuti
-        // ikon 20 dp. Memakai size(24.dp) menambah 4 dp tak terlihat di tiap
-        // baris tambah, yang menumpuk jadi jarak antar grup terasa longgar.
+        // ikon 20 dp. Kotak persegi akan menambah 4 dp tak terlihat di tiap baris.
         Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
             Icon(
                 painterResource(R.drawable.ic_add),
@@ -390,34 +402,46 @@ private fun TaskRow(
     todo: Todo,
     onToggle: (Boolean) -> Unit,
     onEdit: (String) -> Unit,
+    onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val dismiss = rememberSwipeToDismissBoxState()
 
     LaunchedEffect(dismiss.currentValue) {
-        if (dismiss.currentValue == SwipeToDismissBoxValue.EndToStart) {
-            onDelete()
-            dismiss.snapTo(SwipeToDismissBoxValue.Settled)
+        when (dismiss.currentValue) {
+            SwipeToDismissBoxValue.EndToStart -> {
+                onDelete()
+                dismiss.snapTo(SwipeToDismissBoxValue.Settled)
+            }
+            // Ubah nama tidak menghilangkan barisnya, jadi baris harus
+            // dikembalikan ke posisi semula setelah sheet dibuka.
+            SwipeToDismissBoxValue.StartToEnd -> {
+                onRename()
+                dismiss.snapTo(SwipeToDismissBoxValue.Settled)
+            }
+            SwipeToDismissBoxValue.Settled -> Unit
         }
     }
 
     SwipeToDismissBox(
         state = dismiss,
-        enableDismissFromStartToEnd = false,
         backgroundContent = {
-            // Di-clip dengan bentuk yang sama seperti barisnya. Tanpa ini, latar
-            // merah mengintip lewat sudut membulat dan tampak seperti garis tipis
-            // di sela antar baris — cacat yang baru terlihat setelah baris dipisah.
+            val renaming = dismiss.dismissDirection == SwipeToDismissBoxValue.StartToEnd
+            // Di-clip dengan bentuk yang sama seperti barisnya; tanpa ini latarnya
+            // mengintip lewat sudut membulat dan terbaca sebagai garis tipis.
             Box(
                 Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(ROW_RADIUS))
-                    .background(scheme.errorContainer)
+                    .background(if (renaming) RenameSwipeColor else scheme.errorContainer)
                     .padding(horizontal = Tokens.space5),
-                contentAlignment = Alignment.CenterEnd,
+                contentAlignment = if (renaming) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
-                Text(stringResource(R.string.task_delete), color = scheme.onErrorContainer)
+                Text(
+                    stringResource(if (renaming) R.string.task_rename else R.string.task_delete),
+                    color = if (renaming) Color.White else scheme.onErrorContainer,
+                )
             }
         },
     ) {
@@ -428,7 +452,8 @@ private fun TaskRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(ROW_RADIUS))
                 .background(scheme.surfaceContainer)
-                .padding(ROW_PAD),
+                .height(TASK_ROW_HEIGHT)
+                .padding(horizontal = ROW_PAD),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
