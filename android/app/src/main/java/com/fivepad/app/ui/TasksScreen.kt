@@ -66,6 +66,7 @@ import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.ui.theme.CheckedStroke
+import com.fivepad.app.ui.theme.FilledAccent
 import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.Tokens
 import kotlin.math.abs
@@ -156,48 +157,47 @@ fun TasksScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        // Tanpa satu tugas pun dan tanpa satu grup pun, daftar kosong tidak
-        // punya apa pun untuk diperlihatkan — termasuk "New Group", yang baru
-        // masuk akal setelah ada sesuatu untuk dikelompokkan.
+        // if/else, bukan dua anak Box yang bertumpuk. LazyColumn yang
+        // fillMaxSize tetap menempati seluruh layar walau isinya nol butir, dan
+        // karena ia digambar belakangan ia menelan setiap ketukan yang ditujukan
+        // ke tombol di bawahnya — tombolnya terlihat, tapi tidak pernah kena.
         if (sections.isEmpty()) {
             EmptyState(onAddTask = { composing = UNGROUPED_KEY })
-        }
+        } else {
+            LazyColumn(
+                Modifier
+                    .fillMaxSize()
+                    .onGloballyPositioned { drag.viewport = it.boundsInRoot() },
+                state = listState,
+                contentPadding = PaddingValues(bottom = Tokens.space6),
+                // Menyeret baris sudah memakai gestur vertikal; tanpa ini
+                // daftarnya ikut bergulir dan barisnya seperti lepas dari jari.
+                userScrollEnabled = drag.todo == null,
+            ) {
+                sections.forEach { section ->
+                    item(key = "s-${section.key()}") {
+                        SectionColumn(
+                            section = section,
+                            drag = drag,
+                            onOptions = { groupOptions = section.group },
+                            onToggle = onToggle,
+                            onEdit = { editing = it },
+                            onDelete = {
+                                onDeleteTask(it)
+                                pendingUndo = it
+                            },
+                            onAdd = { composing = section.key() },
+                            onDragMove = { todo, coords, local, dy ->
+                                drag.onMove(todo, coords, local, dy)
+                                drag.target = dropTargetFor(sections, drag)
+                            },
+                            onDragEnd = { drag.commit(sections, onMoveTaskToSection) },
+                        )
+                    }
 
-        LazyColumn(
-            Modifier
-                .fillMaxSize()
-                .onGloballyPositioned { drag.viewport = it.boundsInRoot() },
-            state = listState,
-            contentPadding = PaddingValues(bottom = Tokens.space6),
-            userScrollEnabled = drag.todo == null,
-        ) {
-            sections.forEach { section ->
-                item(key = "s-${section.key()}") {
-                    SectionColumn(
-                        section = section,
-                        drag = drag,
-                        onOptions = { groupOptions = section.group },
-                        onToggle = onToggle,
-                        onEdit = { editing = it },
-                        onDelete = {
-                            onDeleteTask(it)
-                            pendingUndo = it
-                        },
-                        onAdd = { composing = section.key() },
-                        onDragMove = { todo, coords, local, dy ->
-                            drag.onMove(todo, coords, local, dy)
-                            drag.target = dropTargetFor(sections, drag)
-                        },
-                        onDragEnd = {
-                            drag.commit(sections, onMoveTaskToSection)
-                        },
-                    )
+                    item(key = "sep-${section.key()}") { Separator() }
                 }
 
-                item(key = "sep-${section.key()}") { Separator() }
-            }
-
-            if (sections.isNotEmpty()) {
                 item(key = "new-group") {
                     Column(
                         Modifier
@@ -217,26 +217,26 @@ fun TasksScreen(
                         )
                     }
                 }
-            }
 
-            // FR-2.9. Barisnya hanya ada saat ada yang bisa dibersihkan, dan
-            // memakai bahasa visual yang sama dengan "New Task" — jadi tidak ada
-            // tombol baru di bilah atas, dan tidak ada tindakan merusak yang
-            // menunggu di layar saat tidak ada gunanya.
-            if (state.doneCount > 0) {
-                item(key = "clear-completed") {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
-                    ) {
-                        AddRow(
-                            label = stringResource(R.string.task_clear_done, state.doneCount),
-                            labelColor = colors.muted,
-                            icon = R.drawable.ic_delete,
-                            iconColor = colors.muted,
-                            onClick = onClearCompleted,
-                        )
+                // FR-2.9. Barisnya hanya ada saat ada yang bisa dibersihkan, dan
+                // memakai bahasa visual yang sama dengan "New Task" — jadi tidak
+                // ada tombol baru di bilah atas, dan tidak ada tindakan merusak
+                // yang menunggu di layar saat tidak ada gunanya.
+                if (state.doneCount > 0) {
+                    item(key = "clear-completed") {
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
+                        ) {
+                            AddRow(
+                                label = stringResource(R.string.task_clear_done, state.doneCount),
+                                labelColor = colors.muted,
+                                icon = R.drawable.ic_delete,
+                                iconColor = colors.muted,
+                                onClick = onClearCompleted,
+                            )
+                        }
                     }
                 }
             }
@@ -489,7 +489,7 @@ private fun EmptyState(onAddTask: () -> Unit) {
             Row(
                 Modifier
                     .clip(RoundedCornerShape(EMPTY_BUTTON_RADIUS))
-                    .background(colors.accent)
+                    .background(FilledAccent)
                     .clickable(onClick = onAddTask)
                     .padding(horizontal = Tokens.space5, vertical = ROW_PAD),
                 horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
@@ -498,9 +498,7 @@ private fun EmptyState(onAddTask: () -> Unit) {
                 Icon(
                     painterResource(R.drawable.ic_add),
                     contentDescription = null,
-                    // Di atas aksen terisi, tintanya berbalik: aksen tema gelap
-                    // justru warna terang, dan putih di atasnya hanya 3,21:1.
-                    tint = colors.onAccent,
+                    tint = Color.White,
                     modifier = Modifier.size(HANDLE_SIZE),
                 )
                 Text(
@@ -508,7 +506,7 @@ private fun EmptyState(onAddTask: () -> Unit) {
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     fontWeight = FontWeight.Medium,
-                    color = colors.onAccent,
+                    color = Color.White,
                 )
             }
         }
@@ -666,7 +664,11 @@ private fun TaskRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(ROW_RADIUS))
                 .background(scheme.surfaceContainer)
-                .clickable(onClick = onEdit)
+                // Tidak ada ketukan di sini. Ketukan pada baris hanya untuk
+                // kotak centang dan pegangan seret; menyuntingnya lewat geser
+                // ke kanan. Satu baris yang menerima ketukan di mana saja
+                // berarti setiap usaha mencentang yang meleset sedikit justru
+                // membuka lembar sunting.
                 .padding(ROW_PAD),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
