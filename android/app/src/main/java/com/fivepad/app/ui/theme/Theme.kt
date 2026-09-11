@@ -22,7 +22,7 @@ val LocalFivePadColors = staticCompositionLocalOf { DarkColors }
 private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
     lightColorScheme(
         primary = colors.accent,
-        onPrimary = Color(0xFFFFFFFF),
+        onPrimary = colors.onAccent,
         primaryContainer = colors.checkedFill,
         onPrimaryContainer = Color(0xFFFFFFFF),
         background = colors.background,
@@ -41,7 +41,7 @@ private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
 } else {
     darkColorScheme(
         primary = colors.accent,
-        onPrimary = Color(0xFFFFFFFF),
+        onPrimary = colors.onAccent,
         primaryContainer = colors.checkedFill,
         onPrimaryContainer = Color(0xFFFFFFFF),
         background = colors.background,

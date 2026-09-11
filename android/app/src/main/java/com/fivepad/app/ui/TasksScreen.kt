@@ -57,6 +57,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -86,6 +87,9 @@ private val ADD_ROW_PAD_V = 14.dp
 
 /** Seberapa dekat ke tepi daftar sebelum daftarnya ikut bergulir saat menyeret. */
 private val AUTOSCROLL_EDGE = 72.dp
+
+/** Tombol empty state — node 11:147. Lebih besar dari tingginya, jadi selalu bulat penuh. */
+private val EMPTY_BUTTON_RADIUS = 35.dp
 
 @Composable
 fun TasksScreen(
@@ -152,14 +156,19 @@ fun TasksScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
+        // Tanpa satu tugas pun dan tanpa satu grup pun, daftar kosong tidak
+        // punya apa pun untuk diperlihatkan — termasuk "New Group", yang baru
+        // masuk akal setelah ada sesuatu untuk dikelompokkan.
+        if (sections.isEmpty()) {
+            EmptyState(onAddTask = { composing = UNGROUPED_KEY })
+        }
+
         LazyColumn(
             Modifier
                 .fillMaxSize()
                 .onGloballyPositioned { drag.viewport = it.boundsInRoot() },
             state = listState,
             contentPadding = PaddingValues(bottom = Tokens.space6),
-            // Menyeret baris sudah memakai gestur vertikal; tanpa ini daftarnya
-            // ikut bergulir dan barisnya seperti lepas dari jari.
             userScrollEnabled = drag.todo == null,
         ) {
             sections.forEach { section ->
@@ -188,17 +197,25 @@ fun TasksScreen(
                 item(key = "sep-${section.key()}") { Separator() }
             }
 
-            item(key = "new-group") {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
-                ) {
-                    AddRow(
-                        label = stringResource(R.string.group_new),
-                        labelColor = colors.accent,
-                        onClick = { addingGroup = true },
-                    )
+            if (sections.isNotEmpty()) {
+                item(key = "new-group") {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
+                    ) {
+                        // Diredupkan, dan tanpa aksen. "New Task" muncul sekali
+                        // per bagian dan itulah tindakan yang dicari orang;
+                        // "New Group" muncul sekali di kaki daftar. Kalau
+                        // keduanya sama-sama beraksen, yang di kaki justru lebih
+                        // menarik mata karena ia sendirian.
+                        AddRow(
+                            label = stringResource(R.string.group_new),
+                            labelColor = colors.muted,
+                            iconColor = colors.muted,
+                            onClick = { addingGroup = true },
+                        )
+                    }
                 }
             }
 
@@ -442,6 +459,59 @@ private fun SectionColumn(
             labelColor = MaterialTheme.colorScheme.onSurface,
             onClick = onAdd,
         )
+    }
+}
+
+/**
+ * Layar tugas yang benar-benar kosong — node 11:62.
+ *
+ * Bukan daftar kosong dengan baris "New Task" di pojok, melainkan satu kalimat
+ * dan satu tombol di tengah layar. Pada pemakaian pertama, baris tambah setinggi
+ * 48 dp di tepi kiri atas layar yang selebihnya putih tidak terbaca sebagai
+ * ajakan; tombol terisi di tengah terbaca.
+ */
+@Composable
+private fun EmptyState(onAddTask: () -> Unit) {
+    val colors = LocalFivePadColors.current
+
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Tokens.space5),
+        ) {
+            Text(
+                stringResource(R.string.tasks_empty),
+                fontSize = 16.sp,
+                lineHeight = 24.sp,
+                color = colors.ink,
+                textAlign = TextAlign.Center,
+            )
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(EMPTY_BUTTON_RADIUS))
+                    .background(colors.accent)
+                    .clickable(onClick = onAddTask)
+                    .padding(horizontal = Tokens.space5, vertical = ROW_PAD),
+                horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_add),
+                    contentDescription = null,
+                    // Di atas aksen terisi, tintanya berbalik: aksen tema gelap
+                    // justru warna terang, dan putih di atasnya hanya 3,21:1.
+                    tint = colors.onAccent,
+                    modifier = Modifier.size(HANDLE_SIZE),
+                )
+                Text(
+                    stringResource(R.string.task_new),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colors.onAccent,
+                )
+            }
+        }
     }
 }
 

@@ -207,7 +207,9 @@ Placeholder nama catatan memakai aksen slot pada alpha yang sama. Sebagai petunj
 | Gelap | `#FF5242` | 5,47:1 | 4,78:1 | 4,01:1 |
 | Terang | `#C71C0D` | 4,84:1 | 5,83:1 | 4,24:1 |
 
-Dipakai untuk tombol tambah, teks "New Group", kotak centang yang tercentang (tepi `#FF4332`), dan pil tab Tugas. Lolos AA di setiap permukaan tempat ia menjadi teks, kecuali satu: **angka "n/m" di dalam pil tab Tugas** (4,0–4,2:1). Latar pil adalah aksen itu sendiri pada 16%, jadi teks dan latarnya sehue — batas struktural desain, bukan akibat pilihan warnanya. Memperbaikinya berarti salah satu dari dua: angkanya memakai tinta alih-alih aksen, atau pilnya diperdalam jadi keping terisi dengan teks putih. Keduanya mengubah desain, jadi menunggu keputusan pemilik desain. Pendahulunya `#304678` hanya 1,90:1.
+Dipakai untuk ikon tambah, kotak centang yang tercentang (tepi `#FF4332`), pil tab Tugas, dan tombol terisi pada layar kosong. **Tidak** dipakai untuk teks "New Group", yang justru diredupkan (FR-2.17).
+
+Di atas aksen yang terisi penuh, tintanya berbalik: aksen tema gelap justru warna terang, dan teks putih di atasnya hanya mencapai 3,21:1. Tombol layar kosong memakai `#19191B` di tema gelap (5,47:1) dan putih di tema terang (5,83:1) — pola `onPrimary` Material, dan alasannya persis ini. Lolos AA di setiap permukaan tempat ia menjadi teks, kecuali satu: **angka "n/m" di dalam pil tab Tugas** (4,0–4,2:1). Latar pil adalah aksen itu sendiri pada 16%, jadi teks dan latarnya sehue — batas struktural desain, bukan akibat pilihan warnanya. Memperbaikinya berarti salah satu dari dua: angkanya memakai tinta alih-alih aksen, atau pilnya diperdalam jadi keping terisi dengan teks putih. Keduanya mengubah desain, jadi menunggu keputusan pemilik desain. Pendahulunya `#304678` hanya 1,90:1.
 
 ### Modul & kepemilikan platform
 
@@ -265,6 +267,7 @@ Dipakai untuk tombol tambah, teks "New Group", kotak centang yang tercentang (te
 | FR-2.14 | P0 | Semua | Tugas dapat dikelompokkan ke dalam grup bernama yang dibuat pengguna. Grup hanya satu tingkat — grup tidak boleh berisi grup lain. Tugas berada di tepat satu grup, atau di luar grup mana pun. |
 | FR-2.15 | P0 | Semua | Grup dapat dibuat, diubah namanya (maks 40 karakter), dan dihapus. Menghapus grup **tidak** menghapus tugas di dalamnya; tugas itu kembali menjadi tanpa grup. Penghapusan tugas tidak pernah menjadi efek samping yang tersembunyi. |
 | FR-2.16 | P1 | Semua | Urutan grup dapat diatur pengguna dan ikut tersinkronisasi. Grup kosong tetap ditampilkan agar pengguna bisa mengisinya; hanya grup yang dihapus yang hilang. |
+| FR-2.17 | P1 | Semua | **Mengelompokkan datang setelah ada yang dikelompokkan.** Selama daftar benar-benar kosong — tanpa tugas dan tanpa grup — layar hanya menampilkan satu kalimat dan satu tombol terisi "New Task" di tengah, dan "New Group" tidak ada sama sekali. Begitu ada isinya, "New Group" muncul di kaki daftar dalam keadaan **diredupkan**: ia muncul sekali saja di sana, sementara "New Task" muncul sekali per bagian; kalau keduanya sama-sama beraksen, yang di kaki justru lebih menarik mata karena ia sendirian. |
 
 ### FR-3 — Akun & sinkronisasi
 

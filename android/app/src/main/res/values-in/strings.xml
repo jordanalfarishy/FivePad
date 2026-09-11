@@ -17,6 +17,7 @@
     <string name="slot_description_active">Slot %1$d, sedang aktif</string>
 
     <!-- Tugas -->
+    <string name="tasks_empty">Tambahkan tugas untuk memulai.</string>
     <string name="task_new">Tugas Baru</string>
     <string name="task_edit">Sunting</string>
     <string name="task_text_hint">Apa yang perlu dikerjakan?</string>

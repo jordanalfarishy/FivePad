@@ -20,6 +20,7 @@
     <string name="slot_description_active">Slot %1$d, active</string>
 
     <!-- Tasks -->
+    <string name="tasks_empty">Add a task to get started.</string>
     <string name="task_new">New Task</string>
     <string name="task_edit">Edit</string>
     <string name="task_text_hint">What needs doing?</string>

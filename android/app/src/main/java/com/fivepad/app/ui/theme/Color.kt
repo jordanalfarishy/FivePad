@@ -37,6 +37,14 @@ class FivePadColors(
      */
     val accent: Color,
     /**
+     * Teks dan ikon di ATAS aksen yang terisi penuh — tombol empty state.
+     *
+     * Putih di tema terang, gelap di tema gelap. Bukan kekeliruan: aksen tema
+     * gelap justru warna terang, dan teks putih di atasnya hanya mencapai
+     * 3,21:1. Inilah pola `onPrimary` Material, dan alasannya persis ini.
+     */
+    val onAccent: Color,
+    /**
      * Opasitas teks sekunder. Nilai terendah yang mencapai 4,5:1 pada permukaan
      * terlemah tema itu. Berbeda antar tema karena tinta gelap yang diencerkan
      * kehilangan kontras jauh lebih cepat daripada tinta putih: 0,47 sudah cukup
@@ -90,6 +98,7 @@ val DarkColors = FivePadColors(
         Color(0xFFA186D6),
     ),
     accent = Color(0xFFFF5242),
+    onAccent = Color(0xFF19191B),
     mutedAlpha = 0.47f,
 )
 
@@ -121,6 +130,7 @@ val LightColors = FivePadColors(
         Color(0xFF5320B7),
     ),
     accent = Color(0xFFC71C0D),
+    onAccent = Color(0xFFFFFFFF),
     mutedAlpha = 0.65f,
 )
 
