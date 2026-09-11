@@ -30,6 +30,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -50,7 +51,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.text.input.VisualTransformation
 import com.fivepad.app.data.Note
+import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
 import android.app.Activity
 import androidx.core.view.WindowCompat
 import com.fivepad.app.ui.theme.LocalIsDarkTheme
@@ -58,6 +61,7 @@ import com.fivepad.app.ui.theme.LocalOnSlot
 import com.fivepad.app.ui.theme.LocalSlotAccents
 import com.fivepad.app.ui.theme.LocalSlotSurfaces
 import com.fivepad.app.ui.theme.ThemeMode
+import com.fivepad.app.ui.theme.Tokens
 import kotlin.math.abs
 import kotlinx.coroutines.launch
 
@@ -185,12 +189,12 @@ private fun SlotBar(
         Modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(start = 20.dp, end = 12.dp, top = 14.dp, bottom = 14.dp),
+            .padding(start = Tokens.space4, end = Tokens.space3, top = Tokens.space1, bottom = Tokens.space1),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Row(
             modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(Tokens.space1),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             for (slot in 1..Note.SLOT_COUNT) {
@@ -199,7 +203,7 @@ private fun SlotBar(
                 // menggeser tetangganya, sehingga barisnya tidak bergoyang.
                 Box(
                     modifier = Modifier
-                        .size(DOT_SLOT_SIZE)
+                        .size(Tokens.touchTarget)
                         .clip(CircleShape)
                         .clickable { onSelectSlot(slot) }
                         .semantics {
@@ -210,7 +214,7 @@ private fun SlotBar(
                 ) {
                     Box(
                         Modifier
-                            .size(if (selected) 20.dp else 14.dp)
+                            .size(if (selected) Tokens.dotActive else Tokens.dotInactive)
                             .background(accents[slot - 1], CircleShape)
                             .then(
                                 if (selected) {
@@ -218,7 +222,7 @@ private fun SlotBar(
                                 } else {
                                     // Garis tipis menjaga titik tetap terlihat
                                     // saat warnanya sama dengan latar di belakangnya.
-                                    Modifier.border(1.dp, ink.copy(alpha = 0.35f), CircleShape)
+                                    Modifier.border(1.dp, ink.copy(alpha = Tokens.FAINT_ON_SLOT), CircleShape)
                                 },
                             ),
                     )
@@ -239,29 +243,40 @@ private fun ThemePill(mode: ThemeMode, ink: Color, onClick: () -> Unit) {
     }
     Box(
         Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .border(1.dp, ink.copy(alpha = 0.3f), RoundedCornerShape(999.dp))
+            .clip(RoundedCornerShape(Tokens.radiusPill))
+            .border(1.dp, ink.copy(alpha = 0.3f), RoundedCornerShape(Tokens.radiusPill))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .padding(horizontal = Tokens.space3, vertical = Tokens.space1)
             .semantics { contentDescription = "Tema: $label. Ketuk untuk mengganti." },
     ) {
         Text(
             label,
             color = ink.copy(alpha = 0.85f),
-            fontSize = 12.sp,
+            fontSize = Tokens.captionTextSize,
             fontWeight = FontWeight.Medium,
         )
     }
 }
 
 @Composable
-private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: androidx.compose.foundation.pager.PagerState) {
+private fun NotesPane(
+    state: HomeUiState,
+    vm: HomeViewModel,
+    pager: androidx.compose.foundation.pager.PagerState,
+) {
     val onSlot = LocalOnSlot.current
     val active = pager.currentPage + 1
+    val label = state.labelFor(active)
+
+    // Transformasi menyimpan hasil terakhirnya, jadi instansnya harus bertahan
+    // lintas recomposition — kalau dibuat ulang tiap kali, cache-nya sia-sia.
+    val markdown = remember(onSlot) {
+        MarkdownVisualTransformation(ink = onSlot, baseSize = Tokens.bodyTextSize)
+    }
 
     Column(Modifier.fillMaxSize()) {
         BasicTextField(
-            value = state.labelFor(active),
+            value = label,
             onValueChange = { vm.onLabelChanged(active, it.take(Note.MAX_LABEL_LENGTH)) },
             singleLine = true,
             textStyle = MaterialTheme.typography.titleMedium.copy(
@@ -271,60 +286,80 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: androidx.com
             cursorBrush = SolidColor(onSlot),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
+                .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space1),
             decorationBox = { inner ->
-                if (state.labelFor(active).isEmpty()) {
+                if (label.isEmpty()) {
                     Text(
                         "Beri nama slot ini",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = onSlot.copy(alpha = 0.55f),
+                        color = onSlot.copy(alpha = Tokens.MUTED_ON_SLOT),
                     )
                 }
                 inner()
             },
         )
 
-        HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+        HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { page ->
             val slot = page + 1
             val text = state.draftFor(slot)
-            Box(Modifier.fillMaxSize()) {
-                BasicTextField(
-                    value = text,
-                    onValueChange = { vm.onBodyChanged(slot, it) },
-                    textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        color = onSlot,
-                        fontSize = 16.sp,
-                        lineHeight = 25.sp,
-                    ),
-                    cursorBrush = SolidColor(onSlot),
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
-                    decorationBox = { inner ->
-                        if (text.isEmpty()) {
-                            Text(
-                                "Mulai menulis…",
-                                color = onSlot.copy(alpha = 0.5f),
-                                fontSize = 16.sp,
-                            )
-                        }
-                        inner()
-                    },
-                )
-
-                if (text.length >= Note.BODY_WARN_LENGTH) {
-                    Text(
-                        "${text.length} / ${Note.MAX_BODY_LENGTH}",
-                        color = onSlot.copy(alpha = 0.75f),
-                        fontSize = 12.sp,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(20.dp),
-                    )
-                }
-            }
+            BasicTextField(
+                value = text,
+                onValueChange = { vm.onBodyChanged(slot, it) },
+                textStyle = MaterialTheme.typography.bodyLarge.copy(
+                    color = onSlot,
+                    fontSize = Tokens.bodyTextSize,
+                    lineHeight = Tokens.bodyLineHeight,
+                ),
+                cursorBrush = SolidColor(onSlot),
+                // Hanya halaman yang sedang tampil yang ditata; menata kelima
+                // slot sekaligus berarti empat kali kerja yang tak terlihat.
+                visualTransformation = if (page == pager.currentPage) {
+                    markdown
+                } else {
+                    VisualTransformation.None
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2),
+                decorationBox = { inner ->
+                    if (text.isEmpty()) {
+                        Text(
+                            "Mulai menulis…",
+                            color = onSlot.copy(alpha = 0.5f),
+                            fontSize = Tokens.bodyTextSize,
+                        )
+                    }
+                    inner()
+                },
+            )
         }
+
+        EditorFooter(text = state.draftFor(active), onSlot = onSlot)
+    }
+}
+
+@Composable
+private fun EditorFooter(text: String, onSlot: Color) {
+    val words = remember(text) { text.split(Regex("\\s+")).count { it.isNotBlank() } }
+    val nearLimit = text.length >= Note.BODY_WARN_LENGTH
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        Text(
+            if (nearLimit) {
+                "$words kata · ${text.length} / ${Note.MAX_BODY_LENGTH} karakter"
+            } else {
+                "$words kata · ${text.length} karakter"
+            },
+            color = onSlot.copy(alpha = if (nearLimit) 0.95f else Tokens.FAINT_ON_SLOT),
+            fontSize = Tokens.captionTextSize,
+            fontWeight = if (nearLimit) FontWeight.SemiBold else FontWeight.Normal,
+        )
     }
 }
 
@@ -336,8 +371,8 @@ private fun BottomTabs(selected: Int, todoLabel: String, onSelect: (Int) -> Unit
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
+            horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
         ) {
             TabButton("Catatan", selected == TAB_NOTES, Modifier.weight(1f)) { onSelect(TAB_NOTES) }
             TabButton(todoLabel, selected == TAB_TODOS, Modifier.weight(1f)) { onSelect(TAB_TODOS) }
@@ -355,12 +390,12 @@ private fun TabButton(
     val scheme = MaterialTheme.colorScheme
     Box(
         modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(Tokens.radiusMd))
             .background(
                 if (selected) scheme.onSurface.copy(alpha = 0.07f) else Color.Transparent,
             )
             .clickable(onClick = onClick)
-            .padding(vertical = 11.dp),
+            .padding(vertical = Tokens.space3),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -374,4 +409,3 @@ private fun TabButton(
 
 private const val TAB_NOTES = 0
 private const val TAB_TODOS = 1
-private val DOT_SLOT_SIZE = 28.dp
