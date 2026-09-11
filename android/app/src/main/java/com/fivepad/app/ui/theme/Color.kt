@@ -31,14 +31,16 @@ val SlotAccents = listOf(
 )
 
 /**
- * Opasitas titik slot yang tidak aktif — node 3:87, `opacity="0.24"`.
+ * Opasitas titik slot yang tidak aktif.
  *
- * Sejak latar selayar penuh dilepas, kelima titik inilah satu-satunya pembawa
- * warna slot di layar catatan. Yang aktif tampil penuh, sisanya diredupkan ke
- * seperempatnya sehingga deretannya terbaca sebagai satu titik terang di antara
- * empat yang padam, bukan lima titik yang sama ramainya.
+ * Figma memakai 0,24; nilainya dinaikkan ke 0,40 atas keputusan pemilik produk.
+ * Pada 0,24 titik tidak aktif hanya mencapai 1,5:1 terhadap chrome — memadai
+ * untuk sekadar menandai "bukan yang ini", tapi titik inilah juga kontrol untuk
+ * berpindah slot (FR-1.6), dan sasaran yang nyaris tak terlihat tidak bisa
+ * dibidik. Pada 0,40 nilainya 2,2–2,3:1 dan tetap jelas kalah dari titik aktif,
+ * yang tampil penuh sekaligus bercincin putih.
  */
-const val DOT_INACTIVE_ALPHA = 0.24f
+const val DOT_INACTIVE_ALPHA = 0.40f
 
 /** Garis tepi tipis di dalam setiap titik — `stroke-opacity="0.24"`. */
 val DotStroke = Color.White.copy(alpha = 0.24f)

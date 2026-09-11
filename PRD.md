@@ -150,25 +150,31 @@ Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak
 
 | Elemen | Slot aktif | Slot tidak aktif |
 |---|---|---|
-| Titik penanda | Aksen penuh, lingkaran 24 dp, cincin putih 2 dp **di luar** lingkaran | Aksen pada opasitas **0,24** |
+| Titik penanda | Aksen penuh, lingkaran 24 dp, cincin putih 2 dp **di luar** lingkaran | Aksen pada opasitas **0,40** |
 | Nama catatan | Aksen penuh (5,2–7,3:1 — lolos AA pada kelima slot) | — |
 | Pita 4 dp (node 5:1523) | Aksen penuh, berpola (lihat bawah) | — |
 
 Pita duduk tepat di bawah nama catatan. Saat catatan digulir, **namanya ikut pergi tapi pitanya menempel di tepi atas** — nama slot hanya perlu dilihat sesekali, sedangkan penanda slot tidak boleh pernah hilang dari layar.
 
-**Pola pita — akses buta warna.** Setiap slot punya pola isian sendiri, bukan hanya warna sendiri:
+**Pola pita — akses buta warna.** Setiap slot punya pola isian sendiri, bukan hanya warna sendiri. Polanya mengikuti mode buta warna Trello, dan **tidak ada yang polos** — pola yang polos bukan pola, dan slot yang memakainya akan jadi satu-satunya yang kembali bergantung pada warna saja.
 
-| Slot | Pola |
-|---|---|
-| Slot 1 | Padat |
-| Slot 2 | Garis putus panjang (12 dp isi, 6 dp celah) |
-| Slot 3 | Titik pendek (4 dp isi, 4 dp celah) |
-| Slot 4 | Goresan miring 45° |
-| Slot 5 | Dua rel tipis dengan celah mendatar |
+| Slot | Pola | Ukuran |
+|---|---|---|
+| Slot 1 | Kisi belah ketupat (silang tipis) | goresan 1,2 dp, jarak 9 dp |
+| Slot 2 | Belah ketupat rapat (papan catur diputar 45°) | jarak 4 dp |
+| Slot 3 | Goresan miring kanan 45° | isi 3 dp, jarak 8 dp |
+| Slot 4 | Goresan tegak | isi 2 dp, jarak 5 dp |
+| Slot 5 | Goresan miring kiri 45° | isi 3 dp, jarak 8 dp |
 
-Sekitar satu dari dua belas pria mengalami buta warna merah-hijau; bagi mereka Slot 1 (oranye) dan Slot 3 (hijau) adalah dua rona lumpur yang nyaris sama. Sejak latar selayar penuh dilepas, warna adalah satu-satunya yang menjawab "saya di slot mana" — pola menjadikannya dua saluran, sesuai NFR-8. Pembedanya adalah **panjang goresan dan arah**, bukan kerapatan saja: pada pita 4 dp, dua pola yang hanya berbeda kerapatan akan terbaca sama saat dilihat sambil lalu. Polanya selalu menyala tanpa sakelar — aksesibilitas di balik pengaturan adalah aksesibilitas yang tidak pernah ditemukan orang yang membutuhkannya, dan pada pita 4 dp biayanya bagi yang lain praktis nol.
+Pola dibentuk oleh **dua nada dari warna aksen yang sama** — aksen penuh sebagai dasar, dan aksen yang dicampur 38% putih sebagai goresan. Bukan aksen lawan celah kosong: celah kosong berarti latar hampir-hitam ikut jadi bagian pola, hasilnya pita yang terlihat rusak dan bertepi gerigi.
 
-Titik tidak aktif hanya mencapai **1,5–1,6:1** terhadap chrome. Sebagai *state* tidak-terpilih itu memang tujuannya, tapi titik inilah kontrol utama untuk berpindah slot (FR-1.6): pada 0,24 sasarannya sulit terlihat di bawah cahaya terang atau bagi mata yang lemah. Menaikkannya ke 0,40 memberi 2,2–2,3:1 tanpa mengganggu perbedaan dengan titik aktif, dan itu satu baris di `Color.kt`. Pita berpola meringankan sebagian masalah ini — slot yang sedang aktif kini punya penanda yang tidak bergantung pada kemampuan membedakan lima titik redup — tapi tidak menghapusnya, karena yang perlu terlihat saat hendak berpindah justru titik tujuannya.
+Sekitar satu dari dua belas pria mengalami buta warna merah-hijau; bagi mereka Slot 1 (oranye) dan Slot 3 (hijau) adalah dua rona lumpur yang nyaris sama. Sejak latar selayar penuh dilepas, warna adalah satu-satunya yang menjawab "saya di slot mana" — pola menjadikannya dua saluran, sesuai NFR-8.
+
+Slot 1 dan Slot 2 adalah pasangan paling berisiko tertukar, karena keduanya berbasis belah ketupat. Yang memisahkannya dibuat dua lapis: **figur lawan dasar** (Slot 1 didominasi aksen dengan kisi tipis di atasnya, Slot 2 didominasi nada terang dengan segitiga aksen di sela-selanya) dan **skala** (9 dp lawan 4 dp). Satu lapis saja tidak cukup — pada pita setinggi 4 dp, dua pola yang hanya berbeda kerapatan akan terbaca sama saat dilihat sambil lalu.
+
+Polanya selalu menyala tanpa sakelar — aksesibilitas di balik pengaturan adalah aksesibilitas yang tidak pernah ditemukan orang yang membutuhkannya, dan pada pita 4 dp biayanya bagi yang lain praktis nol.
+
+Opasitas titik tidak aktif dinaikkan dari 0,24 (nilai Figma) ke **0,40**. Pada 0,24 titik tidak aktif hanya mencapai 1,5–1,6:1 terhadap chrome — memadai untuk sekadar menandai "bukan yang ini", tapi titik inilah juga kontrol untuk berpindah slot (FR-1.6), dan sasaran yang nyaris tak terlihat tidak bisa dibidik. Pada 0,40 nilainya **1,95–2,30:1** (Slot 5 ungu yang terendah) dan tetap jelas kalah dari titik aktif, yang tampil penuh sekaligus bercincin putih.
 
 Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama seperti penanda Markdown. Isi catatan sendiri putih penuh, 15,7:1.
 
