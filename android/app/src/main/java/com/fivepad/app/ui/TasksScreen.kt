@@ -4,6 +4,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,12 +40,18 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -96,6 +103,8 @@ fun TasksScreen(
     onRenameGroup: (String, String) -> Unit,
     onDeleteGroup: (String) -> Unit,
     onSetDue: (String, Long?) -> Unit,
+    onMoveTask: (List<Todo>, Int, Int) -> Unit,
+    onMoveGroup: (Int, Int) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     var pendingUndo by remember { mutableStateOf<String?>(null) }
@@ -139,25 +148,17 @@ fun TasksScreen(
                         )
 
                         if (section.todos.isNotEmpty()) {
-                            // Sudut luar 12 dp memangkas baris pertama dan terakhir,
-                            // sementara tiap baris tetap punya sudut 4 dp-nya sendiri.
-                            Column(
-                                Modifier.clip(RoundedCornerShape(BLOCK_RADIUS)),
-                                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-                            ) {
-                                section.todos.forEach { todo ->
-                                    TaskRow(
-                                        todo = todo,
-                                        onToggle = { onToggle(todo.id, it) },
-                                        onOptions = { taskOptions = todo },
-                                        onRename = { renamingTask = todo },
-                                        onDelete = {
-                                            onDeleteTask(todo.id)
-                                            pendingUndo = todo.id
-                                        },
-                                    )
-                                }
-                            }
+                            TaskBlock(
+                                todos = section.todos,
+                                onToggle = onToggle,
+                                onOptions = { taskOptions = it },
+                                onRename = { renamingTask = it },
+                                onDelete = {
+                                    onDeleteTask(it)
+                                    pendingUndo = it
+                                },
+                                onMove = { from, to -> onMoveTask(section.todos, from, to) },
+                            )
                         }
 
                         InlineAddRow(
@@ -310,6 +311,20 @@ fun TasksScreen(
                     onClick = { renamingGroup = group },
                 ),
                 SheetAction(
+                    label = stringResource(R.string.move_up),
+                    onClick = {
+                        val i = state.groups.indexOfFirst { it.id == group.id }
+                        if (i > 0) onMoveGroup(i, i - 1)
+                    },
+                ),
+                SheetAction(
+                    label = stringResource(R.string.move_down),
+                    onClick = {
+                        val i = state.groups.indexOfFirst { it.id == group.id }
+                        if (i >= 0 && i < state.groups.lastIndex) onMoveGroup(i, i + 1)
+                    },
+                ),
+                SheetAction(
                     label = stringResource(R.string.group_delete),
                     // Menyebut apa yang TIDAK terjadi, karena itulah yang
                     // ditakutkan saat menghapus wadah berisi sesuatu.
@@ -398,6 +413,110 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun TaskBlock(
+    todos: List<Todo>,
+    onToggle: (String, Boolean) -> Unit,
+    onOptions: (Todo) -> Unit,
+    onRename: (Todo) -> Unit,
+    onDelete: (String) -> Unit,
+    onMove: (Int, Int) -> Unit,
+) {
+    var draggingIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    // Tinggi baris tidak seragam — baris berjatuh tempo punya baris kedua — jadi
+    // sasaran jatuhnya dihitung dari tinggi terukur, bukan angka tetap.
+    val heights = remember(todos.size) { mutableStateMapOf<Int, Int>() }
+
+    // Sudut luar 12 dp memangkas baris pertama dan terakhir, sementara tiap baris
+    // tetap punya sudut 4 dp-nya sendiri.
+    Column(
+        Modifier.clip(RoundedCornerShape(BLOCK_RADIUS)),
+        verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+    ) {
+        todos.forEachIndexed { index, todo ->
+            val dragging = draggingIndex == index
+            Box(
+                Modifier
+                    .onGloballyPositioned { heights[index] = it.size.height }
+                    // Baris yang diseret harus menimpa tetangganya saat melintas.
+                    .zIndex(if (dragging) 1f else 0f)
+                    .graphicsLayer {
+                        translationY = if (dragging) dragOffset else 0f
+                        scaleX = if (dragging) 1.02f else 1f
+                        scaleY = if (dragging) 1.02f else 1f
+                    }
+                    .pointerInput(todo.id, todos.size) {
+                        // Setelah tekan-lama, bukan langsung: geser mendatar tetap
+                        // milik hapus/ubah-nama, dan gulir daftar tidak terganggu.
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                draggingIndex = index
+                                dragOffset = 0f
+                            },
+                            onDrag = { change, amount ->
+                                change.consume()
+                                dragOffset += amount.y
+                            },
+                            onDragEnd = {
+                                onMove(index, dropTarget(index, dragOffset, heights, todos.size))
+                                draggingIndex = null
+                                dragOffset = 0f
+                            },
+                            onDragCancel = {
+                                draggingIndex = null
+                                dragOffset = 0f
+                            },
+                        )
+                    },
+            ) {
+                TaskRow(
+                    todo = todo,
+                    onToggle = { onToggle(todo.id, it) },
+                    onOptions = { onOptions(todo) },
+                    onRename = { onRename(todo) },
+                    onDelete = { onDelete(todo.id) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Indeks tujuan sebuah baris yang digeser sejauh [offset] piksel.
+ *
+ * Baris dianggap melewati tetangganya begitu tergeser lebih dari setengah tinggi
+ * tetangga itu — ambang yang sama dipakai daftar bawaan sistem, sehingga jatuhnya
+ * terasa sesuai dugaan alih-alih meloncat terlalu cepat atau terlambat.
+ */
+private fun dropTarget(from: Int, offset: Float, heights: Map<Int, Int>, count: Int): Int {
+    var index = from
+    var travelled = 0f
+
+    if (offset > 0f) {
+        while (index < count - 1) {
+            val next = (heights[index + 1] ?: 0).toFloat()
+            if (next > 0f && offset - travelled > next / 2f) {
+                travelled += next
+                index++
+            } else {
+                break
+            }
+        }
+    } else if (offset < 0f) {
+        while (index > 0) {
+            val previous = (heights[index - 1] ?: 0).toFloat()
+            if (previous > 0f && -offset - travelled > previous / 2f) {
+                travelled += previous
+                index--
+            } else {
+                break
+            }
+        }
+    }
+    return index
 }
 
 /**

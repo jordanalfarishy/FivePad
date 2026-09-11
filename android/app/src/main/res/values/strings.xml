@@ -61,4 +61,6 @@
     <string name="due_pick">Pick a date…</string>
     <string name="due_overdue">Overdue</string>
     <string name="permission_notifications_denied">Reminders need notification permission. You can grant it in system settings.</string>
+    <string name="move_up">Move up</string>
+    <string name="move_down">Move down</string>
 </resources>

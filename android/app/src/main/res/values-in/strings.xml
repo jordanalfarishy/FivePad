@@ -58,4 +58,6 @@
     <string name="due_pick">Pilih tanggal…</string>
     <string name="due_overdue">Terlambat</string>
     <string name="permission_notifications_denied">Pengingat butuh izin notifikasi. Kamu bisa memberikannya di pengaturan sistem.</string>
+    <string name="move_up">Naikkan</string>
+    <string name="move_down">Turunkan</string>
 </resources>

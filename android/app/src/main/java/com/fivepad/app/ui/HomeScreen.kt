@@ -156,6 +156,8 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                         onRenameGroup = vm::renameGroup,
                         onDeleteGroup = vm::deleteGroup,
                         onSetDue = vm::setTodoDue,
+                        onMoveTask = vm::moveTodo,
+                        onMoveGroup = { from, to -> vm.moveGroup(state.groups, from, to) },
                     )
                 }
             }

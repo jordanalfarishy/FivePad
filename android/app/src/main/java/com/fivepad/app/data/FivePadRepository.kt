@@ -50,6 +50,26 @@ class FivePadRepository(private val db: FivePadDatabase) {
 
     suspend fun pendingReminders(now: Long): List<Todo> = todos.pendingReminders(now)
 
+    /**
+     * Menempatkan sebuah baris di antara dua tetangganya.
+     *
+     * Karena posisi bertipe pecahan, menyisipkan cukup mengambil nilai tengah —
+     * hanya satu baris yang ditulis, bukan seluruh daftar. Itu penting saat
+     * sinkronisasi masuk di M2: satu baris berubah berarti satu baris dikirim.
+     */
+    private fun between(before: Double?, after: Double?): Double = when {
+        before == null && after == null -> POSITION_GAP
+        before == null -> after!! - POSITION_GAP
+        after == null -> before + POSITION_GAP
+        else -> (before + after) / 2
+    }
+
+    suspend fun moveTodo(id: String, before: Double?, after: Double?) =
+        todos.setPosition(id, between(before, after), now())
+
+    suspend fun moveGroup(id: String, before: Double?, after: Double?) =
+        groups.setPosition(id, between(before, after), now())
+
     suspend fun deleteTodo(id: String) = todos.softDelete(id, now())
 
     suspend fun restoreTodo(id: String) = todos.restore(id, now())

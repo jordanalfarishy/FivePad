@@ -21,8 +21,14 @@ interface NoteDao {
 @Dao
 interface TodoDao {
 
-    /** Selesai turun ke bawah (FR-2.8), sisanya mengikuti urutan manual. */
-    @Query("SELECT * FROM todos WHERE deletedAt IS NULL ORDER BY done ASC, position ASC")
+    /**
+     * Selesai turun ke bawah (FR-2.8), sisanya mengikuti urutan manual.
+     *
+     * `id` menutup kemungkinan seri: posisi pecahan biasanya unik, tapi dua
+     * baris bisa kebetulan bernilai sama, dan tanpa pemecah-seri urutannya
+     * jadi tak tentu — daftar yang berubah sendiri antar pembukaan.
+     */
+    @Query("SELECT * FROM todos WHERE deletedAt IS NULL ORDER BY done ASC, position ASC, id ASC")
     fun observeActive(): Flow<List<Todo>>
 
     @Query("SELECT COALESCE(MAX(position), 0.0) FROM todos WHERE deletedAt IS NULL")
@@ -49,6 +55,9 @@ interface TodoDao {
     @Query("UPDATE todos SET dueAt = :dueAt, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun setDue(id: String, dueAt: Long?, now: Long)
 
+    @Query("UPDATE todos SET position = :position, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
+    suspend fun setPosition(id: String, position: Double, now: Long)
+
     @Query("SELECT * FROM todos WHERE id = :id")
     suspend fun find(id: String): Todo?
 
@@ -71,7 +80,7 @@ interface TodoDao {
 @Dao
 interface TodoGroupDao {
 
-    @Query("SELECT * FROM todo_groups WHERE deletedAt IS NULL ORDER BY position ASC")
+    @Query("SELECT * FROM todo_groups WHERE deletedAt IS NULL ORDER BY position ASC, id ASC")
     fun observeActive(): Flow<List<TodoGroup>>
 
     @Query("SELECT COALESCE(MAX(position), 0.0) FROM todo_groups WHERE deletedAt IS NULL")
@@ -85,4 +94,7 @@ interface TodoGroupDao {
 
     @Query("UPDATE todo_groups SET deletedAt = :now, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun softDelete(id: String, now: Long)
+
+    @Query("UPDATE todo_groups SET position = :position, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
+    suspend fun setPosition(id: String, position: Double, now: Long)
 }

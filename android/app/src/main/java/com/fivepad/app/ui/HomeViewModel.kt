@@ -160,6 +160,45 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * [from] dan [to] adalah indeks pada daftar yang sedang tampil, bukan pada
+     * basis data — pengguna menyeret apa yang dilihatnya. Tetangga di posisi
+     * tujuan yang menentukan nilai posisi barunya.
+     */
+    fun moveTodo(sectionTodos: List<Todo>, from: Int, to: Int) {
+        if (from == to) return
+        val moving = sectionTodos.getOrNull(from) ?: return
+        val reordered = sectionTodos.toMutableList().apply {
+            removeAt(from)
+            add(to.coerceIn(0, size), moving)
+        }
+        val index = reordered.indexOfFirst { it.id == moving.id }
+        viewModelScope.launch {
+            repo.moveTodo(
+                id = moving.id,
+                before = reordered.getOrNull(index - 1)?.position,
+                after = reordered.getOrNull(index + 1)?.position,
+            )
+        }
+    }
+
+    fun moveGroup(groups: List<TodoGroup>, from: Int, to: Int) {
+        if (from == to) return
+        val moving = groups.getOrNull(from) ?: return
+        val reordered = groups.toMutableList().apply {
+            removeAt(from)
+            add(to.coerceIn(0, size), moving)
+        }
+        val index = reordered.indexOfFirst { it.id == moving.id }
+        viewModelScope.launch {
+            repo.moveGroup(
+                id = moving.id,
+                before = reordered.getOrNull(index - 1)?.position,
+                after = reordered.getOrNull(index + 1)?.position,
+            )
+        }
+    }
+
     fun addGroup(name: String) = viewModelScope.launch { repo.addGroup(name) }
 
     fun renameGroup(id: String, name: String) = viewModelScope.launch { repo.renameGroup(id, name) }
