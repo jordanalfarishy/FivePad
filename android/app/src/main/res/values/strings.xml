@@ -49,4 +49,16 @@
     <string name="dialog_add">Add</string>
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_save">Save</string>
+    <string name="reminder_channel_name">Task reminders</string>
+    <string name="reminder_channel_description">Notifies you when a task is due</string>
+    <string name="reminder_title">Task due</string>
+    <string name="due_set">Set due date</string>
+    <string name="due_change">Change due date</string>
+    <string name="due_remove">Remove due date</string>
+    <string name="due_today">Today, 6:00 PM</string>
+    <string name="due_tomorrow">Tomorrow, 9:00 AM</string>
+    <string name="due_next_week">Next week</string>
+    <string name="due_pick">Pick a date…</string>
+    <string name="due_overdue">Overdue</string>
+    <string name="permission_notifications_denied">Reminders need notification permission. You can grant it in system settings.</string>
 </resources>

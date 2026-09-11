@@ -46,6 +46,19 @@ interface TodoDao {
     @Query("UPDATE todos SET groupId = :groupId, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun setGroup(id: String, groupId: String?, now: Long)
 
+    @Query("UPDATE todos SET dueAt = :dueAt, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
+    suspend fun setDue(id: String, dueAt: Long?, now: Long)
+
+    @Query("SELECT * FROM todos WHERE id = :id")
+    suspend fun find(id: String): Todo?
+
+    /** Tugas yang masih menunggu pengingat — dipakai menjadwalkan ulang sesudah reboot. */
+    @Query(
+        "SELECT * FROM todos WHERE deletedAt IS NULL AND done = 0 " +
+            "AND dueAt IS NOT NULL AND dueAt > :now",
+    )
+    suspend fun pendingReminders(now: Long): List<Todo>
+
     /**
      * FR-2.15: menghapus grup mengembalikan tugasnya menjadi tanpa grup,
      * bukan ikut menghapusnya. Penghapusan data tidak boleh jadi efek samping

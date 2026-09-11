@@ -44,6 +44,12 @@ class FivePadRepository(private val db: FivePadDatabase) {
 
     suspend fun setTodoGroup(id: String, groupId: String?) = todos.setGroup(id, groupId, now())
 
+    suspend fun setTodoDue(id: String, dueAt: Long?) = todos.setDue(id, dueAt, now())
+
+    suspend fun findTodo(id: String): Todo? = todos.find(id)
+
+    suspend fun pendingReminders(now: Long): List<Todo> = todos.pendingReminders(now)
+
     suspend fun deleteTodo(id: String) = todos.softDelete(id, now())
 
     suspend fun restoreTodo(id: String) = todos.restore(id, now())

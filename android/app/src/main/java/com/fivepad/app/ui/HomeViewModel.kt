@@ -1,5 +1,6 @@
 package com.fivepad.app.ui
 
+import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
@@ -10,6 +11,7 @@ import com.fivepad.app.data.FivePadRepository
 import com.fivepad.app.data.Note
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
+import com.fivepad.app.reminder.Reminders
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +55,10 @@ data class HomeUiState(
         }
 }
 
-class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
+class HomeViewModel(
+    private val repo: FivePadRepository,
+    private val app: Application,
+) : ViewModel() {
 
     private val drafts = MutableStateFlow<Map<Int, String>>(emptyMap())
 
@@ -101,13 +106,59 @@ class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
         repo.addTodo(text, groupId)
     }
 
-    fun setTodoDone(id: String, done: Boolean) = viewModelScope.launch { repo.setTodoDone(id, done) }
+    /**
+     * Menyelesaikan tugas juga mematikan pengingatnya, dan membatalkan centang
+     * menghidupkannya lagi bila jatuh temponya belum lewat. Tanpa ini, tugas
+     * yang sudah selesai tetap berdering — gangguan yang membuat orang mematikan
+     * notifikasi aplikasi sepenuhnya.
+     */
+    fun setTodoDone(id: String, done: Boolean) = viewModelScope.launch {
+        repo.setTodoDone(id, done)
+        if (done) {
+            Reminders.cancel(app, id)
+        } else {
+            val todo = repo.findTodo(id)
+            val due = todo?.dueAt
+            if (todo != null && due != null && due > System.currentTimeMillis()) {
+                Reminders.schedule(app, id, todo.text, due)
+            }
+        }
+    }
 
-    fun setTodoText(id: String, text: String) = viewModelScope.launch { repo.setTodoText(id, text) }
+    fun setTodoDue(id: String, dueAt: Long?) = viewModelScope.launch {
+        repo.setTodoDue(id, dueAt)
+        val todo = repo.findTodo(id)
+        if (dueAt != null && todo != null && !todo.done) {
+            Reminders.schedule(app, id, todo.text, dueAt)
+        } else {
+            Reminders.cancel(app, id)
+        }
+    }
 
-    fun deleteTodo(id: String) = viewModelScope.launch { repo.deleteTodo(id) }
+    fun setTodoText(id: String, text: String) = viewModelScope.launch {
+        repo.setTodoText(id, text)
+        // Teks tugas ikut terbawa ke dalam notifikasi, jadi alarm dijadwalkan
+        // ulang supaya isinya tidak basi saat berbunyi nanti.
+        val todo = repo.findTodo(id)
+        val due = todo?.dueAt
+        if (todo != null && due != null && !todo.done && due > System.currentTimeMillis()) {
+            Reminders.schedule(app, id, todo.text, due)
+        }
+    }
 
-    fun restoreTodo(id: String) = viewModelScope.launch { repo.restoreTodo(id) }
+    fun deleteTodo(id: String) = viewModelScope.launch {
+        repo.deleteTodo(id)
+        Reminders.cancel(app, id)
+    }
+
+    fun restoreTodo(id: String) = viewModelScope.launch {
+        repo.restoreTodo(id)
+        val todo = repo.findTodo(id)
+        val due = todo?.dueAt
+        if (todo != null && due != null && !todo.done && due > System.currentTimeMillis()) {
+            Reminders.schedule(app, id, todo.text, due)
+        }
+    }
 
     fun addGroup(name: String) = viewModelScope.launch { repo.addGroup(name) }
 
@@ -121,7 +172,7 @@ class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as FivePadApplication
-                HomeViewModel(app.repository)
+                HomeViewModel(app.repository, app)
             }
         }
     }

@@ -1,5 +1,8 @@
 package com.fivepad.app.ui
 
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
@@ -21,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +34,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,12 +95,23 @@ fun TasksScreen(
     onAddGroup: (String) -> Unit,
     onRenameGroup: (String, String) -> Unit,
     onDeleteGroup: (String) -> Unit,
+    onSetDue: (String, Long?) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     var pendingUndo by remember { mutableStateOf<String?>(null) }
     var groupOptions by remember { mutableStateOf<TodoGroup?>(null) }
     var renamingGroup by remember { mutableStateOf<TodoGroup?>(null) }
     var renamingTask by remember { mutableStateOf<Todo?>(null) }
+    var taskOptions by remember { mutableStateOf<Todo?>(null) }
+    var duePicker by remember { mutableStateOf<Todo?>(null) }
+    var showDatePicker by remember { mutableStateOf<Todo?>(null) }
+
+    // Izin diminta saat pengguna benar-benar memasang jatuh tempo, bukan di
+    // pembukaan pertama: permintaan tanpa konteks lebih sering ditolak, dan
+    // aplikasi ini berguna penuh tanpa notifikasi.
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* ditolak pun jatuh temponya tetap tersimpan, hanya tanpa pengingat */ }
 
     LaunchedEffect(pendingUndo) {
         if (pendingUndo != null) {
@@ -131,7 +149,7 @@ fun TasksScreen(
                                     TaskRow(
                                         todo = todo,
                                         onToggle = { onToggle(todo.id, it) },
-                                        onEdit = { onEditTask(todo.id, it) },
+                                        onOptions = { taskOptions = todo },
                                         onRename = { renamingTask = todo },
                                         onDelete = {
                                             onDeleteTask(todo.id)
@@ -193,6 +211,94 @@ fun TasksScreen(
                 }) { Text(stringResource(R.string.task_undo)) }
             }
         }
+    }
+
+    taskOptions?.let { todo ->
+        OptionsSheet(
+            title = todo.text,
+            actions = buildList {
+                add(
+                    SheetAction(
+                        label = stringResource(R.string.group_rename),
+                        onClick = { renamingTask = todo },
+                    ),
+                )
+                add(
+                    SheetAction(
+                        label = stringResource(
+                            if (todo.dueAt == null) R.string.due_set else R.string.due_change,
+                        ),
+                        description = todo.dueAt?.let { DueDates.format(it) },
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermission.launch(
+                                    android.Manifest.permission.POST_NOTIFICATIONS,
+                                )
+                            }
+                            duePicker = todo
+                        },
+                    ),
+                )
+                if (todo.dueAt != null) {
+                    add(
+                        SheetAction(
+                            label = stringResource(R.string.due_remove),
+                            onClick = { onSetDue(todo.id, null) },
+                        ),
+                    )
+                }
+                add(
+                    SheetAction(
+                        label = stringResource(R.string.task_delete),
+                        destructive = true,
+                        onClick = { onDeleteTask(todo.id); pendingUndo = todo.id },
+                    ),
+                )
+            },
+            onDismiss = { taskOptions = null },
+        )
+    }
+
+    duePicker?.let { todo ->
+        OptionsSheet(
+            title = stringResource(R.string.due_set),
+            actions = listOf(
+                SheetAction(stringResource(R.string.due_today)) {
+                    onSetDue(todo.id, DueDates.todayEvening())
+                },
+                SheetAction(stringResource(R.string.due_tomorrow)) {
+                    onSetDue(todo.id, DueDates.tomorrowMorning())
+                },
+                SheetAction(stringResource(R.string.due_next_week)) {
+                    onSetDue(todo.id, DueDates.nextWeek())
+                },
+                SheetAction(stringResource(R.string.due_pick)) { showDatePicker = todo },
+            ),
+            onDismiss = { duePicker = null },
+        )
+    }
+
+    showDatePicker?.let { todo ->
+        val pickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let {
+                            onSetDue(todo.id, DueDates.fromPickedDate(it))
+                        }
+                        showDatePicker = null
+                    },
+                    enabled = pickerState.selectedDateMillis != null,
+                ) { Text(stringResource(R.string.dialog_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = null }) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
+        ) { DatePicker(state = pickerState) }
     }
 
     groupOptions?.let { group ->
@@ -401,7 +507,7 @@ private fun InlineAddRow(
 private fun TaskRow(
     todo: Todo,
     onToggle: (Boolean) -> Unit,
-    onEdit: (String) -> Unit,
+    onOptions: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -445,25 +551,24 @@ private fun TaskRow(
             }
         },
     ) {
-        var text by remember(todo.id, todo.text) { mutableStateOf(todo.text) }
-
         Row(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(ROW_RADIUS))
                 .background(scheme.surfaceContainer)
-                .height(TASK_ROW_HEIGHT)
-                .padding(horizontal = ROW_PAD),
+                .clickable(onClick = onOptions)
+                // Minimum, bukan tinggi pasti: baris dengan jatuh tempo perlu
+                // ruang untuk barisan keduanya.
+                .heightIn(min = TASK_ROW_HEIGHT)
+                .padding(horizontal = ROW_PAD, vertical = Tokens.space2),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Checkbox(done = todo.done, onToggle = { onToggle(!todo.done) })
 
-            BasicTextField(
-                value = text,
-                onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
+            Column(Modifier.weight(1f)) {
+                Text(
+                    todo.text,
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
                     color = if (todo.done) {
@@ -472,13 +577,29 @@ private fun TaskRow(
                         scheme.onSurface
                     },
                     textDecoration = if (todo.done) TextDecoration.LineThrough else null,
-                ),
-                modifier = Modifier
-                    .weight(1f)
-                    .onFocusChanged { focus ->
-                        if (!focus.isFocused && text != todo.text) onEdit(text)
-                    },
-            )
+                )
+
+                todo.dueAt?.let { due ->
+                    val overdue = !todo.done && DueDates.isOverdue(due)
+                    Text(
+                        // NFR-8 melarang warna jadi satu-satunya pembeda, jadi
+                        // keterlambatan juga dinyatakan dengan kata, bukan merah saja.
+                        if (overdue) {
+                            "${stringResource(R.string.due_overdue)} · ${DueDates.format(due)}"
+                        } else {
+                            DueDates.format(due)
+                        },
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = if (overdue) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (overdue) {
+                            scheme.error
+                        } else {
+                            scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS)
+                        },
+                    )
+                }
+            }
         }
     }
 }
