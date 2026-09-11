@@ -10,17 +10,6 @@ import androidx.compose.ui.graphics.Color
 /** Warna aksen titik slot. */
 val LocalSlotAccents = staticCompositionLocalOf { SlotAccents }
 
-/** Warna latar selayar penuh per slot. */
-val LocalSlotSurfaces = staticCompositionLocalOf { SlotSurfaces }
-
-/** Warna teks di atas latar slot. */
-val LocalOnSlot = staticCompositionLocalOf { OnSlotInk }
-
-/** Teks sekunder di atas latar slot — sudah beralpha, langsung pakai. */
-val LocalOnSlotSecondary = staticCompositionLocalOf {
-    OnSlotInk.copy(alpha = SECONDARY_ALPHA_ON_SLOT)
-}
-
 private val Scheme = darkColorScheme(
     primary = Accent,
     onPrimary = Color(0xFFFFFFFF),
@@ -38,12 +27,7 @@ private val Scheme = darkColorScheme(
 
 @Composable
 fun FivePadTheme(content: @Composable () -> Unit) {
-    CompositionLocalProvider(
-        LocalSlotAccents provides SlotAccents,
-        LocalSlotSurfaces provides SlotSurfaces,
-        LocalOnSlot provides OnSlotInk,
-        LocalOnSlotSecondary provides OnSlotInk.copy(alpha = SECONDARY_ALPHA_ON_SLOT),
-    ) {
+    CompositionLocalProvider(LocalSlotAccents provides SlotAccents) {
         MaterialTheme(colorScheme = Scheme, content = content)
     }
 }

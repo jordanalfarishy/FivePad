@@ -1,9 +1,6 @@
 package com.fivepad.app.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -53,10 +50,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -79,16 +76,14 @@ import com.fivepad.app.data.Note
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
 import com.fivepad.app.ui.markdown.checkboxAt
 import com.fivepad.app.ui.markdown.toggleCheckbox
-import com.fivepad.app.ui.theme.ChromeOnSlot
-import com.fivepad.app.ui.theme.HairlineOnSlot
-import com.fivepad.app.ui.theme.LocalOnSlot
-import com.fivepad.app.ui.theme.LocalOnSlotSecondary
+import com.fivepad.app.ui.theme.AppBar
+import com.fivepad.app.ui.theme.DOT_INACTIVE_ALPHA
+import com.fivepad.app.ui.theme.DotRing
+import com.fivepad.app.ui.theme.DotStroke
+import com.fivepad.app.ui.theme.Hairline
 import com.fivepad.app.ui.theme.LocalSlotAccents
-import com.fivepad.app.ui.theme.LocalSlotSurfaces
-import com.fivepad.app.ui.theme.PillActiveOnSlot
-import com.fivepad.app.ui.theme.TasksBar
+import com.fivepad.app.ui.theme.PillActive
 import com.fivepad.app.ui.theme.Tokens
-import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 @Composable
@@ -110,7 +105,6 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(TAB_NOTES) }
     val pager = rememberPagerState(pageCount = { Note.SLOT_COUNT })
     val scope = rememberCoroutineScope()
-    val surfaces = LocalSlotSurfaces.current
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -123,23 +117,9 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
 
     val notesActive = tab == TAB_NOTES
 
-    val swipeTint = run {
-        val offset = pager.currentPageOffsetFraction
-        val neighbour = (pager.currentPage + if (offset >= 0f) 1 else -1)
-            .coerceIn(0, surfaces.lastIndex)
-        lerp(surfaces[pager.currentPage], surfaces[neighbour], abs(offset).coerceIn(0f, 1f))
-    }
-
-    val background by animateColorAsState(
-        targetValue = if (notesActive) swipeTint else MaterialTheme.colorScheme.background,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "background",
-    )
-
-    // Di tab catatan chrome adalah putih 6% yang membiarkan warna slot menembus,
-    // jadi kelima slot tetap terbaca sebagai satu aplikasi. Di tab tugas warna
-    // slot tidak ada, jadi bilahnya memakai warna padatnya sendiri.
-    val bar = if (notesActive) ChromeOnSlot else TasksBar
+    // Kedua tab memakai permukaan yang sama persis. Warna slot tidak lagi
+    // mengisi layar; yang membawanya tinggal titik penanda dan nama catatan.
+    val background = MaterialTheme.colorScheme.background
 
     Box(
         Modifier
@@ -155,12 +135,11 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                 Modifier
                     .fillMaxWidth()
                     .windowInsetsTopHeight(WindowInsets.statusBars)
-                    .background(bar),
+                    .background(AppBar),
             )
 
             TopBar(
                 notesActive = notesActive,
-                bar = bar,
                 activeSlot = pager.currentPage + 1,
                 onOpenSettings = onOpenSettings,
                 onSelectSlot = { slot ->
@@ -171,7 +150,7 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
 
             Box(Modifier.weight(1f)) {
                 if (notesActive) {
-                    NotesPane(state = state, vm = vm, pager = pager, bar = bar)
+                    NotesPane(state = state, vm = vm, pager = pager)
                 } else {
                     TasksScreen(
                         state = state,
@@ -195,7 +174,6 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                 doneCount = state.doneCount,
                 totalCount = state.totalCount,
                 onSelect = { tab = it },
-                container = bar,
             )
         }
     }
@@ -204,20 +182,19 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
 @Composable
 private fun TopBar(
     notesActive: Boolean,
-    bar: Color,
     activeSlot: Int,
     onOpenSettings: () -> Unit,
     onSelectSlot: (Int) -> Unit,
 ) {
     val accents = LocalSlotAccents.current
-    val ink = LocalOnSlot.current
+    val ink = MaterialTheme.colorScheme.onSurface
 
     Column {
         Row(
             Modifier
                 .fillMaxWidth()
                 .height(Tokens.topBarHeight)
-                .background(bar),
+                .background(AppBar),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -245,7 +222,6 @@ private fun TopBar(
                             SlotDot(
                                 colour = accents[slot - 1],
                                 selected = slot == activeSlot,
-                                ring = ink,
                                 slot = slot,
                                 onClick = { onSelectSlot(slot) },
                             )
@@ -270,7 +246,7 @@ private fun TopBar(
 
         // Bilah atas catatan tidak bergaris — pemisahnya ada di bawah baris
         // judul, yang ikut menggulung bersama isinya.
-        if (!notesActive) HorizontalDivider(color = HairlineOnSlot)
+        if (!notesActive) HorizontalDivider(color = Hairline)
     }
 }
 
@@ -281,12 +257,16 @@ private fun TopBar(
  * [requiredSize] yang menembus batasan induk. 40 dp, bukan 48: jarak antar
  * pusat titik hanya 40 dp, jadi sasaran yang lebih lebar akan saling tindih dan
  * membuat titik tetangga mencuri ketukan.
+ *
+ * Cincin titik aktif digambar DI LUAR lingkaran 24 dp, bukan di dalamnya —
+ * di Figma ia sebuah drop shadow putih berjari-jari 2 dp, dan kotak tata
+ * letaknya tetap 24 dp. Menggambarnya ke dalam akan memakan warna slot justru
+ * pada titik yang paling perlu terlihat.
  */
 @Composable
 private fun SlotDot(
     colour: Color,
     selected: Boolean,
-    ring: Color,
     slot: Int,
     onClick: () -> Unit,
 ) {
@@ -304,17 +284,19 @@ private fun SlotDot(
                 .semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
         ) {
+            if (selected) {
+                Box(
+                    Modifier
+                        .requiredSize(Tokens.dot + Tokens.dotRing * 2)
+                        .background(DotRing, CircleShape),
+                )
+            }
             Box(
                 Modifier
                     .size(Tokens.dot)
+                    .alpha(if (selected) 1f else DOT_INACTIVE_ALPHA)
                     .background(colour, CircleShape)
-                    .then(
-                        if (selected) {
-                            Modifier.border(Tokens.dotRing, ring, CircleShape)
-                        } else {
-                            Modifier
-                        },
-                    ),
+                    .border(1.dp, DotStroke, CircleShape),
             )
         }
     }
@@ -326,10 +308,9 @@ private fun BottomNav(
     doneCount: Int,
     totalCount: Int,
     onSelect: (Int) -> Unit,
-    container: Color,
 ) {
-    Column(Modifier.background(container)) {
-        HorizontalDivider(color = HairlineOnSlot)
+    Column(Modifier.background(AppBar)) {
+        HorizontalDivider(color = Hairline)
         Row(
             Modifier
                 .fillMaxWidth()
@@ -344,7 +325,7 @@ private fun BottomNav(
                 Icon(
                     painterResource(R.drawable.ic_notes),
                     contentDescription = null,
-                    tint = LocalOnSlot.current,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(Tokens.space6),
                 )
             }
@@ -362,7 +343,7 @@ private fun BottomNav(
                 Icon(
                     painterResource(R.drawable.ic_tasks),
                     contentDescription = null,
-                    tint = LocalOnSlot.current,
+                    tint = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(Tokens.space6),
                 )
             }
@@ -384,7 +365,7 @@ private fun NavItem(
     onClick: () -> Unit,
     icon: @Composable () -> Unit,
 ) {
-    val ink = LocalOnSlot.current
+    val ink = MaterialTheme.colorScheme.onSurface
 
     Box(modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
         Row(
@@ -392,7 +373,7 @@ private fun NavItem(
                 .width(Tokens.pillWidth)
                 .height(Tokens.pillHeight)
                 .clip(RoundedCornerShape(Tokens.radiusPill))
-                .background(if (selected) PillActiveOnSlot else Color.Transparent)
+                .background(if (selected) PillActive else Color.Transparent)
                 .clickable(onClick = onClick)
                 // Ikon tanpa teks butuh label yang dibacakan pembaca layar,
                 // kalau tidak navigasinya kosong tak bernama bagi mereka.
@@ -417,16 +398,18 @@ private fun NavItem(
 }
 
 @Composable
-private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState, bar: Color) {
-    val onSlot = LocalOnSlot.current
-    val onSlotSecondary = LocalOnSlotSecondary.current
+private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) {
+    val ink = MaterialTheme.colorScheme.onSurface
+    val faint = ink.copy(alpha = MARKER_ALPHA)
+    val accents = LocalSlotAccents.current
 
-    val markdown = remember(onSlot) {
-        MarkdownVisualTransformation(ink = onSlot, baseSize = Tokens.bodyTextSize)
+    val markdown = remember(ink) {
+        MarkdownVisualTransformation(ink = ink, baseSize = Tokens.bodyTextSize)
     }
 
     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
         val slot = page + 1
+        val accent = accents[page]
         val text = state.draftFor(slot)
         val scroll = rememberScrollState()
         var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
@@ -440,9 +423,7 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState, 
                 // menulis, dan nama slot cuma perlu dilihat sesekali.
                 SlotTitleField(
                     label = state.labelFor(slot),
-                    bar = bar,
-                    ink = onSlot,
-                    hint = onSlotSecondary,
+                    accent = accent,
                     onChange = { vm.onLabelChanged(slot, it.take(Note.MAX_LABEL_LENGTH)) },
                 )
 
@@ -450,11 +431,11 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState, 
                     value = text,
                     onValueChange = { vm.onBodyChanged(slot, it) },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
-                        color = onSlot,
+                        color = ink,
                         fontSize = Tokens.bodyTextSize,
                         lineHeight = Tokens.bodyLineHeight,
                     ),
-                    cursorBrush = SolidColor(onSlot),
+                    cursorBrush = SolidColor(accent),
                     visualTransformation = if (page == pager.currentPage) {
                         markdown
                     } else {
@@ -509,7 +490,7 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState, 
                         if (text.isEmpty()) {
                             Text(
                                 stringResource(R.string.note_placeholder),
-                                color = onSlotSecondary,
+                                color = faint,
                                 fontSize = Tokens.bodyTextSize,
                                 lineHeight = Tokens.bodyLineHeight,
                             )
@@ -529,14 +510,14 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState, 
                         text.length,
                         Note.MAX_BODY_LENGTH,
                     ),
-                    color = onSlot,
+                    color = ink,
                     fontSize = Tokens.captionTextSize,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(Tokens.space2)
                         .clip(RoundedCornerShape(Tokens.radiusSm))
-                        .background(bar)
+                        .background(AppBar)
                         .padding(horizontal = Tokens.space2, vertical = Tokens.space1),
                 )
             }
@@ -544,19 +525,24 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState, 
     }
 }
 
+/**
+ * Nama catatan, dalam warna slotnya sendiri.
+ *
+ * Sejak latar selayar penuh dilepas, baris ini dan deretan titik adalah satu-
+ * satunya yang memberi tahu slot mana yang sedang terbuka. Karena itu warnanya
+ * penuh saat ada isinya, dan hanya placeholder yang diredupkan ke 40%.
+ */
 @Composable
 private fun SlotTitleField(
     label: String,
-    bar: Color,
-    ink: Color,
-    hint: Color,
+    accent: Color,
     onChange: (String) -> Unit,
 ) {
     Box(
         Modifier
             .fillMaxWidth()
             .height(Tokens.titleRowHeight)
-            .background(bar),
+            .background(AppBar),
         contentAlignment = Alignment.TopCenter,
     ) {
         BasicTextField(
@@ -564,13 +550,13 @@ private fun SlotTitleField(
             onValueChange = onChange,
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
-                color = ink,
+                color = accent,
                 fontSize = 14.sp,
                 lineHeight = 24.sp,
                 fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
             ),
-            cursorBrush = SolidColor(ink),
+            cursorBrush = SolidColor(accent),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Tokens.screenPadding),
@@ -584,7 +570,7 @@ private fun SlotTitleField(
                             fontSize = 14.sp,
                             lineHeight = 24.sp,
                             fontWeight = FontWeight.Medium,
-                            color = hint,
+                            color = accent.copy(alpha = MARKER_ALPHA),
                         )
                     }
                     inner()
@@ -592,11 +578,18 @@ private fun SlotTitleField(
             },
         )
         HorizontalDivider(
-            color = HairlineOnSlot,
+            color = Hairline,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
+
+/**
+ * Opasitas penanda sintaks Markdown dan teks contoh — 0,40 sesuai Figma.
+ * Di atas `#19191B` nilainya 3,8:1 dan gagal AA; dipakai hanya untuk penanda
+ * dan placeholder, tidak pernah untuk isi catatan.
+ */
+private const val MARKER_ALPHA = 0.40f
 
 private const val TAB_NOTES = 0
 private const val TAB_TODOS = 1

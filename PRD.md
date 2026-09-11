@@ -132,35 +132,32 @@ Setiap usulan fitur diuji terhadap keempat prinsip ini. Usulan yang melanggar sa
 
 Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak dapat diubah pengguna — konsistensinya yang membuat pengguna hafal "yang hijau itu urusan klien A" tanpa perlu membaca label.
 
-Palet dipakai dalam **dua peran yang berbeda**, dan keduanya tidak boleh tertukar.
+**Aksen** — satu nilai per slot. Kolom "terang" dihapus sejak mode terang dibatalkan (FR-6.7); tidak ada palet kedua yang perlu diselaraskan.
 
-**Aksen** — untuk titik penanda slot, di mana warna hanya menempati area kecil:
+| Slot | Aksen |
+|---|---|
+| Slot 1 | `#EF7A5A` |
+| Slot 2 | `#E0A63F` |
+| Slot 3 | `#63BC85` |
+| Slot 4 | `#48BEDD` |
+| Slot 5 | `#A186D6` |
 
-| Slot | Terang | Gelap |
+**Permukaan** — kedua tab memakai permukaan yang sama: latar `#19191B`, dan seluruh chrome (bilah status, bilah atas, baris nama catatan, bilah bawah) `#232324`. Tidak ada latar selayar penuh per slot.
+
+> **Mengapa latar selayar penuh dilepas.** Versi sebelumnya mengecat seluruh layar dengan warna slot. Itu menarik pada tangkapan layar pertama, tapi berarti lima permukaan berbeda yang setiap nilainya harus diverifikasi sendiri-sendiri, dan warna pekat selebar layar membuat teks catatan — yang justru isi utamanya — harus bersaing dengan latarnya. Keputusan pemilik produk: satu permukaan gelap, dan warna slot dipadatkan ke dua tempat kecil yang justru paling sering dilihat.
+
+**Pembawa warna slot.** Hanya dua, dan keduanya di bilah atas:
+
+| Elemen | Slot aktif | Slot tidak aktif |
 |---|---|---|
-| Slot 1 | `#C7442A` | `#EF7A5A` |
-| Slot 2 | `#B0741A` | `#E0A63F` |
-| Slot 3 | `#3B8A5B` | `#63BC85` |
-| Slot 4 | `#0B6E8F` | `#48BEDD` |
-| Slot 5 | `#6B4E9E` | `#A186D6` |
+| Titik penanda | Aksen penuh, lingkaran 24 dp, cincin putih 2 dp **di luar** lingkaran | Aksen pada opasitas **0,24** |
+| Nama catatan | Aksen penuh (5,2–7,3:1 — lolos AA pada kelima slot) | — |
 
-**Latar** — warna selayar penuh yang menandai slot aktif. Satu palet, **tidak mengikuti tema**, dengan tinta putih penuh `#FFFFFF`:
+Titik tidak aktif hanya mencapai **1,5–1,6:1** terhadap chrome. Sebagai *state* tidak-terpilih itu memang tujuannya, tapi titik inilah kontrol utama untuk berpindah slot (FR-1.6): pada 0,24 sasarannya sulit terlihat di bawah cahaya terang atau bagi mata yang lemah. Menaikkannya ke 0,40 memberi 2,2–2,3:1 tanpa mengganggu perbedaan dengan titik aktif, dan itu satu baris di `Color.kt`.
 
-| Slot | Latar | Kontras tinta penuh |
-|---|---|---|
-| Slot 1 | `#6C1700` | 11,9:1 |
-| Slot 2 | `#68480E` | 8,3:1 |
-| Slot 3 | `#204E32` | 9,6:1 |
-| Slot 4 | `#034151` | 11,2:1 |
-| Slot 5 | `#25183E` | 16,4:1 |
+Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama seperti penanda Markdown. Isi catatan sendiri putih penuh, 15,7:1.
 
-Seluruh chrome di atas latar slot — bilah status, bilah atas, baris judul, bilah bawah — memakai satu lapisan putih **6%**, bukan lima warna terpisah. Itulah yang membuat kelima slot terbaca sebagai satu aplikasi, bukan lima aplikasi berbeda. Pil navigasi yang aktif memakai putih **16%**, dan garis pemisahnya hitam **16%**.
-
-Teks sekunder di atas latar slot — penanda sintaks Markdown dan placeholder — memakai alpha **0,40** sesuai desain. Nilai ini hanya mencapai **2,7–3,7:1** dan karena itu **gagal WCAG AA** untuk teks biasa; ia dipakai hanya untuk penanda dan teks contoh, tidak pernah untuk isi catatan. Menaikkannya adalah keputusan satu baris di `Color.kt` bila pemilik desain menghendaki.
-
-> **Mengapa satu palet.** Aplikasi ini hanya bermode gelap, jadi tidak ada palet kedua yang perlu diselaraskan. Warna aksen tidak bisa dipakai langsung sebagai latar: dengan teks putih, Slot 3 hanya mencapai 4,22:1 dan **gagal WCAG AA** (NFR-8), sementara Slot 2 jadi satu-satunya yang menuntut teks gelap sehingga terlihat seperti cacat. Upaya membuat palet terang terpisah justru memunculkan masalah kedua: warna yang disetel tepat di ambang tidak menyisakan ruang untuk teks sekunder sama sekali — placeholder pun mustahil digambar tanpa melanggar. Mempertahankan satu palet pekat menyelesaikan keduanya sekaligus, dan memberi keuntungan produk: Slot 3 selalu hijau yang sama, bukan dua hijau berbeda tergantung tema. Sisa aplikasi — tugas, pengaturan — tetap mengikuti tema.
-
-**Aksen aksi** — untuk tombol tambah, teks "New Group", dan kotak centang yang tercentang: `#304678`, persis nilai Figma. Di atas latar tugas `#19191B` warna ini hanya mencapai **1,90:1**: sebagai ikon dan sebagai isian kotak centang ia masih terbaca sebagai bentuk, tapi sebagai **teks** ("New Group") ia di bawah ambang AA. Nilai desain tetap dipakai agar layar sama persis dengan Figma; `#6380C1` dari hue yang sama adalah penggantinya bila kontras diprioritaskan.
+**Aksen aksi** — untuk tombol tambah, teks "New Group", dan kotak centang yang tercentang: `#304678`, persis nilai Figma. Di atas latar `#19191B` warna ini hanya mencapai **1,90:1**: sebagai ikon dan sebagai isian kotak centang ia masih terbaca sebagai bentuk, tapi sebagai **teks** ("New Group") ia di bawah ambang AA. Nilai desain tetap dipakai agar layar sama persis dengan Figma; `#6380C1` dari hue yang sama adalah penggantinya bila kontras diprioritaskan.
 
 ### Modul & kepemilikan platform
 
@@ -268,7 +265,7 @@ Teks sekunder di atas latar slot — penanda sintaks Markdown dan placeholder �
 
 | ID | Prio | Kebutuhan |
 |---|---|---|
-| FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Slot aktif ditandai warna latar selayar penuh yang bertransisi mengikuti geseran, bukan meloncat saat halaman berganti, dan titik yang aktif bercincin putih 2 dp. Nama slot **ikut menggulung bersama isinya**, tidak terpaku di bilah atas: di layar ponsel setiap baris yang dipaku memakan ruang menulis, sementara nama slot hanya perlu dilihat sesekali. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
+| FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Permukaannya satu warna gelap untuk kedua tab; slot aktif ditandai **hanya** oleh titiknya (aksen penuh + cincin putih 2 dp, sisanya opasitas 0,24) dan oleh nama catatan yang mengambil warna titik itu. Nama slot **ikut menggulung bersama isinya**, tidak terpaku di bilah atas: di layar ponsel setiap baris yang dipaku memakan ruang menulis, sementara nama slot hanya perlu dilihat sesekali. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
 | FR-6.2 | P0 | Papan ketik muncul otomatis saat aplikasi dibuka dari widget atau ubin Pengaturan Cepat, tapi tidak saat dibuka dari peluncur. |
 | FR-6.3 | P1 | Widget layar utama ukuran 2×2 dan 4×2 menampilkan satu slot pilihan atau daftar tugas. Menyentuh widget membuka langsung ke isi tersebut. |
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
