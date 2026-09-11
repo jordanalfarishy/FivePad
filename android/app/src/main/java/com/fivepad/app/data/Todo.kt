@@ -22,6 +22,8 @@ data class Todo(
     val text: String = "",
     val done: Boolean = false,
     val position: Double = 0.0,
+    /** Null berarti tugas berada di luar grup mana pun. */
+    val groupId: String? = null,
     val dueAt: Long? = null,
     val updatedAt: Long = System.currentTimeMillis(),
     val clientUpdatedAt: Long = System.currentTimeMillis(),

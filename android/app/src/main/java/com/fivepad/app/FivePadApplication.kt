@@ -7,10 +7,7 @@ import com.fivepad.app.data.ThemePreferences
 
 class FivePadApplication : Application() {
 
-    val repository: FivePadRepository by lazy {
-        val db = FivePadDatabase.build(this)
-        FivePadRepository(db.notes(), db.todos())
-    }
+    val repository: FivePadRepository by lazy { FivePadRepository(FivePadDatabase.build(this)) }
 
     val themePreferences: ThemePreferences by lazy { ThemePreferences(this) }
 }

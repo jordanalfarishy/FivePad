@@ -116,6 +116,8 @@ Setiap usulan fitur diuji terhadap keempat prinsip ini. Usulan yang melanggar sa
 
 **P1 — Lima adalah lima.** Jumlah slot tidak pernah bertambah. Aturan ini ditegakkan di basis data lewat `check (slot between 1 and 5)`, bukan hanya di antarmuka, supaya tidak bisa dilanggar secara diam-diam lewat jalur mana pun.
 
+> **Pengecualian yang disengaja: grup tugas.** §18 menolak hierarki, dan Q3 semula memutuskan satu daftar tugas datar. FR-2.14 melonggarkannya untuk daftar tugas saja, atas permintaan eksplisit pemilik produk. Alasan pengecualian ini dapat dipertahankan: batasan lima slot melindungi *catatan* dari penumpukan, dan itu tetap utuh — jumlah slot tidak berubah. Daftar tugas punya bentuk masalah yang berbeda; dua puluh tugas tanpa pembagian lebih sulit dibaca ketimbang dua puluh tugas dalam empat grup. Yang tetap dijaga: grup hanya **satu tingkat**, karena begitu grup boleh berisi grup, kita sudah membangun folder lewat pintu belakang.
+
 **P2 — Tanpa tombol simpan.** Pengguna tidak pernah diminta menyimpan, memberi judul, atau memilih lokasi. Mengetik sudah berarti menyimpan.
 
 **P3 — Offline adalah keadaan normal.** Setiap fitur dirancang untuk berjalan tanpa jaringan. Sinkronisasi adalah proses yang terjadi di latar belakang, bukan syarat sebelum pengguna boleh bekerja.
@@ -207,6 +209,9 @@ Palet dipakai dalam **dua peran yang berbeda**, dan keduanya tidak boleh tertuka
 | FR-2.11 | P1 | Semua | Notifikasi lokal pada waktu jatuh tempo, dijadwalkan di perangkat sehingga tetap berjalan tanpa koneksi. |
 | FR-2.12 | P2 | Semua | Batas 500 tugas aktif. Melewati batas itu, tugas selesai yang paling lama diarsipkan otomatis dan tidak lagi disinkronkan. |
 | FR-2.13 | P2 | macOS | Menyeret satu baris teks ke ikon menu bar sambil menahan `⌥` menambahkannya sebagai tugas baru, bukan sebagai catatan. |
+| FR-2.14 | P0 | Semua | Tugas dapat dikelompokkan ke dalam grup bernama yang dibuat pengguna. Grup hanya satu tingkat — grup tidak boleh berisi grup lain. Tugas berada di tepat satu grup, atau di luar grup mana pun. |
+| FR-2.15 | P0 | Semua | Grup dapat dibuat, diubah namanya (maks 40 karakter), dan dihapus. Menghapus grup **tidak** menghapus tugas di dalamnya; tugas itu kembali menjadi tanpa grup. Penghapusan tugas tidak pernah menjadi efek samping yang tersembunyi. |
+| FR-2.16 | P1 | Semua | Urutan grup dapat diatur pengguna dan ikut tersinkronisasi. Grup kosong tetap ditampilkan agar pengguna bisa mengisinya; hanya grup yang dihapus yang hilang. |
 
 ### FR-3 — Akun & sinkronisasi
 
@@ -447,7 +452,7 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 |---|---|---|---|
 | Q1 | **Model harga** | Sebelum M2 | Lokal gratis selamanya; sinkronisasi berlangganan murah. Sekali bayar tidak cocok karena biaya server bersifat berulang, sementara pendapatannya tidak. Ini pertanyaan paling mendesak di daftar ini. |
 | Q2 | **iOS masuk peta jalan?** | Sebelum M3 | Tunda sampai setelah M4. Menambahkannya sekarang berarti bersaing langsung dengan FiveNotes di kandang mereka, alih-alih melayani celah yang kita pilih. |
-| Q3 | **Daftar tugas per slot?** | Sebelum M1 | Tidak. Satu daftar global. Lima daftar tugas melipatgandakan permukaan produk dan melanggar prinsip P1 secara semangat. |
+| Q3 | **Daftar tugas per slot?** | ~~Sebelum M1~~ · **diputuskan** | Tidak. Daftar tugas tetap satu dan global, tidak terikat slot. Namun sejak FR-2.14 daftar itu boleh dibagi menjadi grup buatan pengguna — pengelompokan di dalam satu daftar, bukan lima daftar terpisah. |
 | Q4 | **Enkripsi ujung-ke-ujung: pembeda utama atau fitur lanjutan?** | Sebelum M2 | Fitur lanjutan di M5. Menjadikannya inti akan menutup pemulihan kata sandi dan pratinjau notifikasi — beban yang berat untuk pengguna awal. |
 | Q5 | **Label bawaan kelima slot** | Sebelum M1 | Kosongkan labelnya dan tampilkan nomor saja. Label yang disarankan sistem akan mengarahkan pemakaian, padahal keluwesan makna tiap slot justru kekuatannya. |
 | Q6 | **Berapa lama uji coba gratis?** | Sebelum M4 | Ikuti pola 30 hari yang lazim di kelas ini, dihitung sejak akun dibuat dan bukan sejak pemasangan. |
@@ -459,7 +464,7 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 ### Ditolak secara permanen
 
 - Catatan tanpa batas atau slot keenam.
-- Folder, tag, atau hierarki apa pun.
+- Folder, tag, atau hierarki **pada catatan**. Daftar tugas dikecualikan — lihat FR-2.14.
 - Kolaborasi, berbagi catatan, dan komentar.
 - Iklan dan analitik pihak ketiga.
 

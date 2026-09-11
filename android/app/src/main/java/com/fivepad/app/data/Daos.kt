@@ -42,4 +42,34 @@ interface TodoDao {
 
     @Query("UPDATE todos SET deletedAt = NULL, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun restore(id: String, now: Long)
+
+    @Query("UPDATE todos SET groupId = :groupId, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
+    suspend fun setGroup(id: String, groupId: String?, now: Long)
+
+    /**
+     * FR-2.15: menghapus grup mengembalikan tugasnya menjadi tanpa grup,
+     * bukan ikut menghapusnya. Penghapusan data tidak boleh jadi efek samping
+     * tersembunyi dari tindakan yang tampak sepele.
+     */
+    @Query("UPDATE todos SET groupId = NULL, updatedAt = :now, clientUpdatedAt = :now WHERE groupId = :groupId")
+    suspend fun detachFromGroup(groupId: String, now: Long)
+}
+
+@Dao
+interface TodoGroupDao {
+
+    @Query("SELECT * FROM todo_groups WHERE deletedAt IS NULL ORDER BY position ASC")
+    fun observeActive(): Flow<List<TodoGroup>>
+
+    @Query("SELECT COALESCE(MAX(position), 0.0) FROM todo_groups WHERE deletedAt IS NULL")
+    suspend fun maxPosition(): Double
+
+    @Insert
+    suspend fun insert(group: TodoGroup)
+
+    @Query("UPDATE todo_groups SET name = :name, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
+    suspend fun rename(id: String, name: String, now: Long)
+
+    @Query("UPDATE todo_groups SET deletedAt = :now, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
+    suspend fun softDelete(id: String, now: Long)
 }

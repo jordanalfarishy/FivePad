@@ -4,13 +4,19 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Note::class, Todo::class], version = 1, exportSchema = true)
+@Database(
+    entities = [Note::class, Todo::class, TodoGroup::class],
+    version = 2,
+    exportSchema = true,
+)
 abstract class FivePadDatabase : RoomDatabase() {
 
     abstract fun notes(): NoteDao
     abstract fun todos(): TodoDao
+    abstract fun todoGroups(): TodoGroupDao
 
     companion object {
         fun build(context: Context): FivePadDatabase =
@@ -18,7 +24,10 @@ abstract class FivePadDatabase : RoomDatabase() {
                 context.applicationContext,
                 FivePadDatabase::class.java,
                 "fivepad.db",
-            ).addCallback(SeedFiveSlots).build()
+            )
+                .addCallback(SeedFiveSlots)
+                .addMigrations(MIGRATION_1_2)
+                .build()
 
         /**
          * Menanam tepat lima slot kosong saat basis data pertama dibuat.
@@ -36,6 +45,30 @@ abstract class FivePadDatabase : RoomDatabase() {
                         arrayOf<Any>(slot, now, now),
                     )
                 }
+            }
+        }
+
+        /**
+         * Grup tugas masuk di v2. Migrasi ditulis tangan, bukan destruktif —
+         * basis data ini sudah memuat catatan sungguhan di perangkat, dan
+         * fallback destruktif akan membuangnya tanpa peringatan.
+         */
+        val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE todos ADD COLUMN groupId TEXT DEFAULT NULL")
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS todo_groups (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        position REAL NOT NULL,
+                        updatedAt INTEGER NOT NULL,
+                        clientUpdatedAt INTEGER NOT NULL,
+                        deviceId TEXT,
+                        deletedAt INTEGER
+                    )
+                    """.trimIndent(),
+                )
             }
         }
     }
