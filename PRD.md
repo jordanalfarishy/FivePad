@@ -192,7 +192,7 @@ Teks sekunder di atas latar slot — penanda sintaks Markdown dan placeholder �
 | FR-1.6 | P0 | Android | Berpindah slot lewat tap pada titik warna atau geser horizontal pada area editor. |
 | FR-1.7 | P1 | Semua | Markdown dirender langsung saat mengetik untuk: tebal, miring, judul H1–H3, daftar berpoin, daftar bernomor, kotak centang, tautan, kode sebaris, blok kode, dan kutipan. |
 | FR-1.8 | P1 | Semua | Kotak centang Markdown `- [ ]` dapat diklik atau di-tap untuk berubah status tanpa masuk ke mode edit teks. |
-| FR-1.9 | P1 | Semua | Penghitung kata dan karakter ditampilkan di kaki editor, dapat dimatikan lewat Pengaturan. |
+| FR-1.9 | P1 | Semua | Penghitung kata dan karakter **tidak** ditampilkan terus-menerus: desain Figma tidak memuatnya, dan satu baris tetap di kaki editor memakan ruang menulis di setiap layar. Yang tersisa adalah peringatan ambang batas FR-1.3, yang muncul hanya sejak 45.000 karakter. Sakelar untuk menampilkannya kembali menyusul bersama FR-7.1. |
 | FR-1.10 | P1 | Semua | Aksi "Salin seluruh isi slot" menyalin teks mentah Markdown ke papan klip. |
 | FR-1.11 | P1 | Semua | Aksi "Kosongkan slot" meminta konfirmasi, lalu menyimpan isi lama ke riwayat versi sebelum menghapusnya. |
 | FR-1.12 | P2 | macOS | Menyeret teks dari aplikasi lain ke sebuah titik warna menambahkan teks itu ke akhir slot bersangkutan, dipisahkan satu baris kosong. |
