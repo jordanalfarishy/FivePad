@@ -9,6 +9,7 @@ import com.fivepad.app.FivePadApplication
 import com.fivepad.app.data.FivePadRepository
 import com.fivepad.app.data.Note
 import com.fivepad.app.data.Todo
+import com.fivepad.app.data.TodoGroup
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,9 +19,16 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Satu bagian daftar tugas. [group] null berarti kumpulan tugas tanpa grup. */
+data class TaskSection(
+    val group: TodoGroup?,
+    val todos: List<Todo>,
+)
+
 data class HomeUiState(
     val notes: List<Note> = emptyList(),
     val todos: List<Todo> = emptyList(),
+    val groups: List<TodoGroup> = emptyList(),
     /** Teks yang sedang diketik per slot; inilah sumber kebenaran bagi editor. */
     val drafts: Map<Int, String> = emptyMap(),
 ) {
@@ -29,6 +37,20 @@ data class HomeUiState(
 
     fun labelFor(slot: Int): String = notes.firstOrNull { it.slot == slot }?.label.orEmpty()
     fun draftFor(slot: Int): String = drafts[slot].orEmpty()
+
+    /**
+     * Tugas tanpa grup tampil lebih dulu, lalu grup sesuai urutannya.
+     * Grup kosong tetap ditampilkan (FR-2.16) — kalau disembunyikan, grup yang
+     * baru dibuat akan langsung hilang dan terasa seperti gagal tersimpan.
+     */
+    val sections: List<TaskSection>
+        get() {
+            val byGroup = todos.groupBy { it.groupId }
+            return buildList {
+                byGroup[null]?.let { add(TaskSection(null, it)) }
+                groups.forEach { g -> add(TaskSection(g, byGroup[g.id].orEmpty())) }
+            }
+        }
 }
 
 class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
@@ -38,13 +60,12 @@ class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
     val uiState = combine(
         repo.observeNotes(),
         repo.observeTodos(),
+        repo.observeGroups(),
         drafts,
-    ) { notes, todos, typed ->
-        // Slot yang belum pernah disentuh mengambil isinya dari basis data; begitu
-        // pengguna mengetik, draft yang menang dan tidak lagi ditimpa oleh emisi Room.
+    ) { notes, todos, groups, typed ->
         val merged = typed.toMutableMap()
         notes.forEach { note -> merged.putIfAbsent(note.slot, note.body) }
-        HomeUiState(notes = notes, todos = todos, drafts = merged)
+        HomeUiState(notes = notes, todos = todos, groups = groups, drafts = merged)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     private var autosaveJob: Job? = null
@@ -67,11 +88,7 @@ class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
         viewModelScope.launch { repo.saveLabel(slot, label) }
     }
 
-    /**
-     * FR-1.4 juga menuntut simpan segera saat aplikasi masuk latar belakang.
-     * Dipanggil dari ON_STOP, sehingga tidak ada ketikan yang hilang meski proses
-     * langsung dimatikan sistem sesudahnya.
-     */
+    /** Dipanggil dari ON_STOP, supaya proses yang dimatikan sistem tidak membawa ketikan. */
     fun flushPendingSaves() {
         autosaveJob?.cancel()
         val snapshot = drafts.value
@@ -80,7 +97,9 @@ class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
         }
     }
 
-    fun addTodo(text: String) = viewModelScope.launch { repo.addTodo(text) }
+    fun addTodo(text: String, groupId: String?) = viewModelScope.launch {
+        repo.addTodo(text, groupId)
+    }
 
     fun setTodoDone(id: String, done: Boolean) = viewModelScope.launch { repo.setTodoDone(id, done) }
 
@@ -89,6 +108,12 @@ class HomeViewModel(private val repo: FivePadRepository) : ViewModel() {
     fun deleteTodo(id: String) = viewModelScope.launch { repo.deleteTodo(id) }
 
     fun restoreTodo(id: String) = viewModelScope.launch { repo.restoreTodo(id) }
+
+    fun addGroup(name: String) = viewModelScope.launch { repo.addGroup(name) }
+
+    fun renameGroup(id: String, name: String) = viewModelScope.launch { repo.renameGroup(id, name) }
+
+    fun deleteGroup(id: String) = viewModelScope.launch { repo.deleteGroup(id) }
 
     companion object {
         const val AUTOSAVE_DELAY_MS = 400L

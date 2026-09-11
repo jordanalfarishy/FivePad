@@ -5,15 +5,14 @@ import androidx.compose.ui.graphics.Color
 /**
  * Palet slot punya dua peran yang sengaja dipisah.
  *
- * [SlotAccentLight] / [SlotAccentDark] adalah warna §7 yang asli — dipakai untuk
- * titik penanda slot, di mana warna hanya menempati area kecil.
+ * [SlotAccentLight] / [SlotAccentDark] adalah warna §7 asli — untuk titik
+ * penanda, di mana warna hanya menempati area kecil.
  *
- * [SlotSurfaceLight] / [SlotSurfaceDark] adalah turunannya untuk latar selayar
- * penuh. Warna §7 tidak bisa dipakai langsung sebagai latar: dengan teks putih,
- * slot 3 hanya mencapai 4,22:1 dan gagal WCAG AA (NFR-8), sementara slot 2 satu-
- * satunya yang menuntut teks gelap sehingga tampak seperti cacat, bukan desain.
- * Hue dipertahankan, hanya kecerahan yang disetel sampai seluruh lima slot lolos
- * dengan satu warna teks yang sama.
+ * Sisanya adalah latar selayar penuh. Keduanya disetel sampai punya **ruang
+ * kontras tersisa**: teks utama jauh di atas ambang, sehingga teks sekunder
+ * masih bisa diredupkan dan tetap lolos AA. Palet sebelumnya disetel tepat di
+ * 4,6:1, yang berarti transparansi sekecil apa pun langsung melanggar NFR-8 —
+ * placeholder pun tidak mungkin dibuat tanpa gagal.
  */
 val SlotAccentLight = listOf(
     Color(0xFFC7442A),
@@ -31,20 +30,22 @@ val SlotAccentDark = listOf(
     Color(0xFFA186D6),
 )
 
-/** Latar selayar penuh, mode terang. Teks putih: 4,61–4,62:1 — lolos AA. */
+/**
+ * Latar mode terang: tint cerah dengan tinta gelap, 7,0:1 pada kekuatan penuh.
+ *
+ * Ini perubahan arah. Palet terang sebelumnya memakai warna jenuh dengan teks
+ * putih — itu tema *berwarna*, bukan tema *terang*, dan tidak menyisakan ruang
+ * untuk hierarki teks.
+ */
 val SlotSurfaceLight = listOf(
-    Color(0xFFCE472C),
-    Color(0xFFA06918),
-    Color(0xFF388356),
-    Color(0xFF0D7EA4),
-    Color(0xFF8367B4),
+    Color(0xFFDB9081),
+    Color(0xFFD3973D),
+    Color(0xFF63B383),
+    Color(0xFF26AFDD),
+    Color(0xFFAB9BC8),
 )
 
-/**
- * Latar selayar penuh, mode gelap. Teks [OnSlotDark]: 5,5:1.
- * Sengaja jauh lebih pekat daripada warna aksen — satu layar penuh #E0A63F di
- * ruang gelap menyilaukan, bukan nyaman.
- */
+/** Latar mode gelap, sesuai desain Figma. 5,5:1 pada kekuatan penuh. */
 val SlotSurfaceDark = listOf(
     Color(0xFF9C3F2D),
     Color(0xFF7C551C),
@@ -53,17 +54,26 @@ val SlotSurfaceDark = listOf(
     Color(0xFF685192),
 )
 
-val OnSlotLight = Color(0xFFFFFFFF)
+val OnSlotLight = Color(0xFF14181F)
 val OnSlotDark = Color(0xFFE7EBF0)
+
+/**
+ * Alpha teks sekunder di atas latar slot, diukur bukan dikira-kira: nilai
+ * terendah yang masih mencapai 4,5:1 pada kelima slot mode tersebut.
+ */
+const val SECONDARY_ALPHA_LIGHT = 0.76f
+const val SECONDARY_ALPHA_DARK = 0.86f
 
 internal val LightSurface = Color(0xFFFFFFFF)
 internal val LightBackground = Color(0xFFF7F8FA)
+internal val LightSurfaceRaised = Color(0xFFFFFFFF)
 internal val LightOnSurface = Color(0xFF14181F)
-internal val LightOnSurfaceVariant = Color(0xFF6B7684)
-internal val LightOutline = Color(0xFFE4E8ED)
+internal val LightOnSurfaceVariant = Color(0xFF565F6B)
+internal val LightOutline = Color(0xFFD4DAE1)
 
-internal val DarkSurface = Color(0xFF181C22)
-internal val DarkBackground = Color(0xFF101318)
+internal val DarkSurface = Color(0xFF19191B)
+internal val DarkBackground = Color(0xFF19191B)
+internal val DarkSurfaceRaised = Color(0xFF242525)
 internal val DarkOnSurface = Color(0xFFE7EBF0)
-internal val DarkOnSurfaceVariant = Color(0xFF8593A2)
-internal val DarkOutline = Color(0xFF262D36)
+internal val DarkOnSurfaceVariant = Color(0xFF9BA3AC)
+internal val DarkOutline = Color(0xFF3A3C40)

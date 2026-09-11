@@ -1,3 +1,55 @@
 <resources>
     <string name="app_name">FivePad</string>
+
+    <!-- Navigation -->
+    <string name="tab_notes">Notes</string>
+    <string name="tab_tasks">Tasks</string>
+    <string name="tab_tasks_count">%1$d/%2$d</string>
+
+    <!-- Notes -->
+    <string name="slot_label_placeholder">Name this slot</string>
+    <string name="note_placeholder">Start writing…</string>
+    <string name="editor_counter">%1$d words · %2$d characters</string>
+    <string name="editor_counter_limit">%1$d words · %2$d / %3$d characters</string>
+    <string name="slot_description">Slot %1$d</string>
+    <string name="slot_description_active">Slot %1$d, active</string>
+
+    <!-- Tasks -->
+    <string name="tasks_empty">No tasks yet</string>
+    <string name="tasks_empty_hint">Tap the plus button to add your first one</string>
+    <string name="task_progress">%1$d of %2$d done</string>
+    <string name="task_add">Add task</string>
+    <string name="task_text_hint">What needs doing?</string>
+    <string name="task_delete">Delete</string>
+    <string name="task_deleted">Task deleted</string>
+    <string name="task_undo">Undo</string>
+
+    <!-- Groups -->
+    <string name="group_none">Ungrouped</string>
+    <string name="group_new">New group</string>
+    <string name="group_name_hint">Group name</string>
+    <string name="group_rename">Rename</string>
+    <string name="group_delete">Delete group</string>
+    <string name="group_delete_explainer">Tasks in this group are kept — they simply move out of it.</string>
+    <string name="group_menu">Group options</string>
+    <string name="group_picker">Group</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_open">Open settings</string>
+    <string name="settings_back">Back</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_account_pending">Sign-in and cross-device sync arrive in a later release.</string>
+    <string name="settings_about">About</string>
+    <string name="settings_version">Version %1$s</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_add">Add</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_save">Save</string>
 </resources>

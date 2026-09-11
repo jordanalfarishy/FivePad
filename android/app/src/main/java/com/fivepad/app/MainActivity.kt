@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             FivePadTheme(mode = mode) {
                 HomeScreen(
                     themeMode = mode,
-                    onCycleTheme = themePrefs::cycle,
+                    onThemeChange = themePrefs::set,
                 )
             }
         }

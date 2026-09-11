@@ -1,0 +1,52 @@
+<resources>
+    <!-- Navigasi -->
+    <string name="tab_notes">Catatan</string>
+    <string name="tab_tasks">Tugas</string>
+
+    <!-- Catatan -->
+    <string name="slot_label_placeholder">Beri nama slot ini</string>
+    <string name="note_placeholder">Mulai menulis…</string>
+    <string name="editor_counter">%1$d kata · %2$d karakter</string>
+    <string name="editor_counter_limit">%1$d kata · %2$d / %3$d karakter</string>
+    <string name="slot_description">Slot %1$d</string>
+    <string name="slot_description_active">Slot %1$d, sedang aktif</string>
+
+    <!-- Tugas -->
+    <string name="tasks_empty">Belum ada tugas</string>
+    <string name="tasks_empty_hint">Ketuk tombol tambah untuk membuat yang pertama</string>
+    <string name="task_progress">%1$d dari %2$d selesai</string>
+    <string name="task_add">Tambah tugas</string>
+    <string name="task_text_hint">Apa yang perlu dikerjakan?</string>
+    <string name="task_delete">Hapus</string>
+    <string name="task_deleted">Tugas dihapus</string>
+    <string name="task_undo">Urungkan</string>
+
+    <!-- Grup -->
+    <string name="group_none">Tanpa grup</string>
+    <string name="group_new">Grup baru</string>
+    <string name="group_name_hint">Nama grup</string>
+    <string name="group_rename">Ubah nama</string>
+    <string name="group_delete">Hapus grup</string>
+    <string name="group_delete_explainer">Tugas di dalamnya tetap ada — hanya keluar dari grup ini.</string>
+    <string name="group_menu">Opsi grup</string>
+    <string name="group_picker">Grup</string>
+
+    <!-- Pengaturan -->
+    <string name="settings_title">Pengaturan</string>
+    <string name="settings_open">Buka pengaturan</string>
+    <string name="settings_back">Kembali</string>
+    <string name="settings_appearance">Tampilan</string>
+    <string name="settings_theme">Tema</string>
+    <string name="theme_system">Sistem</string>
+    <string name="theme_light">Terang</string>
+    <string name="theme_dark">Gelap</string>
+    <string name="settings_account">Akun</string>
+    <string name="settings_account_pending">Masuk dan sinkronisasi antar perangkat hadir di rilis berikutnya.</string>
+    <string name="settings_about">Tentang</string>
+    <string name="settings_version">Versi %1$s</string>
+
+    <!-- Dialog -->
+    <string name="dialog_add">Tambah</string>
+    <string name="dialog_cancel">Batal</string>
+    <string name="dialog_save">Simpan</string>
+</resources>
