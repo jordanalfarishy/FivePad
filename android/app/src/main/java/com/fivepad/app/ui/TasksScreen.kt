@@ -65,13 +65,9 @@ import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.ui.theme.Accent
-import com.fivepad.app.ui.theme.CheckboxFill
-import com.fivepad.app.ui.theme.CheckboxStroke
 import com.fivepad.app.ui.theme.CheckedFill
 import com.fivepad.app.ui.theme.CheckedStroke
-import com.fivepad.app.ui.theme.DRAG_HANDLE_ALPHA
-import com.fivepad.app.ui.theme.MUTED_ALPHA_TASKS
-import com.fivepad.app.ui.theme.TaskSeparator
+import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.Tokens
 import kotlin.math.abs
 import kotlinx.coroutines.delay
@@ -112,6 +108,7 @@ fun TasksScreen(
     onUndoClearCompleted: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val colors = LocalFivePadColors.current
     val sections = state.sections
     var pendingUndo by remember { mutableStateOf<String?>(null) }
     var groupOptions by remember { mutableStateOf<TodoGroup?>(null) }
@@ -220,9 +217,9 @@ fun TasksScreen(
                     ) {
                         AddRow(
                             label = stringResource(R.string.task_clear_done, state.doneCount),
-                            labelColor = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
+                            labelColor = colors.muted,
                             icon = R.drawable.ic_delete,
-                            iconColor = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
+                            iconColor = colors.muted,
                             onClick = onClearCompleted,
                         )
                     }
@@ -456,7 +453,7 @@ private fun Separator() {
         Modifier
             .fillMaxWidth()
             .height(SEPARATOR_HEIGHT)
-            .background(TaskSeparator),
+            .background(LocalFivePadColors.current.separator),
     )
 }
 
@@ -475,7 +472,7 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
             fontSize = 12.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
+            color = LocalFivePadColors.current.muted,
             modifier = Modifier.weight(1f),
         )
         // Kelompok tanpa grup bukan grup, jadi tidak bisa diubah nama atau dihapus.
@@ -494,7 +491,11 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
                     Icon(
                         painterResource(R.drawable.ic_more_vert),
                         contentDescription = stringResource(R.string.group_menu),
-                        tint = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
+                        // Figma menyisakan putih 60% di sini pada tema terang —
+                        // warna yang sepenuhnya tak terlihat di atas latar
+                        // terang, yang berarti menu grup tak bisa dibuka sama
+                        // sekali. Dipakai tinta redup, seperti label seksinya.
+                        tint = LocalFivePadColors.current.muted,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -611,7 +612,7 @@ private fun TaskRow(
                     fontSize = 16.sp,
                     lineHeight = 24.sp,
                     color = if (todo.done) {
-                        scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS)
+                        LocalFivePadColors.current.muted
                     } else {
                         scheme.onSurface
                     },
@@ -634,7 +635,7 @@ private fun TaskRow(
                         color = if (overdue) {
                             scheme.error
                         } else {
-                            scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS)
+                            LocalFivePadColors.current.muted
                         },
                     )
                 }
@@ -689,7 +690,7 @@ private fun DragHandle(
             Icon(
                 painterResource(R.drawable.ic_drag_indicator),
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = DRAG_HANDLE_ALPHA),
+                tint = LocalFivePadColors.current.dragHandle,
                 modifier = Modifier.size(HANDLE_SIZE),
             )
         }
@@ -698,6 +699,8 @@ private fun DragHandle(
 
 @Composable
 private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
+    val colors = LocalFivePadColors.current
+
     Box(
         Modifier
             .size(Tokens.space6)
@@ -726,8 +729,8 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
                 Modifier
                     .size(19.dp)
                     .clip(CircleShape)
-                    .background(CheckboxFill)
-                    .border(1.dp, CheckboxStroke, CircleShape),
+                    .background(colors.checkboxFill)
+                    .border(1.dp, colors.checkboxStroke, CircleShape),
             )
         }
     }

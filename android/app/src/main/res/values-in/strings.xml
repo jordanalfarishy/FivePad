@@ -40,10 +40,15 @@
     <string name="settings_title">Pengaturan</string>
     <string name="settings_open">Buka pengaturan</string>
     <string name="settings_back">Kembali</string>
-    <string name="settings_account">Akun</string>
-    <string name="settings_account_pending">Masuk dan sinkronisasi antar perangkat hadir di rilis berikutnya.</string>
-    <string name="settings_about">Tentang</string>
-    <string name="settings_version">Versi %1$s</string>
+    <string name="settings_section_app">PENGATURAN APLIKASI</string>
+    <string name="settings_section_version">VERSI APLIKASI %1$s</string>
+    <string name="settings_theme">Tema</string>
+    <string name="settings_language">Bahasa</string>
+    <string name="settings_language_unavailable">Perangkat ini tidak punya layar bahasa per-aplikasi.</string>
+    <string name="settings_terms">Syarat &amp; Ketentuan</string>
+    <string name="settings_privacy">Kebijakan Privasi</string>
+    <string name="theme_dark">Gelap</string>
+    <string name="theme_light">Terang</string>
 
     <!-- Dialog -->
     <string name="dialog_add">Tambah</string>

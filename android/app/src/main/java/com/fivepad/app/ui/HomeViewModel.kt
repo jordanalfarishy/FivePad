@@ -7,9 +7,11 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.fivepad.app.FivePadApplication
+import com.fivepad.app.data.AppPreferences
 import com.fivepad.app.data.FivePadRepository
 import com.fivepad.app.data.Note
 import com.fivepad.app.data.Todo
+import com.fivepad.app.data.ThemeMode
 import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.reminder.Reminders
 import kotlinx.coroutines.Job
@@ -61,8 +63,14 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val repo: FivePadRepository,
+    private val preferences: AppPreferences,
     private val app: Application,
 ) : ViewModel() {
+
+    /** Tema yang sedang aktif. Gelap adalah bawaannya (FR-6.7). */
+    val theme: StateFlow<ThemeMode> = preferences.theme
+
+    fun setTheme(mode: ThemeMode) = preferences.setTheme(mode)
 
     private val drafts = MutableStateFlow<Map<Int, String>>(emptyMap())
 
@@ -261,7 +269,7 @@ class HomeViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as FivePadApplication
-                HomeViewModel(app.repository, app)
+                HomeViewModel(app.repository, app.preferences, app)
             }
         }
     }

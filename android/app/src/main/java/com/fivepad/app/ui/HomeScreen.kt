@@ -90,13 +90,11 @@ import com.fivepad.app.data.Note
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
 import com.fivepad.app.ui.markdown.checkboxAt
 import com.fivepad.app.ui.markdown.toggleCheckbox
-import com.fivepad.app.ui.theme.AppBar
 import com.fivepad.app.ui.theme.DOT_INACTIVE_ALPHA
-import com.fivepad.app.ui.theme.DotRing
-import com.fivepad.app.ui.theme.DotStroke
-import com.fivepad.app.ui.theme.Hairline
-import com.fivepad.app.ui.theme.LocalSlotAccents
-import com.fivepad.app.ui.theme.PillActive
+import com.fivepad.app.ui.theme.LocalFivePadColors
+import com.fivepad.app.ui.theme.MUTED_ALPHA
+import com.fivepad.app.ui.theme.PILL_ALPHA
+import com.fivepad.app.ui.theme.Accent
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -131,6 +129,7 @@ private fun MainScreen(
     onRequestHandled: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    val colors = LocalFivePadColors.current
     val state by vm.uiState.collectAsStateWithLifecycle()
     val clearedSlot by vm.clearedSlot.collectAsStateWithLifecycle()
     val clearedTodos by vm.clearedTodos.collectAsStateWithLifecycle()
@@ -203,7 +202,7 @@ private fun MainScreen(
                 Modifier
                     .fillMaxWidth()
                     .windowInsetsTopHeight(WindowInsets.statusBars)
-                    .background(AppBar),
+                    .background(colors.bar),
             )
 
             TopBar(
@@ -259,6 +258,11 @@ private fun MainScreen(
                 doneCount = state.doneCount,
                 totalCount = state.totalCount,
                 onSelect = { tab = it },
+                // Di tab catatan pil mengikuti warna slot yang sedang terbuka;
+                // di tab tugas ia memakai aksen aplikasi. Warnanya selalu sama
+                // dengan yang dibawa bilah atas, jadi kedua ujung layar
+                // menjawab "slot mana" dengan satu warna yang sama.
+                notesColour = colors.slotAccents[pager.currentPage],
             )
         }
     }
@@ -339,15 +343,16 @@ private fun TopBar(
     onSelectSlot: (Int) -> Unit,
     onSlotOptions: (Int) -> Unit,
 ) {
-    val accents = LocalSlotAccents.current
-    val ink = MaterialTheme.colorScheme.onSurface
+    val colors = LocalFivePadColors.current
+    val accents = colors.slotAccents
+    val ink = colors.ink
 
     Column {
         Row(
             Modifier
                 .fillMaxWidth()
                 .height(Tokens.topBarHeight)
-                .background(AppBar),
+                .background(colors.bar),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -400,7 +405,7 @@ private fun TopBar(
 
         // Bilah atas catatan tidak bergaris — pemisahnya ada di bawah baris
         // judul, yang ikut menggulung bersama isinya.
-        if (!notesActive) HorizontalDivider(color = Hairline)
+        if (!notesActive) HorizontalDivider(color = colors.hairline)
     }
 }
 
@@ -426,6 +431,7 @@ private fun SlotDot(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
+    val colors = LocalFivePadColors.current
     val label = if (selected) {
         stringResource(R.string.slot_description_active, slot)
     } else {
@@ -448,7 +454,7 @@ private fun SlotDot(
                 Box(
                     Modifier
                         .requiredSize(Tokens.dot + Tokens.dotRing * 2)
-                        .background(DotRing, CircleShape),
+                        .background(colors.dotRing, CircleShape),
                 )
             }
             Box(
@@ -456,7 +462,7 @@ private fun SlotDot(
                     .size(Tokens.dot)
                     .alpha(if (selected) 1f else DOT_INACTIVE_ALPHA)
                     .background(colour, CircleShape)
-                    .border(1.dp, DotStroke, CircleShape),
+                    .border(1.dp, colors.dotStroke, CircleShape),
             )
         }
     }
@@ -468,9 +474,12 @@ private fun BottomNav(
     doneCount: Int,
     totalCount: Int,
     onSelect: (Int) -> Unit,
+    notesColour: Color,
 ) {
-    Column(Modifier.background(AppBar)) {
-        HorizontalDivider(color = Hairline)
+    val colors = LocalFivePadColors.current
+
+    Column(Modifier.background(colors.bar)) {
+        HorizontalDivider(color = colors.hairline)
         Row(
             Modifier
                 .fillMaxWidth()
@@ -479,19 +488,15 @@ private fun BottomNav(
             NavItem(
                 selected = selected == TAB_NOTES,
                 label = stringResource(R.string.tab_notes),
+                accent = notesColour,
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_NOTES) },
-            ) {
-                Icon(
-                    painterResource(R.drawable.ic_notes),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(Tokens.space6),
-                )
-            }
+                icon = R.drawable.ic_notes,
+            )
             NavItem(
                 selected = selected == TAB_TODOS,
                 label = stringResource(R.string.tab_tasks),
+                accent = Accent,
                 badge = if (totalCount > 0) {
                     stringResource(R.string.tab_tasks_count, doneCount, totalCount)
                 } else {
@@ -499,14 +504,8 @@ private fun BottomNav(
                 },
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_TODOS) },
-            ) {
-                Icon(
-                    painterResource(R.drawable.ic_tasks),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(Tokens.space6),
-                )
-            }
+                icon = R.drawable.ic_tasks,
+            )
         }
         Spacer(
             Modifier
@@ -520,12 +519,16 @@ private fun BottomNav(
 private fun NavItem(
     selected: Boolean,
     label: String,
+    accent: Color,
     modifier: Modifier = Modifier,
     badge: String? = null,
     onClick: () -> Unit,
-    icon: @Composable () -> Unit,
+    icon: Int,
 ) {
-    val ink = MaterialTheme.colorScheme.onSurface
+    // Tab terpilih memakai warnanya sendiri, yang tidak terpilih memakai tinta.
+    // Pil, ikon, dan angka semuanya satu warna — kalau pilnya beraksen tapi
+    // ikonnya tidak, yang terlihat adalah noda warna, bukan penanda terpilih.
+    val tint = if (selected) accent else LocalFivePadColors.current.ink
 
     Box(modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
         Row(
@@ -533,7 +536,7 @@ private fun NavItem(
                 .width(Tokens.pillWidth)
                 .height(Tokens.pillHeight)
                 .clip(RoundedCornerShape(Tokens.radiusPill))
-                .background(if (selected) PillActive else Color.Transparent)
+                .background(if (selected) accent.copy(alpha = PILL_ALPHA) else Color.Transparent)
                 .clickable(onClick = onClick)
                 // Ikon tanpa teks butuh label yang dibacakan pembaca layar,
                 // kalau tidak navigasinya kosong tak bernama bagi mereka.
@@ -543,14 +546,19 @@ private fun NavItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
         ) {
-            icon()
+            Icon(
+                painterResource(icon),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(Tokens.space6),
+            )
             if (badge != null) {
                 Text(
                     badge,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     fontWeight = FontWeight.Medium,
-                    color = ink,
+                    color = tint,
                 )
             }
         }
@@ -565,9 +573,10 @@ private fun NotesPane(
     focusSlot: Int?,
     onFocusHandled: () -> Unit,
 ) {
-    val ink = MaterialTheme.colorScheme.onSurface
-    val faint = ink.copy(alpha = MARKER_ALPHA)
-    val accents = LocalSlotAccents.current
+    val colors = LocalFivePadColors.current
+    val ink = colors.ink
+    val faint = colors.muted
+    val accents = colors.slotAccents
 
     val markdown = remember(ink) {
         MarkdownVisualTransformation(ink = ink, baseSize = Tokens.bodyTextSize)
@@ -711,7 +720,7 @@ private fun NotesPane(
                         .align(Alignment.BottomEnd)
                         .padding(Tokens.space2)
                         .clip(RoundedCornerShape(Tokens.radiusSm))
-                        .background(AppBar)
+                        .background(colors.bar)
                         .padding(horizontal = Tokens.space2, vertical = Tokens.space1),
                 )
             }
@@ -732,11 +741,13 @@ private fun SlotTitleField(
     accent: Color,
     onChange: (String) -> Unit,
 ) {
+    val colors = LocalFivePadColors.current
+
     Box(
         Modifier
             .fillMaxWidth()
             .height(Tokens.titleRowHeight)
-            .background(AppBar),
+            .background(colors.bar),
         contentAlignment = Alignment.TopCenter,
     ) {
         BasicTextField(
@@ -764,7 +775,7 @@ private fun SlotTitleField(
                             fontSize = 14.sp,
                             lineHeight = 24.sp,
                             fontWeight = FontWeight.Medium,
-                            color = accent.copy(alpha = MARKER_ALPHA),
+                            color = accent.copy(alpha = MUTED_ALPHA),
                         )
                     }
                     inner()
@@ -772,18 +783,11 @@ private fun SlotTitleField(
             },
         )
         HorizontalDivider(
-            color = Hairline,
+            color = colors.hairline,
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
-
-/**
- * Opasitas penanda sintaks Markdown dan teks contoh — 0,40 sesuai Figma.
- * Di atas `#19191B` nilainya 3,8:1 dan gagal AA; dipakai hanya untuk penanda
- * dan placeholder, tidak pernah untuk isi catatan.
- */
-private const val MARKER_ALPHA = 0.40f
 
 /** Selama ini jendela urungkan berlaku, di layar catatan maupun layar tugas. */
 internal const val UNDO_WINDOW_MS = 5_000L

@@ -132,17 +132,28 @@ Setiap usulan fitur diuji terhadap keempat prinsip ini. Usulan yang melanggar sa
 
 Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak dapat diubah pengguna — konsistensinya yang membuat pengguna hafal "yang hijau itu urusan klien A" tanpa perlu membaca label.
 
-**Aksen** — satu nilai per slot. Kolom "terang" dihapus sejak mode terang dibatalkan (FR-6.7); tidak ada palet kedua yang perlu diselaraskan.
+**Aksen** — satu nilai per slot per tema. Bukan versi terang dan gelap dari warna yang sama: di atas latar terang, aksen tema gelap jatuh di bawah 2:1, jadi kelimanya dihitung ulang.
 
-| Slot | Aksen |
-|---|---|
-| Slot 1 | `#EF7A5A` |
-| Slot 2 | `#E0A63F` |
-| Slot 3 | `#63BC85` |
-| Slot 4 | `#48BEDD` |
-| Slot 5 | `#A186D6` |
+| Slot | Gelap | Terang |
+|---|---|---|
+| Slot 1 | `#EF7A5A` | `#E73200` |
+| Slot 2 | `#E0A63F` | `#E49200` |
+| Slot 3 | `#63BC85` | `#1B8744` |
+| Slot 4 | `#48BEDD` | `#13A4CB` |
+| Slot 5 | `#A186D6` | `#5320B7` |
 
-**Permukaan** — kedua tab memakai permukaan yang sama: latar `#19191B`, dan seluruh chrome (bilah status, bilah atas, baris nama catatan, bilah bawah) `#232324`. Tidak ada latar selayar penuh per slot.
+**Permukaan** — kedua tab memakai permukaan yang sama, dan setiap nilai punya pasangan terangnya. Tidak ada latar selayar penuh per slot.
+
+| Peran | Gelap | Terang |
+|---|---|---|
+| Latar isi | `#19191B` | `#EAEAE8` |
+| Chrome (bilah status, bilah atas, baris nama, bilah bawah) | `#232324` | `#F9F9F9` |
+| Kartu baris (tugas, pengaturan, lembar) | `#242525` | `#FFFFFF` |
+| Pita pemisah | `#131314` | `#DDDDDA` |
+| Tinta | `#FFFFFF` | `#25242C` |
+| Kotak centang kosong | `#48484B` / tepi `#6B6B6B` | `#EFEFED` / tepi `#D7D7D7` |
+
+Sisanya diturunkan dari tinta dengan alpha yang sama di kedua tema — garis rambut 16%, teks redup 40%, tepi titik 24%, pegangan seret 10% — karena begitulah Figma menggambarnya: satu tinta dengan ketebalan berbeda, bukan warna-warna terpisah.
 
 > **Mengapa latar selayar penuh dilepas.** Versi sebelumnya mengecat seluruh layar dengan warna slot. Itu menarik pada tangkapan layar pertama, tapi berarti lima permukaan berbeda yang setiap nilainya harus diverifikasi sendiri-sendiri, dan warna pekat selebar layar membuat teks catatan — yang justru isi utamanya — harus bersaing dengan latarnya. Keputusan pemilik produk: satu permukaan gelap, dan warna slot dipadatkan ke dua tempat kecil yang justru paling sering dilihat.
 
@@ -150,9 +161,14 @@ Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak
 
 | Elemen | Slot aktif | Slot tidak aktif |
 |---|---|---|
-| Titik penanda | Aksen penuh, lingkaran 24 dp, cincin putih 2 dp **di luar** lingkaran | Aksen pada opasitas **0,40** |
-| Nama catatan | Aksen penuh (5,2–7,3:1 — lolos AA pada kelima slot) | — |
+| Titik penanda | Aksen penuh, lingkaran 24 dp, cincin tinta 2 dp **di luar** lingkaran | Aksen pada opasitas **0,40** |
+| Nama catatan | Aksen penuh | — |
 | Pita 4 dp (node 5:1523) | Aksen penuh, berpola (lihat bawah) | — |
+| Pil tab Catatan di bilah bawah | Aksen penuh, dengan latar aksen 16% | — |
+
+Pil navigasi menutup lingkarannya: warna yang sama muncul di tepi atas dan tepi bawah layar, jadi kedua ujungnya menjawab "slot mana" dengan satu warna. Tab Tugas memakai aksen aplikasi, bukan aksen slot — daftar tugas memang tidak milik slot mana pun.
+
+Nama catatan mencapai 5,2–7,3:1 di tema gelap, tapi hanya **2,4–8,8:1** di tema terang: Slot 2 (`#E49200`, 2,37:1) dan Slot 4 (`#13A4CB`, 2,77:1) gagal AA di sana. Nilai desain tetap dipakai; menaikkan gelapnya kedua warna itu akan memperbaikinya tanpa menyentuh yang lain.
 
 Pita duduk tepat di bawah nama catatan. Saat catatan digulir, **namanya ikut pergi tapi pitanya menempel di tepi atas** — nama slot hanya perlu dilihat sesekali, sedangkan penanda slot tidak boleh pernah hilang dari layar.
 
@@ -176,9 +192,13 @@ Polanya selalu menyala tanpa sakelar — aksesibilitas di balik pengaturan adala
 
 Opasitas titik tidak aktif dinaikkan dari 0,24 (nilai Figma) ke **0,40**. Pada 0,24 titik tidak aktif hanya mencapai 1,5–1,6:1 terhadap chrome — memadai untuk sekadar menandai "bukan yang ini", tapi titik inilah juga kontrol untuk berpindah slot (FR-1.6), dan sasaran yang nyaris tak terlihat tidak bisa dibidik. Pada 0,40 nilainya **1,95–2,30:1** (Slot 5 ungu yang terendah) dan tetap jelas kalah dari titik aktif, yang tampil penuh sekaligus bercincin putih.
 
-Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama seperti penanda Markdown. Isi catatan sendiri putih penuh, 15,7:1.
+Placeholder nama catatan memakai aksen pada 0,40 — gagal AA, sama seperti penanda Markdown. Isi catatan sendiri memakai tinta penuh: 17,6:1 di tema gelap, 12,8:1 di tema terang.
 
-**Aksen aksi** — untuk tombol tambah, teks "New Group", dan kotak centang yang tercentang: `#304678`, persis nilai Figma. Di atas latar `#19191B` warna ini hanya mencapai **1,90:1**: sebagai ikon dan sebagai isian kotak centang ia masih terbaca sebagai bentuk, tapi sebagai **teks** ("New Group") ia di bawah ambang AA. Nilai desain tetap dipakai agar layar sama persis dengan Figma; `#6380C1` dari hue yang sama adalah penggantinya bila kontras diprioritaskan.
+Teks redup 0,40 mencapai 3,81:1 di tema gelap tapi hanya **2,30:1** di tema terang — tinta gelap yang diencerkan kehilangan kontras lebih cepat daripada tinta putih. Nilai desain tetap dipakai di keduanya; menaikkannya ke 0,55 di tema terang saja akan menyamakan keduanya.
+
+**Aksen aksi** — `#E6210F`, sama di kedua tema. Dipakai untuk tombol tambah, teks "New Group", kotak centang yang tercentang (tepi `#FF4332`), dan pil tab Tugas.
+
+Warnanya diambil dari sudut terlipat pada ikon aplikasi, jadi warna tindakan dan warna merek akhirnya satu benda. Ia mencapai **3,84:1** di atas latar gelap dan **4,58:1** di atas kartu terang: lolos AA untuk komponen antarmuka dan teks besar di mana pun, dan lolos AA penuh untuk teks kecil hanya di atas kartu putih. Pendahulunya `#304678` hanya 1,90:1, jadi ini kenaikan lebih dari dua kali lipat — tapi label 14 sp "New Group" masih sedikit di bawah 4,5:1 di tema gelap.
 
 ### Modul & kepemilikan platform
 
@@ -292,13 +312,13 @@ Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
 | FR-6.5 | P1 | Ubin Pengaturan Cepat membuka slot yang terakhir aktif dengan papan ketik langsung aktif. |
 | FR-6.6 | P2 | Dukungan warna dinamis Material You sebagai tema opsional, dengan palet lima slot tetap tidak berubah agar identitas warna terjaga. |
-| FR-6.7 | P0 | Aplikasi hanya bermode gelap. Tidak ada pilihan tema dan tidak ada varian terang — keputusan pemilik produk setelah mode terang sempat dibangun. Konsekuensinya disengaja: setiap nilai kontras cukup diverifikasi sekali, dan tidak ada kelas bug "benar di satu tema, rusak di tema lain". |
+| FR-6.7 | P0 | Dua tema, gelap dan terang, dengan **gelap sebagai bawaan**. Pilihannya milik aplikasi, bukan mengikuti sistem: FivePad dipakai sebagai papan tulis yang selalu terbuka, dan tema yang berubah sendiri mengikuti jadwal malam perangkat berarti latar yang berganti di tengah menulis. Pilihannya tersimpan dan dibaca sinkron saat aplikasi dibuka, sehingga tidak ada kedipan tema di bingkai pertama. Layar pembuka tetap gelap di kedua tema — jendela awal digambar sistem dari tema di manifes, sebelum satu baris kode aplikasi pun berjalan. |
 
 ### FR-7 — Pengaturan & data
 
 | ID | Prio | Platform | Kebutuhan |
 |---|---|---|---|
-| FR-7.1 | P0 | Semua | Halaman Pengaturan dibagi menjadi: Akun, Sinkronisasi, Tampilan, Pintasan (macOS), Notifikasi, dan Data. |
+| FR-7.1 | P0 | Semua | Halaman Pengaturan memakai bahasa visual yang sama dengan daftar tugas: seksi berjudul, kartu baris, pita pemisah. Bagian **Pengaturan Aplikasi** memuat Tema dan Bahasa; bagian **Versi Aplikasi** memuat Syarat & Ketentuan dan Kebijakan Privasi, keduanya membuka halaman web. Bahasa membuka pemilih bahasa per-aplikasi milik sistem (Android 13+), bukan pemilih buatan sendiri — pilihannya tersimpan di sistem dan tidak boleh ada dua tempat yang bisa berbeda jawaban. Akun, Sinkronisasi, dan Notifikasi menyusul bersama FR-3 di M2. |
 | FR-7.2 | P1 | Semua | Ekspor ke berkas Markdown — lima berkas slot ditambah satu berkas daftar tugas — dan ke satu berkas JSON gabungan. |
 | FR-7.3 | P1 | Semua | Impor dari berkas JSON hasil ekspor, dengan pratinjau perubahan sebelum ditimpa dan opsi batal. |
 | FR-7.4 | P1 | Semua | Pencadangan lokal otomatis setiap hari, menyimpan tujuh salinan terakhir secara bergilir. |
@@ -394,7 +414,7 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 | NFR-5 | **Keandalan** | Sesi bebas macet ≥ 99,5%. Kegagalan sinkronisasi mencoba ulang dengan jeda menaik, maksimal 6 percobaan sebelum menyerah dan memberi tahu pengguna. |
 | NFR-6 | **Keamanan** | TLS 1.3 untuk seluruh lalu lintas. Token disimpan di Keychain (macOS) dan Android Keystore. RLS aktif di semua tabel tanpa pengecualian. |
 | NFR-7 | **Privasi** | Tanpa analitik pihak ketiga, tanpa iklan, tanpa pelatihan model atas isi catatan. Laporan macet bersifat opsional dan mati secara bawaan. |
-| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA, diverifikasi pada satu-satunya tema yang ada (gelap). Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot tidak pernah menjadi satu-satunya pembeda: ia selalu disertai label teks, dan pita penanda slot membawa pola isian yang berbeda per slot sehingga tetap terbaca tanpa persepsi warna sama sekali. |
+| NFR-8 | **Aksesibilitas** | Kontras memenuhi WCAG 2.1 AA, diverifikasi pada **kedua** tema — setiap nilai dihitung dua kali sejak mode terang kembali. Seluruh kontrol terbaca VoiceOver dan TalkBack. Navigasi keyboard penuh di macOS. Dynamic Type dihormati di Android. Warna slot tidak pernah menjadi satu-satunya pembeda: ia selalu disertai label teks, dan pita penanda slot membawa pola isian yang berbeda per slot sehingga tetap terbaca tanpa persepsi warna sama sekali. |
 | NFR-9 | **Kompatibilitas** | macOS 13 Ventura ke atas, Apple Silicon dan Intel. Android 8.0 (API 26) ke atas. |
 | NFR-10 | **Lokalisasi** | Bahasa Indonesia dan Inggris saat peluncuran. Seluruh teks dieksternalisasi sejak M1, tanpa string tertanam di kode. |
 | NFR-11 | **Ukuran unduhan** | macOS ≤ 25 MB. Android ≤ 15 MB per varian ABI. |
