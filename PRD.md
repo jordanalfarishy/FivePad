@@ -130,6 +130,10 @@ Setiap usulan fitur diuji terhadap keempat prinsip ini. Usulan yang melanggar sa
 
 Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak dapat diubah pengguna — konsistensinya yang membuat pengguna hafal "yang hijau itu urusan klien A" tanpa perlu membaca label.
 
+Palet dipakai dalam **dua peran yang berbeda**, dan keduanya tidak boleh tertukar.
+
+**Aksen** — untuk titik penanda slot, di mana warna hanya menempati area kecil:
+
 | Slot | Terang | Gelap |
 |---|---|---|
 | Slot 1 | `#C7442A` | `#EF7A5A` |
@@ -137,6 +141,18 @@ Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak
 | Slot 3 | `#3B8A5B` | `#63BC85` |
 | Slot 4 | `#0B6E8F` | `#48BEDD` |
 | Slot 5 | `#6B4E9E` | `#A186D6` |
+
+**Latar** — untuk warna selayar penuh yang menandai slot aktif. Nilainya diturunkan dari warna aksen dengan hue dipertahankan dan hanya kecerahan yang disetel:
+
+| Slot | Terang (teks putih) | Gelap (teks `#E7EBF0`) |
+|---|---|---|
+| Slot 1 | `#CE472C` · 4,61:1 | `#9C3F2D` · 5,5:1 |
+| Slot 2 | `#A06918` · 4,62:1 | `#7C551C` · 5,5:1 |
+| Slot 3 | `#388356` · 4,61:1 | `#336748` · 5,5:1 |
+| Slot 4 | `#0D7EA4` · 4,61:1 | `#14657F` · 5,5:1 |
+| Slot 5 | `#8367B4` · 4,62:1 | `#685192` · 5,5:1 |
+
+> **Mengapa dua palet.** Warna aksen tidak dapat dipakai langsung sebagai latar selayar penuh. Dengan teks putih, Slot 3 hanya mencapai 4,22:1 dan **gagal memenuhi WCAG AA** (NFR-8); sementara Slot 2 menjadi satu-satunya yang menuntut teks gelap, sehingga tampak seperti cacat alih-alih keputusan desain. Palet latar menyelesaikan keduanya: seluruh lima slot lolos AA dengan satu warna teks yang sama. Di mode gelap, latar sengaja dibuat jauh lebih pekat daripada aksennya — satu layar penuh `#E0A63F` menyilaukan di ruang gelap, bukan nyaman.
 
 ### Modul & kepemilikan platform
 
@@ -241,12 +257,13 @@ Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak
 
 | ID | Prio | Kebutuhan |
 |---|---|---|
-| FR-6.1 | P0 | Layar tunggal berisi baris lima titik di bagian atas, editor di tengah, dan tab daftar tugas. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
+| FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Slot aktif ditandai warna latar selayar penuh yang bertransisi mengikuti geseran, bukan meloncat saat halaman berganti. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
 | FR-6.2 | P0 | Papan ketik muncul otomatis saat aplikasi dibuka dari widget atau ubin Pengaturan Cepat, tapi tidak saat dibuka dari peluncur. |
 | FR-6.3 | P1 | Widget layar utama ukuran 2×2 dan 4×2 menampilkan satu slot pilihan atau daftar tugas. Menyentuh widget membuka langsung ke isi tersebut. |
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
 | FR-6.5 | P1 | Ubin Pengaturan Cepat membuka slot yang terakhir aktif dengan papan ketik langsung aktif. |
 | FR-6.6 | P2 | Dukungan warna dinamis Material You sebagai tema opsional, dengan palet lima slot tetap tidak berubah agar identitas warna terjaga. |
+| FR-6.7 | P0 | Pilihan tema tiga keadaan: ikuti sistem, paksa terang, paksa gelap. Disimpan per perangkat dan **tidak** ikut tersinkronisasi, mengikuti preseden FR-5.2 — seseorang bisa saja ingin gelap di ponsel tapi terang di Mac. Ikon bilah status mengikuti warna di belakangnya, bukan tema, agar tetap terbaca di atas latar slot. |
 
 ### FR-7 — Pengaturan & data
 
