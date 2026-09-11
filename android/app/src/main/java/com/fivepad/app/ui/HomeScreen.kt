@@ -25,10 +25,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Create
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -220,7 +217,7 @@ private fun TopBar(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                Icons.Default.Settings,
+                painterResource(R.drawable.ic_settings),
                 contentDescription = stringResource(R.string.settings_open),
                 tint = ink,
             )
@@ -302,7 +299,7 @@ private fun BottomNav(
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_NOTES) },
             ) {
-                Icon(Icons.Default.Create, contentDescription = null, tint = it)
+                Icon(painterResource(R.drawable.ic_notes), contentDescription = null, tint = it)
             }
             NavItem(
                 selected = selected == TAB_TODOS,
@@ -317,7 +314,7 @@ private fun BottomNav(
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_TODOS) },
             ) {
-                Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, tint = it)
+                Icon(painterResource(R.drawable.ic_tasks), contentDescription = null, tint = it)
             }
         }
     }

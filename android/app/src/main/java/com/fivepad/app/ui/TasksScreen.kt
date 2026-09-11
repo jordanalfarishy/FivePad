@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,14 +20,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
@@ -50,22 +44,38 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
+import com.fivepad.app.ui.theme.CheckboxFillDark
+import com.fivepad.app.ui.theme.CheckboxFillLight
+import com.fivepad.app.ui.theme.CheckboxStrokeDark
+import com.fivepad.app.ui.theme.CheckboxStrokeLight
+import com.fivepad.app.ui.theme.CheckedStrokeDark
+import com.fivepad.app.ui.theme.CheckedStrokeLight
+import com.fivepad.app.ui.theme.LocalIsDarkTheme
+import com.fivepad.app.ui.theme.MUTED_ALPHA_TASKS
+import com.fivepad.app.ui.theme.TaskSeparatorDark
+import com.fivepad.app.ui.theme.TaskSeparatorLight
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.delay
 
-/** Margin kiri-kanan blok baris, mengikuti inset 8 px di Figma. */
-private val BLOCK_INSET = Tokens.space2
-
-/** Jarak dari tepi blok ke awal teks — sejajar untuk baris, pembatas, dan "New Task". */
-private val TEXT_INSET = 44.dp
+// Nilai diambil langsung dari Figma (node 3:377).
+private val SECTION_PAD_H = 8.dp
+private val SECTION_PAD_V = 4.dp
+private val ITEM_GAP = 2.dp
+private val BLOCK_RADIUS = 12.dp
+private val ROW_RADIUS = 4.dp
+private val ROW_PAD = 12.dp
+private val ROW_GAP = 8.dp
+private val SEPARATOR_HEIGHT = 7.dp
 
 @Composable
 fun TasksScreen(
@@ -80,8 +90,10 @@ fun TasksScreen(
     onDeleteGroup: (String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val dark = LocalIsDarkTheme.current
+    val separator = if (dark) TaskSeparatorDark else TaskSeparatorLight
+
     var pendingUndo by remember { mutableStateOf<String?>(null) }
-    var showNewGroup by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<TodoGroup?>(null) }
 
     LaunchedEffect(pendingUndo) {
@@ -94,51 +106,70 @@ fun TasksScreen(
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = Tokens.space1, bottom = Tokens.space6),
+            contentPadding = PaddingValues(bottom = Tokens.space6),
         ) {
-            state.sections.forEach { section ->
-                item(key = "h-${section.group?.id ?: "none"}") {
-                    SectionHeader(
-                        group = section.group,
-                        onRename = { renaming = section.group },
-                        onDelete = { section.group?.let { onDeleteGroup(it.id) } },
-                    )
-                }
+            state.sections.forEachIndexed { index, section ->
+                item(key = "s-${section.group?.id ?: "none"}") {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
+                        verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+                    ) {
+                        SectionHeader(
+                            group = section.group,
+                            onRename = { renaming = section.group },
+                            onDelete = { section.group?.let { onDeleteGroup(it.id) } },
+                        )
 
-                if (section.todos.isNotEmpty()) {
-                    item(key = "b-${section.group?.id ?: "none"}") {
-                        TaskBlock(
-                            todos = section.todos,
-                            onToggle = onToggle,
-                            onEdit = onEditTask,
-                            onDelete = {
-                                onDeleteTask(it)
-                                pendingUndo = it
-                            },
+                        if (section.todos.isNotEmpty()) {
+                            // Sudut luar 12 dp memangkas baris pertama dan terakhir,
+                            // sementara tiap baris tetap punya sudut 4 dp-nya sendiri.
+                            Column(
+                                Modifier.clip(RoundedCornerShape(BLOCK_RADIUS)),
+                                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+                            ) {
+                                section.todos.forEach { todo ->
+                                    TaskRow(
+                                        todo = todo,
+                                        onToggle = { onToggle(todo.id, it) },
+                                        onEdit = { onEditTask(todo.id, it) },
+                                        onDelete = {
+                                            onDeleteTask(todo.id)
+                                            pendingUndo = todo.id
+                                        },
+                                    )
+                                }
+                            }
+                        }
+
+                        InlineAddRow(
+                            label = stringResource(R.string.task_add),
+                            labelColor = scheme.onSurface,
+                            hintRes = R.string.task_text_hint,
+                            maxLength = Todo.MAX_TEXT_LENGTH,
+                            onCommit = { onAddTask(it, section.group?.id) },
                         )
                     }
                 }
 
-                item(key = "a-${section.group?.id ?: "none"}") {
-                    InlineAddRow(
-                        label = stringResource(R.string.task_add),
-                        labelColor = scheme.onSurface,
-                        onCommit = { onAddTask(it, section.group?.id) },
-                    )
-                    // Pita pemisah antar seksi: latar yang dibiarkan terlihat,
-                    // bukan garis — sesuai Rectangle 46/47 di Figma.
-                    Spacer(Modifier.height(Tokens.space3))
-                }
+                item(key = "sep-$index") { Separator(separator) }
             }
 
             item {
-                InlineAddRow(
-                    label = stringResource(R.string.group_new),
-                    labelColor = scheme.primary,
-                    onCommit = onAddGroup,
-                    maxLength = TodoGroup.MAX_NAME_LENGTH,
-                    hintRes = R.string.group_name_hint,
-                )
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
+                ) {
+                    InlineAddRow(
+                        label = stringResource(R.string.group_new),
+                        labelColor = scheme.primary,
+                        hintRes = R.string.group_name_hint,
+                        maxLength = TodoGroup.MAX_NAME_LENGTH,
+                        onCommit = onAddGroup,
+                    )
+                }
             }
         }
 
@@ -165,18 +196,6 @@ fun TasksScreen(
         }
     }
 
-    if (showNewGroup) {
-        TextPromptDialog(
-            title = stringResource(R.string.group_new),
-            initial = "",
-            hint = stringResource(R.string.group_name_hint),
-            confirmLabel = stringResource(R.string.dialog_add),
-            maxLength = TodoGroup.MAX_NAME_LENGTH,
-            onDismiss = { showNewGroup = false },
-            onConfirm = { onAddGroup(it); showNewGroup = false },
-        )
-    }
-
     renaming?.let { group ->
         TextPromptDialog(
             title = stringResource(R.string.group_rename),
@@ -191,6 +210,16 @@ fun TasksScreen(
 }
 
 @Composable
+private fun Separator(color: Color) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(SEPARATOR_HEIGHT)
+            .background(color),
+    )
+}
+
+@Composable
 private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     var menuOpen by remember { mutableStateOf(false) }
@@ -198,21 +227,18 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = Tokens.space4, end = Tokens.space2)
-            .heightIn(min = 32.dp),
+            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             (group?.name ?: stringResource(R.string.group_none)).uppercase(),
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            // onSurfaceVariant, bukan abu-abu 3,81:1 dari desain — label seksi
-            // adalah informasi navigasi dan harus lolos AA seperti teks lain.
-            color = scheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
             modifier = Modifier.weight(1f),
         )
-        // Kelompok "tanpa grup" tidak punya menu: ia bukan grup, jadi tidak bisa
-        // diubah namanya maupun dihapus.
+        // Kelompok tanpa grup bukan grup, jadi tidak bisa diubah nama atau dihapus.
         if (group != null) {
             Box {
                 Box(
@@ -223,9 +249,9 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        Icons.Default.MoreVert,
+                        painterResource(R.drawable.ic_more_vert),
                         contentDescription = stringResource(R.string.group_menu),
-                        tint = scheme.onSurfaceVariant,
+                        tint = scheme.onSurface.copy(alpha = 0.6f),
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -253,85 +279,76 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
     }
 }
 
-@Composable
-private fun TaskBlock(
-    todos: List<Todo>,
-    onToggle: (String, Boolean) -> Unit,
-    onEdit: (String, String) -> Unit,
-    onDelete: (String) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = BLOCK_INSET)
-            .clip(RoundedCornerShape(Tokens.radiusMd))
-            .background(scheme.surfaceContainer),
-    ) {
-        todos.forEachIndexed { index, todo ->
-            TaskRow(
-                todo = todo,
-                onToggle = { onToggle(todo.id, it) },
-                onEdit = { onEdit(todo.id, it) },
-                onDelete = { onDelete(todo.id) },
-            )
-            if (index != todos.lastIndex) {
-                HorizontalDivider(
-                    Modifier.padding(start = TEXT_INSET),
-                    color = scheme.outlineVariant,
-                )
-            }
-        }
-    }
-}
-
 /**
- * Baris "New Task" / "New Group" yang berubah menjadi kolom isian di tempat.
+ * Baris "New Task" / "New Group" yang berubah jadi kolom isian di tempat.
  *
- * Enter menyimpan lalu **membiarkan kolomnya terbuka**, sehingga beberapa entri
- * bisa diketik beruntun tanpa kembali menekan tombol. Menutup sendiri saat
- * ditinggalkan dalam keadaan kosong.
+ * [hadFocus] bukan hiasan: `onFocusChanged` menyala sekali saat komposisi
+ * pertama dengan `isFocused = false`, dan tanpa penjaga ini baris langsung
+ * menutup dirinya sebelum fokus sempat mendarat — sehingga ketukan pengguna
+ * tampak tidak melakukan apa-apa sama sekali.
  */
 @Composable
 private fun InlineAddRow(
     label: String,
     labelColor: Color,
+    hintRes: Int,
+    maxLength: Int,
     onCommit: (String) -> Unit,
-    maxLength: Int = Todo.MAX_TEXT_LENGTH,
-    hintRes: Int = R.string.task_text_hint,
 ) {
     val scheme = MaterialTheme.colorScheme
     var editing by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
+    var hadFocus by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
+
+    LaunchedEffect(editing) {
+        if (editing) {
+            hadFocus = false
+            focus.requestFocus()
+        }
+    }
 
     Row(
         Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(ROW_RADIUS))
             .then(if (editing) Modifier else Modifier.clickable { editing = true })
-            .padding(start = BLOCK_INSET + 12.dp, end = Tokens.space4)
-            .heightIn(min = 44.dp),
+            .padding(horizontal = ROW_PAD, vertical = Tokens.space2)
+            .heightIn(min = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            Icons.Default.Add,
-            contentDescription = null,
-            tint = scheme.primary,
-            modifier = Modifier.size(20.dp),
-        )
-        Spacer(Modifier.size(Tokens.space3))
+        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                painterResource(R.drawable.ic_add),
+                contentDescription = null,
+                tint = scheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
 
         if (!editing) {
-            Text(label, style = MaterialTheme.typography.bodyLarge, color = labelColor)
+            Text(
+                label,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontWeight = FontWeight.Medium,
+                color = labelColor,
+            )
         } else {
-            LaunchedEffect(Unit) { focus.requestFocus() }
             BasicTextField(
                 value = text,
                 onValueChange = { if (it.length <= maxLength) text = it },
                 singleLine = true,
-                textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = scheme.onSurface,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                ),
                 cursorBrush = SolidColor(scheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                // Enter menyimpan lalu mengosongkan kolom tanpa menutupnya,
+                // sehingga beberapa entri bisa diketik beruntun.
                 keyboardActions = KeyboardActions(onDone = {
                     onCommit(text)
                     text = ""
@@ -339,13 +356,20 @@ private fun InlineAddRow(
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focus)
-                    .onFocusChanged { if (!it.isFocused && text.isBlank()) editing = false },
+                    .onFocusChanged { st ->
+                        if (st.isFocused) {
+                            hadFocus = true
+                        } else if (hadFocus && text.isBlank()) {
+                            editing = false
+                        }
+                    },
                 decorationBox = { inner ->
                     if (text.isEmpty()) {
                         Text(
                             stringResource(hintRes),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = scheme.onSurfaceVariant,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            color = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
                         )
                     }
                     inner()
@@ -364,6 +388,7 @@ private fun TaskRow(
     onDelete: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val dark = LocalIsDarkTheme.current
     val dismiss = rememberSwipeToDismissBoxState()
 
     LaunchedEffect(dismiss.currentValue) {
@@ -377,9 +402,13 @@ private fun TaskRow(
         state = dismiss,
         enableDismissFromStartToEnd = false,
         backgroundContent = {
+            // Di-clip dengan bentuk yang sama seperti barisnya. Tanpa ini, latar
+            // merah mengintip lewat sudut membulat dan tampak seperti garis tipis
+            // di sela antar baris — cacat yang baru terlihat setelah baris dipisah.
             Box(
                 Modifier
                     .fillMaxSize()
+                    .clip(RoundedCornerShape(ROW_RADIUS))
                     .background(scheme.errorContainer)
                     .padding(horizontal = Tokens.space5),
                 contentAlignment = Alignment.CenterEnd,
@@ -393,55 +422,79 @@ private fun TaskRow(
         Row(
             Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(ROW_RADIUS))
                 .background(scheme.surfaceContainer)
-                .heightIn(min = 48.dp)
-                .padding(end = Tokens.space3),
+                .padding(ROW_PAD),
+            horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                Modifier
-                    .size(TEXT_INSET)
-                    .clip(CircleShape)
-                    .clickable { onToggle(!todo.done) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Box(
-                    Modifier
-                        .size(20.dp)
-                        .clip(CircleShape)
-                        .background(if (todo.done) scheme.primary else scheme.onSurface.copy(alpha = 0.18f))
-                        .border(
-                            width = if (todo.done) 0.dp else 1.5.dp,
-                            color = if (todo.done) Color.Transparent else scheme.onSurfaceVariant,
-                            shape = CircleShape,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (todo.done) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = null,
-                            tint = scheme.onPrimary,
-                            modifier = Modifier.size(13.dp),
-                        )
-                    }
-                }
-            }
+            Checkbox(done = todo.done, dark = dark, onToggle = { onToggle(!todo.done) })
 
             BasicTextField(
                 value = text,
                 onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = if (todo.done) scheme.onSurfaceVariant else scheme.onSurface,
+                    fontSize = 16.sp,
+                    lineHeight = 24.sp,
+                    color = if (todo.done) {
+                        scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS)
+                    } else {
+                        scheme.onSurface
+                    },
                     textDecoration = if (todo.done) TextDecoration.LineThrough else null,
                 ),
                 modifier = Modifier
                     .weight(1f)
-                    .padding(vertical = Tokens.space3)
                     .onFocusChanged { focus ->
                         if (!focus.isFocused && text != todo.text) onEdit(text)
                     },
+            )
+        }
+    }
+}
+
+@Composable
+private fun Checkbox(done: Boolean, dark: Boolean, onToggle: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Box(
+        Modifier
+            .size(24.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onToggle),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) {
+            Box(
+                Modifier
+                    .size(20.dp)
+                    .clip(CircleShape)
+                    .background(scheme.primary)
+                    .border(
+                        1.dp,
+                        if (dark) CheckedStrokeDark else CheckedStrokeLight,
+                        CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_check),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(width = 10.dp, height = 7.dp),
+                )
+            }
+        } else {
+            Box(
+                Modifier
+                    .size(19.dp)
+                    .clip(CircleShape)
+                    .background(if (dark) CheckboxFillDark else CheckboxFillLight)
+                    .border(
+                        1.dp,
+                        if (dark) CheckboxStrokeDark else CheckboxStrokeLight,
+                        CircleShape,
+                    ),
             )
         }
     }

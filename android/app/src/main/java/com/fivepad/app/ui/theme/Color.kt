@@ -80,3 +80,28 @@ internal val DarkSurfaceRaised = Color(0xFF242525)
 internal val DarkOnSurface = Color(0xFFE7EBF0)
 internal val DarkOnSurfaceVariant = Color(0xFF9BA3AC)
 internal val DarkOutline = Color(0xFF3A3C40)
+
+// ---- Layar tugas, nilai diambil langsung dari Figma ----
+
+/** Pita pemisah antar grup. Warna tersendiri, bukan latar yang dibiarkan terlihat. */
+val TaskSeparatorDark = Color(0xFF131314)
+val TaskSeparatorLight = Color(0xFFE6E9EE)
+
+/** Kotak centang kosong. */
+val CheckboxFillDark = Color(0xFF48484B)
+val CheckboxStrokeDark = Color(0xFF6B6B6B)
+val CheckboxFillLight = Color(0xFFE4E8ED)
+val CheckboxStrokeLight = Color(0xFFAFB7C0)
+
+/** Tepi kotak centang saat tercentang. */
+val CheckedStrokeDark = Color(0xFF425A90)
+val CheckedStrokeLight = Color(0xFF5C74A8)
+
+/**
+ * Opasitas teks redup pada layar tugas.
+ *
+ * Figma memakai 0,40, yang hanya mencapai 3,81:1 pada label seksi dan 3,69:1
+ * pada teks tugas selesai — keduanya gagal AA. 0,46 adalah nilai terendah yang
+ * lolos, dan secara visual nyaris tak terbedakan dari maksud desainnya.
+ */
+const val MUTED_ALPHA_TASKS = 0.46f

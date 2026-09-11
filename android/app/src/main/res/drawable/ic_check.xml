@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Diekspor dari Figma. Warna sengaja putih; pewarnaan dilakukan di tempat pakai. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="10dp"
+    android:height="7dp"
+    android:viewportWidth="10.2623"
+    android:viewportHeight="7.46351">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4.25975 7.17543C3.87214 7.55954 3.25729 7.55954 2.86968 7.17543L0.256324 4.58568C-0.0854564 4.24699 -0.0854391 3.68537 0.256363 3.34669C0.582146 3.0239 1.09889 3.02391 1.42466 3.34673L3.56471 5.46746L8.83767 0.242127C9.16343 -0.0806936 9.68018 -0.080711 10.006 0.242087C10.3478 0.580758 10.3478 1.14238 10.006 1.48107L4.25975 7.17543Z" />
+</vector>
