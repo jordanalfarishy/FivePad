@@ -8,6 +8,7 @@ class FivePadRepository(private val db: FivePadDatabase) {
     private val notes = db.notes()
     private val todos = db.todos()
     private val groups = db.todoGroups()
+    private val revisions = db.noteRevisions()
 
     fun observeNotes(): Flow<List<Note>> = notes.observeAll()
 
@@ -38,7 +39,55 @@ class FivePadRepository(private val db: FivePadDatabase) {
         return todo
     }
 
+    /**
+     * FR-1.11: mengosongkan slot, menyimpan isinya lebih dulu sebagai revisi.
+     *
+     * Satu transaksi. Kalau penyimpanan revisi dan pengosongan bisa terpisah,
+     * ada satu celah waktu di mana isi catatan sudah hilang tapi salinannya
+     * belum ada — dan celah itulah yang akan ditemui orang saat proses dimatikan
+     * sistem. Mengembalikan id revisinya, supaya pengurungan tidak perlu menebak
+     * revisi mana yang barusan dibuat.
+     */
+    suspend fun clearSlot(slot: Int): String? = db.withTransaction {
+        val body = notes.find(slot)?.body.orEmpty()
+        if (body.isEmpty()) return@withTransaction null
+
+        val revision = NoteRevision(slot = slot, body = body)
+        revisions.insert(revision)
+        revisions.trim(slot, NoteRevision.KEEP_PER_SLOT)
+        revisions.purgeOlderThan(now() - NoteRevision.RETENTION_MS)
+        notes.updateBody(slot, "", now())
+        revision.id
+    }
+
+    /** Mengembalikan isi slot dari sebuah revisi, lalu membuang revisinya. */
+    suspend fun restoreRevision(id: String): Note? = db.withTransaction {
+        val revision = revisions.find(id) ?: return@withTransaction null
+        notes.updateBody(revision.slot, revision.body, now())
+        revisions.delete(id)
+        notes.find(revision.slot)
+    }
+
     suspend fun setTodoDone(id: String, done: Boolean) = todos.setDone(id, done, now())
+
+    /**
+     * FR-2.9: membuang seluruh tugas yang sudah selesai sekaligus.
+     *
+     * Mengembalikan id-nya, bukan jumlahnya: pengurungan harus tahu persis baris
+     * mana yang dihapus, dan daftar bisa sudah berubah lagi saat tombol urungkan
+     * ditekan lima detik kemudian.
+     */
+    suspend fun clearCompleted(): List<String> = db.withTransaction {
+        val ids = todos.completedIds()
+        val stamp = now()
+        ids.forEach { todos.softDelete(it, stamp) }
+        ids
+    }
+
+    suspend fun restoreTodos(ids: List<String>) = db.withTransaction {
+        val stamp = now()
+        ids.forEach { todos.restore(it, stamp) }
+    }
 
     suspend fun setTodoText(id: String, text: String) =
         todos.setText(id, text.trim().take(Todo.MAX_TEXT_LENGTH), now())

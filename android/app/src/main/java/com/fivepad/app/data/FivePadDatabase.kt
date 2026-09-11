@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Note::class, Todo::class, TodoGroup::class],
-    version = 2,
+    entities = [Note::class, Todo::class, TodoGroup::class, NoteRevision::class],
+    version = 3,
     exportSchema = true,
 )
 abstract class FivePadDatabase : RoomDatabase() {
@@ -17,6 +17,7 @@ abstract class FivePadDatabase : RoomDatabase() {
     abstract fun notes(): NoteDao
     abstract fun todos(): TodoDao
     abstract fun todoGroups(): TodoGroupDao
+    abstract fun noteRevisions(): NoteRevisionDao
 
     companion object {
         fun build(context: Context): FivePadDatabase =
@@ -26,7 +27,7 @@ abstract class FivePadDatabase : RoomDatabase() {
                 "fivepad.db",
             )
                 .addCallback(SeedFiveSlots)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
 
         /**
@@ -45,6 +46,22 @@ abstract class FivePadDatabase : RoomDatabase() {
                         arrayOf<Any>(slot, now, now),
                     )
                 }
+            }
+        }
+
+        /** Riwayat isi slot masuk di v3, untuk FR-1.11. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS note_revisions (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        slot INTEGER NOT NULL,
+                        body TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
             }
         }
 

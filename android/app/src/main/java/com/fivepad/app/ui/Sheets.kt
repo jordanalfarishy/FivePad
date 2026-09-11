@@ -263,6 +263,8 @@ fun TaskEditorSheet(
     initialDue: Long?,
     confirmLabel: String,
     onDelete: (() -> Unit)?,
+    /** Enter menyimpan lalu mengosongkan kolom, bukan menutup lembar — FR-2.2. */
+    repeatable: Boolean = false,
     onDismiss: () -> Unit,
     onConfirm: (String, Long?) -> Unit,
 ) {
@@ -309,10 +311,23 @@ fun TaskEditorSheet(
                 value = text,
                 onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
                 placeholder = { Text(stringResource(R.string.task_text_hint)) },
+                // Satu baris, bukan sekadar gaya: pada kolom multi-baris tombol
+                // Enter menyisipkan baris baru dan tidak pernah memicu
+                // ImeAction.Done — sehingga FR-2.2 ("Enter menyimpan lalu
+                // mengosongkan kolom") diam-diam tidak pernah berjalan.
+                singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
-                    if (text.isNotBlank()) {
-                        onConfirm(text, due)
+                    if (text.isBlank()) return@KeyboardActions
+                    onConfirm(text, due)
+                    if (repeatable) {
+                        // Jatuh temponya ikut direset: tanggal tugas sebelumnya
+                        // yang menempel diam-diam pada tugas berikutnya adalah
+                        // pengingat yang tidak pernah diminta siapa pun.
+                        text = ""
+                        due = null
+                        dueOpen = false
+                    } else {
                         onDismiss()
                     }
                 }),

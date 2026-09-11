@@ -211,8 +211,8 @@ Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama
 | FR-1.7 | P1 | Semua | Markdown dirender langsung saat mengetik untuk: tebal, miring, judul H1–H3, daftar berpoin, daftar bernomor, kotak centang, tautan, kode sebaris, blok kode, dan kutipan. |
 | FR-1.8 | P1 | Semua | Kotak centang Markdown `- [ ]` dapat diklik atau di-tap untuk berubah status tanpa masuk ke mode edit teks. |
 | FR-1.9 | P1 | Semua | Penghitung kata dan karakter **tidak** ditampilkan terus-menerus: desain Figma tidak memuatnya, dan satu baris tetap di kaki editor memakan ruang menulis di setiap layar. Yang tersisa adalah peringatan ambang batas FR-1.3, yang muncul hanya sejak 45.000 karakter. Sakelar untuk menampilkannya kembali menyusul bersama FR-7.1. |
-| FR-1.10 | P1 | Semua | Aksi "Salin seluruh isi slot" menyalin teks mentah Markdown ke papan klip. |
-| FR-1.11 | P1 | Semua | Aksi "Kosongkan slot" meminta konfirmasi, lalu menyimpan isi lama ke riwayat versi sebelum menghapusnya. |
+| FR-1.10 | P1 | Semua | Aksi "Salin seluruh isi slot" menyalin teks mentah Markdown — bukan hasil rendernya — ke papan klip. Di Android, tindakan milik slot dibuka dengan menekan-lama titik slotnya: titiknya **adalah** slotnya, jadi bilah atas tidak perlu tombol tambahan dan tata letak desain tetap utuh. |
+| FR-1.11 | P1 | Semua | Aksi "Kosongkan slot" meminta konfirmasi, lalu menyimpan isi lama ke `note_revisions` sebelum menghapusnya, dan menawarkan urungkan selama 5 detik. Penyimpanan revisi dan pengosongan berjalan dalam satu transaksi — kalau terpisah, ada celah waktu di mana isi sudah hilang tapi salinannya belum ada. |
 | FR-1.12 | P2 | macOS | Menyeret teks dari aplikasi lain ke sebuah titik warna menambahkan teks itu ke akhir slot bersangkutan, dipisahkan satu baris kosong. |
 | FR-1.13 | P2 | Semua | Pencarian teks di kelima slot sekaligus, dengan penanda jumlah hasil per slot dan sorotan pada kecocokan. |
 
@@ -221,14 +221,14 @@ Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama
 | ID | Prio | Platform | Kebutuhan |
 |---|---|---|---|
 | FR-2.1 | P0 | Semua | Satu daftar tugas global, terpisah dari kelima slot catatan dan tidak terikat pada salah satunya. |
-| FR-2.2 | P0 | Semua | Menambah tugas lewat satu kolom masukan. Menekan Enter menyimpan tugas dan mengosongkan kolom agar siap untuk entri berikutnya. Maksimal 500 karakter per tugas. |
+| FR-2.2 | P0 | Semua | Menambah tugas lewat satu kolom masukan yang juga menanyakan jatuh tempo (FR-2.10) sekaligus. Menekan Enter menyimpan tugas dan mengosongkan kolom — beserta jatuh temponya — agar siap untuk entri berikutnya, tanpa menutup lembarnya. Maksimal 500 karakter per tugas. |
 | FR-2.3 | P0 | Semua | Menandai tugas selesai atau belum lewat kotak centang, dengan perubahan tersimpan seketika. |
 | FR-2.4 | P0 | Semua | Menyunting tugas tanpa berpindah layar. Di Android: geser baris ke kanan, atau ketuk baris, membuka lembar bawah berisi teks **dan** jatuh tempo sekaligus — bukan dua langkah terpisah. Di macOS: klik ganda pada baris. |
 | FR-2.5 | P0 | Semua | Menghapus tugas: geser ke kiri di Android; tombol hapus yang muncul saat kursor di atas baris, atau menu klik kanan, di macOS. |
 | FR-2.6 | P0 | Semua | Penghitung kemajuan "n/m" tampil pada tab Tugas itu sendiri, sehingga terlihat juga saat pengguna sedang berada di tab Catatan. Tidak ada baris kemajuan terpisah yang memakan tinggi daftar. |
 | FR-2.7 | P1 | Semua | Menyusun ulang tugas dengan seret dan lepas lewat pegangan khusus di tepi kiri baris — bukan tekan-lama, agar geser mendatar tetap milik hapus dan sunting. Seretan yang sama memindahkan tugas **ke grup lain**: bagian tujuan ditentukan dari posisi jari, dan garis sisip menunjukkan tempat jatuhnya. Daftar ikut bergulir sendiri saat jari mendekati tepi, sehingga grup di luar layar tetap bisa dituju. Grup dan posisi ditulis dalam satu transaksi. |
 | FR-2.8 | P1 | Semua | Tugas yang selesai otomatis turun ke bagian bawah daftar. Perilaku ini dapat dimatikan lewat Pengaturan. |
-| FR-2.9 | P1 | Semua | Aksi "Bersihkan yang selesai" menghapus seluruh tugas berstatus selesai sekaligus, dengan opsi urungkan selama 5 detik. |
+| FR-2.9 | P1 | Semua | Aksi "Bersihkan yang selesai" menghapus seluruh tugas berstatus selesai sekaligus, dengan opsi urungkan selama 5 detik. Barisnya hanya muncul saat ada yang bisa dibersihkan dan memakai bahasa visual yang sama dengan "New Task" — tidak ada tombol merusak yang menunggu di layar saat tidak ada gunanya. |
 | FR-2.10 | P1 | Semua | Tanggal dan waktu jatuh tempo opsional per tugas. Tugas yang lewat jatuh tempo ditandai dengan warna semantik, bukan hanya teks. |
 | FR-2.11 | P1 | Semua | Notifikasi lokal pada waktu jatuh tempo, dijadwalkan di perangkat sehingga tetap berjalan tanpa koneksi. |
 | FR-2.12 | P2 | Semua | Batas 500 tugas aktif. Melewati batas itu, tugas selesai yang paling lama diarsipkan otomatis dan tidak lagi disinkronkan. |
@@ -287,7 +287,7 @@ Placeholder nama catatan memakai aksen pada 0,40 — 2,0–2,3:1, gagal AA, sama
 | ID | Prio | Kebutuhan |
 |---|---|---|
 | FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Permukaannya satu warna gelap untuk kedua tab; slot aktif ditandai oleh titiknya (aksen penuh + cincin putih 2 dp, sisanya opasitas 0,24), oleh nama catatan yang mengambil warna titik itu, dan oleh pita 4 dp berpola di bawahnya yang menempel di tepi atas saat digulir. Nama slot **ikut menggulung bersama isinya**, tidak terpaku di bilah atas: di layar ponsel setiap baris yang dipaku memakan ruang menulis, sementara nama slot hanya perlu dilihat sesekali. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
-| FR-6.2 | P0 | Papan ketik muncul otomatis saat aplikasi dibuka dari widget atau ubin Pengaturan Cepat, tapi tidak saat dibuka dari peluncur. |
+| FR-6.2 | P0 | Papan ketik muncul otomatis saat aplikasi dibuka dari widget atau ubin Pengaturan Cepat, tapi tidak saat dibuka dari peluncur. Pembedanya datang dari niat yang membuka: `ACTION_MAIN` dari peluncur tidak membawa data maupun extra, jadi ia jatuh ke perilaku "hanya tampil" tanpa perlu diperiksa khusus. Tautan `fivepad://slot/{1..5}` membuka slot itu dengan papan ketik aktif (`?focus=0` untuk membukanya tanpa papan ketik); aktivitasnya `singleTask` supaya niat kedua mendarat di instans yang sudah berjalan. |
 | FR-6.3 | P1 | Widget layar utama ukuran 2×2 dan 4×2 menampilkan satu slot pilihan atau daftar tugas. Menyentuh widget membuka langsung ke isi tersebut. |
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
 | FR-6.5 | P1 | Ubin Pengaturan Cepat membuka slot yang terakhir aktif dengan papan ketik langsung aktif. |
@@ -438,6 +438,8 @@ Sinkronisasi berjalan sebagai siklus empat langkah yang dipicu saat aplikasi dib
 | **M3** | **Menu bar** — FR-4 | 3 minggu | Alur tangkap cepat memenuhi NFR-1 pada perangkat acuan. Panel dan jendela utama terbukti tidak pernah menampilkan isi yang berbeda. |
 | **M4** | **Peluncuran publik** — sisa P1, ekspor, widget, tema | 3 minggu | Seluruh butir P1 selesai. Audit aksesibilitas lolos. Terbit di Google Play dan sebagai DMG bernotaris. |
 | **M5** | **Pendalaman** — butir P2, Shortcuts, enkripsi ujung-ke-ujung | 4 minggu | Enkripsi ujung-ke-ujung opsional dengan frasa sandi. Aksi Shortcuts dan skema URL tersedia. Pencarian lintas slot aktif. |
+
+> **Status per 11 September 2026.** Android M1 selesai: FR-1 dan FR-2 lengkap sampai P1, FR-6.1/6.2/6.7 terpasang, ikon dan splash terkirim, dan seluruh butirnya diverifikasi di perangkat. Yang tersisa di Android adalah butir P2 (FR-1.12/1.13, FR-2.12) dan butir M4 (widget FR-6.3, lembar berbagi FR-6.4, ubin FR-6.5, ekspor/impor/cadangan FR-7.2–7.4). **macOS (FR-5) belum dimulai sama sekali**, jadi M1 secara keseluruhan belum tuntas. FR-2.8 sudah berjalan tapi sakelar untuk mematikannya menunggu halaman Pengaturan di FR-7.1 (M2).
 
 > **Jalur kritis.** M2 adalah tahap paling berisiko dan paling menentukan. Sebelum M2 selesai, FivePad hanyalah aplikasi catatan lokal biasa tanpa alasan kuat untuk dipilih. Bila jadwal tertekan, potong cakupan M4 — jangan pernah memangkas pengujian M2.
 

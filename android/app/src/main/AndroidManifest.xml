@@ -28,7 +28,19 @@
             android:name=".MainActivity"
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.FivePad.Splash">
+            <!--
+              Tautan dalam: fivepad://slot/3 membuka slot 3 dengan papan ketik
+              aktif (FR-6.2). Dipakai widget dan ubin Pengaturan Cepat nanti,
+              dan sudah bisa dipanggil dari otomatisasi mana pun hari ini.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="fivepad" android:host="slot" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

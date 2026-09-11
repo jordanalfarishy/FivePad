@@ -1,9 +1,13 @@
 package com.fivepad.app.ui
 
+import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
@@ -40,8 +44,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -53,15 +59,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
@@ -87,10 +98,15 @@ import com.fivepad.app.ui.theme.Hairline
 import com.fivepad.app.ui.theme.LocalSlotAccents
 import com.fivepad.app.ui.theme.PillActive
 import com.fivepad.app.ui.theme.Tokens
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun HomeScreen(vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)) {
+fun HomeScreen(
+    vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
+    request: LaunchRequest = LaunchRequest(),
+    onRequestHandled: () -> Unit = {},
+) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
     if (showSettings) {
@@ -99,15 +115,64 @@ fun HomeScreen(vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory)) {
         return
     }
 
-    MainScreen(vm = vm, onOpenSettings = { showSettings = true })
+    MainScreen(
+        vm = vm,
+        request = request,
+        onRequestHandled = onRequestHandled,
+        onOpenSettings = { showSettings = true },
+    )
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
+private fun MainScreen(
+    vm: HomeViewModel,
+    request: LaunchRequest,
+    onRequestHandled: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     val state by vm.uiState.collectAsStateWithLifecycle()
+    val clearedSlot by vm.clearedSlot.collectAsStateWithLifecycle()
+    val clearedTodos by vm.clearedTodos.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(TAB_NOTES) }
     val pager = rememberPagerState(pageCount = { Note.SLOT_COUNT })
     val scope = rememberCoroutineScope()
+    var slotOptions by remember { mutableStateOf<Int?>(null) }
+    var confirmClear by remember { mutableStateOf<Int?>(null) }
+    var focusSlot by remember { mutableStateOf<Int?>(null) }
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copiedMessage = stringResource(R.string.slot_copied)
+
+    // FR-6.2. Dibuka dari peluncur, niatnya kosong dan blok ini tidak berbuat
+    // apa-apa; dibuka dari widget atau tautan, slotnya dipilih dan papan ketik
+    // menyusul lewat focusSlot.
+    LaunchedEffect(request) {
+        val slot = request.slot
+        if (slot != null) {
+            tab = TAB_NOTES
+            pager.scrollToPage(slot - 1)
+        }
+        if (request.focusEditor) {
+            tab = TAB_NOTES
+            focusSlot = slot ?: pager.currentPage + 1
+        }
+        if (slot != null || request.focusEditor) onRequestHandled()
+    }
+
+    LaunchedEffect(clearedSlot) {
+        if (clearedSlot != null) {
+            delay(UNDO_WINDOW_MS)
+            vm.dismissClearedSlot()
+        }
+    }
+
+    LaunchedEffect(clearedTodos) {
+        if (clearedTodos != null) {
+            delay(UNDO_WINDOW_MS)
+            vm.dismissClearedTodos()
+        }
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -149,11 +214,18 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                     tab = TAB_NOTES
                     scope.launch { pager.animateScrollToPage(slot - 1) }
                 },
+                onSlotOptions = { slot -> slotOptions = slot },
             )
 
             Box(Modifier.weight(1f)) {
                 if (notesActive) {
-                    NotesPane(state = state, vm = vm, pager = pager)
+                    NotesPane(
+                        state = state,
+                        vm = vm,
+                        pager = pager,
+                        focusSlot = focusSlot,
+                        onFocusHandled = { focusSlot = null },
+                    )
                 } else {
                     TasksScreen(
                         state = state,
@@ -168,8 +240,18 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                         onSetDue = vm::setTodoDue,
                         onMoveTaskToSection = vm::moveTodoToSection,
                         onMoveGroup = { from, to -> vm.moveGroup(state.groups, from, to) },
+                        onClearCompleted = vm::clearCompleted,
+                        clearedCount = clearedTodos?.size,
+                        onUndoClearCompleted = vm::undoClearCompleted,
                     )
                 }
+            }
+
+            clearedSlot?.let { cleared ->
+                UndoRow(
+                    message = stringResource(R.string.slot_cleared, cleared.slot),
+                    onUndo = vm::undoClearSlot,
+                )
             }
 
             BottomNav(
@@ -180,14 +262,82 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
             )
         }
     }
+
+    slotOptions?.let { slot ->
+        val label = state.labelFor(slot)
+        OptionsSheet(
+            title = label.ifEmpty { stringResource(R.string.slot_description, slot) },
+            actions = listOf(
+                SheetAction(
+                    label = stringResource(R.string.slot_copy),
+                    icon = painterResource(R.drawable.ic_copy),
+                    onClick = {
+                        val body = state.draftFor(slot)
+                        clipboard.setText(AnnotatedString(body))
+                        // Android 13 ke atas sudah menampilkan konfirmasinya
+                        // sendiri; menambah toast di sana berarti dua pesan
+                        // untuk satu tindakan.
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                            Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                ),
+                SheetAction(
+                    label = stringResource(R.string.slot_clear),
+                    icon = painterResource(R.drawable.ic_delete),
+                    destructive = true,
+                    onClick = { confirmClear = slot },
+                ),
+            ),
+            onDismiss = { slotOptions = null },
+        )
+    }
+
+    confirmClear?.let { slot ->
+        // FR-1.11 meminta konfirmasi. Lembar kedua, bukan dialog: tindakannya
+        // datang dari lembar pertama, dan memindahkan pertanyaannya ke tengah
+        // layar membuat jari harus berpindah jauh untuk membatalkan.
+        OptionsSheet(
+            title = stringResource(R.string.slot_clear_confirm_title),
+            actions = listOf(
+                SheetAction(
+                    label = stringResource(R.string.slot_clear),
+                    icon = painterResource(R.drawable.ic_delete),
+                    description = stringResource(R.string.slot_clear_explainer),
+                    destructive = true,
+                    onClick = { vm.clearSlot(slot) },
+                ),
+            ),
+            onDismiss = { confirmClear = null },
+        )
+    }
 }
 
+/** Baris urungkan bersama, dipakai layar catatan maupun layar tugas. */
+@Composable
+fun UndoRow(message: String, onUndo: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(scheme.surfaceContainerHigh)
+            .padding(start = Tokens.space4, end = Tokens.space2),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = scheme.onSurface)
+        TextButton(onClick = onUndo) { Text(stringResource(R.string.task_undo)) }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TopBar(
     notesActive: Boolean,
     activeSlot: Int,
     onOpenSettings: () -> Unit,
     onSelectSlot: (Int) -> Unit,
+    onSlotOptions: (Int) -> Unit,
 ) {
     val accents = LocalSlotAccents.current
     val ink = MaterialTheme.colorScheme.onSurface
@@ -227,6 +377,7 @@ private fun TopBar(
                                 selected = slot == activeSlot,
                                 slot = slot,
                                 onClick = { onSelectSlot(slot) },
+                                onLongClick = { onSlotOptions(slot) },
                             )
                         }
                     }
@@ -266,12 +417,14 @@ private fun TopBar(
  * letaknya tetap 24 dp. Menggambarnya ke dalam akan memakan warna slot justru
  * pada titik yang paling perlu terlihat.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SlotDot(
     colour: Color,
     selected: Boolean,
     slot: Int,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
 ) {
     val label = if (selected) {
         stringResource(R.string.slot_description_active, slot)
@@ -283,7 +436,11 @@ private fun SlotDot(
         Box(
             Modifier
                 .requiredSize(width = 40.dp, height = Tokens.touchTarget)
-                .clickable(onClick = onClick)
+                // Tekan-lama membuka tindakan milik slot itu (FR-1.10, FR-1.11).
+                // Titiknya ADALAH slotnya, jadi tindakan slot tinggal di sana —
+                // bilah atas tidak perlu tombol tambahan, dan tata letak Figma
+                // tetap utuh.
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick)
                 .semantics { contentDescription = label },
             contentAlignment = Alignment.Center,
         ) {
@@ -401,7 +558,13 @@ private fun NavItem(
 }
 
 @Composable
-private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) {
+private fun NotesPane(
+    state: HomeUiState,
+    vm: HomeViewModel,
+    pager: PagerState,
+    focusSlot: Int?,
+    onFocusHandled: () -> Unit,
+) {
     val ink = MaterialTheme.colorScheme.onSurface
     val faint = ink.copy(alpha = MARKER_ALPHA)
     val accents = LocalSlotAccents.current
@@ -416,6 +579,14 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
         val text = state.draftFor(slot)
         val scroll = rememberScrollState()
         var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
+        val bodyFocus = remember { FocusRequester() }
+
+        LaunchedEffect(focusSlot) {
+            if (focusSlot == slot) {
+                bodyFocus.requestFocus()
+                onFocusHandled()
+            }
+        }
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val bodyMinHeight = maxHeight - Tokens.titleRowHeight - Tokens.stripeHeight
@@ -454,6 +625,7 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
                     onTextLayout = { layout = it },
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRequester(bodyFocus)
                         // Tinggi minimum sepanjang sisa layar, supaya mengetuk
                         // ruang kosong di bawah teks tetap membuka papan ketik.
                         .heightIn(min = bodyMinHeight)
@@ -612,6 +784,9 @@ private fun SlotTitleField(
  * dan placeholder, tidak pernah untuk isi catatan.
  */
 private const val MARKER_ALPHA = 0.40f
+
+/** Selama ini jendela urungkan berlaku, di layar catatan maupun layar tugas. */
+internal const val UNDO_WINDOW_MS = 5_000L
 
 private const val TAB_NOTES = 0
 private const val TAB_TODOS = 1

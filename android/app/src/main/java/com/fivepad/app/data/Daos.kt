@@ -11,6 +11,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes ORDER BY slot")
     fun observeAll(): Flow<List<Note>>
 
+    @Query("SELECT * FROM notes WHERE slot = :slot")
+    suspend fun find(slot: Int): Note?
+
     @Query("UPDATE notes SET body = :body, updatedAt = :now, clientUpdatedAt = :now WHERE slot = :slot")
     suspend fun updateBody(slot: Int, body: String, now: Long)
 
@@ -61,6 +64,9 @@ interface TodoDao {
     @Query("SELECT * FROM todos WHERE id = :id")
     suspend fun find(id: String): Todo?
 
+    @Query("SELECT id FROM todos WHERE done = 1 AND deletedAt IS NULL")
+    suspend fun completedIds(): List<String>
+
     /** Tugas yang masih menunggu pengingat — dipakai menjadwalkan ulang sesudah reboot. */
     @Query(
         "SELECT * FROM todos WHERE deletedAt IS NULL AND done = 0 " +
@@ -97,4 +103,40 @@ interface TodoGroupDao {
 
     @Query("UPDATE todo_groups SET position = :position, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun setPosition(id: String, position: Double, now: Long)
+}
+
+@Dao
+interface NoteRevisionDao {
+
+    @Insert
+    suspend fun insert(revision: NoteRevision)
+
+    @Query("SELECT * FROM note_revisions WHERE id = :id")
+    suspend fun find(id: String): NoteRevision?
+
+    @Query("DELETE FROM note_revisions WHERE id = :id")
+    suspend fun delete(id: String)
+
+    /**
+     * Menyisakan [keep] revisi terbaru pada satu slot.
+     *
+     * `createdAt DESC, id DESC` — pemecah seri yang sama seperti pada urutan
+     * tugas. Dua revisi bisa lahir dalam milidetik yang sama, dan tanpa
+     * pemecah seri baris mana yang dipangkas jadi tak tentu.
+     */
+    @Query(
+        """
+        DELETE FROM note_revisions
+        WHERE slot = :slot AND id NOT IN (
+            SELECT id FROM note_revisions
+            WHERE slot = :slot
+            ORDER BY createdAt DESC, id DESC
+            LIMIT :keep
+        )
+        """,
+    )
+    suspend fun trim(slot: Int, keep: Int)
+
+    @Query("DELETE FROM note_revisions WHERE createdAt < :before")
+    suspend fun purgeOlderThan(before: Long)
 }

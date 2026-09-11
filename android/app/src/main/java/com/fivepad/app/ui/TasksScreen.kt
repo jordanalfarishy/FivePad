@@ -107,6 +107,9 @@ fun TasksScreen(
     onSetDue: (String, Long?) -> Unit,
     onMoveTaskToSection: (String, String?, Double?, Double?) -> Unit,
     onMoveGroup: (Int, Int) -> Unit,
+    onClearCompleted: () -> Unit,
+    clearedCount: Int?,
+    onUndoClearCompleted: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val sections = state.sections
@@ -203,27 +206,45 @@ fun TasksScreen(
                     )
                 }
             }
+
+            // FR-2.9. Barisnya hanya ada saat ada yang bisa dibersihkan, dan
+            // memakai bahasa visual yang sama dengan "New Task" — jadi tidak ada
+            // tombol baru di bilah atas, dan tidak ada tindakan merusak yang
+            // menunggu di layar saat tidak ada gunanya.
+            if (state.doneCount > 0) {
+                item(key = "clear-completed") {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
+                    ) {
+                        AddRow(
+                            label = stringResource(R.string.task_clear_done, state.doneCount),
+                            labelColor = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
+                            icon = R.drawable.ic_delete,
+                            iconColor = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
+                            onClick = onClearCompleted,
+                        )
+                    }
+                }
+            }
         }
 
-        pendingUndo?.let { id ->
-            Row(
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(scheme.surfaceContainerHigh)
-                    .padding(horizontal = Tokens.space4, vertical = Tokens.space2),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    stringResource(R.string.task_deleted),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurface,
+        Column(Modifier.align(Alignment.BottomStart)) {
+            clearedCount?.let { count ->
+                UndoRow(
+                    message = stringResource(R.string.task_cleared_done, count),
+                    onUndo = onUndoClearCompleted,
                 )
-                TextButton(onClick = {
-                    onRestoreTask(id)
-                    pendingUndo = null
-                }) { Text(stringResource(R.string.task_undo)) }
+            }
+            pendingUndo?.let { id ->
+                UndoRow(
+                    message = stringResource(R.string.task_deleted),
+                    onUndo = {
+                        onRestoreTask(id)
+                        pendingUndo = null
+                    },
+                )
             }
         }
     }
@@ -235,6 +256,9 @@ fun TasksScreen(
             initialDue = null,
             confirmLabel = stringResource(R.string.dialog_add),
             onDelete = null,
+            // FR-2.2: Enter menyimpan lalu mengosongkan kolom tanpa menutup
+            // lembarnya, sehingga beberapa tugas bisa diketik beruntun.
+            repeatable = true,
             onDismiss = { composing = null },
             onConfirm = { text, due ->
                 onAddTask(text, sectionKey.takeIf { it != UNGROUPED_KEY }, due)
@@ -252,6 +276,7 @@ fun TasksScreen(
                 onDeleteTask(todo.id)
                 pendingUndo = todo.id
             },
+            repeatable = false,
             onDismiss = { editing = null },
             onConfirm = { text, due ->
                 if (text != todo.text) onEditTask(todo.id, text)
@@ -480,7 +505,13 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
 
 /** Baris "New Task" / "New Group". Satu ketukan, satu lembar — tanpa mode sunting di tempat. */
 @Composable
-private fun AddRow(label: String, labelColor: Color, onClick: () -> Unit) {
+private fun AddRow(
+    label: String,
+    labelColor: Color,
+    onClick: () -> Unit,
+    icon: Int = R.drawable.ic_add,
+    iconColor: Color = Accent,
+) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -490,12 +521,12 @@ private fun AddRow(label: String, labelColor: Color, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Ikonnya selalu beraksen; hanya teksnya yang berubah warna antara
-        // "New Task" dan "New Group" — keduanya satu aset yang sama di Figma.
+        // Untuk "New Task" dan "New Group" ikonnya selalu beraksen dan hanya
+        // teksnya yang berbeda warna — keduanya satu aset yang sama di Figma.
         Icon(
-            painterResource(R.drawable.ic_add),
+            painterResource(icon),
             contentDescription = null,
-            tint = Accent,
+            tint = iconColor,
             modifier = Modifier.size(HANDLE_SIZE),
         )
         Text(
@@ -807,4 +838,3 @@ private fun dropTargetFor(sections: List<TaskSection>, drag: DragState): DropTar
 }
 
 private const val MAX_SCROLL_STEP = 18f
-private const val UNDO_WINDOW_MS = 5_000L

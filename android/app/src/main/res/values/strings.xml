@@ -11,6 +11,12 @@
     <string name="note_placeholder">Start writing…</string>
     <string name="editor_counter_limit">%1$d / %2$d characters</string>
     <string name="slot_description">Slot %1$d</string>
+    <string name="slot_copy">Copy note</string>
+    <string name="slot_copied">Note copied</string>
+    <string name="slot_clear">Clear note</string>
+    <string name="slot_clear_confirm_title">Clear this note?</string>
+    <string name="slot_clear_explainer">A copy is kept in this slot\'s history, and you can undo for a few seconds.</string>
+    <string name="slot_cleared">Slot %1$d cleared</string>
     <string name="slot_description_active">Slot %1$d, active</string>
 
     <!-- Tasks -->
@@ -20,6 +26,8 @@
     <string name="task_delete">Delete</string>
     <string name="task_deleted">Task deleted</string>
     <string name="task_drag">Drag to reorder or move to another group</string>
+    <string name="task_clear_done">Clear %1$d completed</string>
+    <string name="task_cleared_done">%1$d completed tasks cleared</string>
     <string name="task_undo">Undo</string>
 
     <!-- Groups -->

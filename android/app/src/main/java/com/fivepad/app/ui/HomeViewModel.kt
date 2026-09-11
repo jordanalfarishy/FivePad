@@ -16,10 +16,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
+/** Slot yang baru dikosongkan, beserta revisi yang bisa mengembalikannya. */
+data class ClearedSlot(val slot: Int, val revisionId: String)
 
 /** Satu bagian daftar tugas. [group] null berarti kumpulan tugas tanpa grup. */
 data class TaskSection(
@@ -91,6 +95,39 @@ class HomeViewModel(
 
     fun onLabelChanged(slot: Int, label: String) {
         viewModelScope.launch { repo.saveLabel(slot, label) }
+    }
+
+    /**
+     * Revisi hasil pengosongan slot yang masih bisa diurungkan, atau null.
+     * Dipegang di ViewModel, bukan di composable, supaya jendela urungkan tidak
+     * hilang hanya karena pengguna menggeser ke slot lain dan kembali.
+     */
+    private val _clearedTodos = MutableStateFlow<List<String>?>(null)
+    val clearedTodos: StateFlow<List<String>?> = _clearedTodos
+
+    private val _clearedSlot = MutableStateFlow<ClearedSlot?>(null)
+    val clearedSlot: StateFlow<ClearedSlot?> = _clearedSlot
+
+    /** FR-1.11. Mengosongkan slot setelah isinya disimpan sebagai revisi. */
+    fun clearSlot(slot: Int) = viewModelScope.launch {
+        autosaveJob?.cancel()
+        // Draft di memori harus ikut dikosongkan. Tanpa ini editor masih
+        // memegang teks lama, dan autosave berikutnya akan menuliskannya
+        // kembali ke basis data — pengosongan yang membatalkan dirinya sendiri.
+        val id = repo.clearSlot(slot) ?: return@launch
+        drafts.update { it + (slot to "") }
+        _clearedSlot.value = ClearedSlot(slot, id)
+    }
+
+    fun undoClearSlot() = viewModelScope.launch {
+        val cleared = _clearedSlot.value ?: return@launch
+        _clearedSlot.value = null
+        val note = repo.restoreRevision(cleared.revisionId) ?: return@launch
+        drafts.update { it + (note.slot to note.body) }
+    }
+
+    fun dismissClearedSlot() {
+        _clearedSlot.value = null
     }
 
     /** Dipanggil dari ON_STOP, supaya proses yang dimatikan sistem tidak membawa ketikan. */
@@ -193,6 +230,23 @@ class HomeViewModel(
                 after = reordered.getOrNull(index + 1)?.position,
             )
         }
+    }
+
+    /** FR-2.9. Mengembalikan id yang dihapus lewat [clearedTodos] untuk diurungkan. */
+    fun clearCompleted() = viewModelScope.launch {
+        val ids = repo.clearCompleted()
+        ids.forEach { Reminders.cancel(app, it) }
+        if (ids.isNotEmpty()) _clearedTodos.value = ids
+    }
+
+    fun undoClearCompleted() = viewModelScope.launch {
+        val ids = _clearedTodos.value ?: return@launch
+        _clearedTodos.value = null
+        repo.restoreTodos(ids)
+    }
+
+    fun dismissClearedTodos() {
+        _clearedTodos.value = null
     }
 
     fun addGroup(name: String) = viewModelScope.launch { repo.addGroup(name) }

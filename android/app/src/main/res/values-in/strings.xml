@@ -8,6 +8,12 @@
     <string name="note_placeholder">Mulai menulis…</string>
     <string name="editor_counter_limit">%1$d / %2$d karakter</string>
     <string name="slot_description">Slot %1$d</string>
+    <string name="slot_copy">Salin catatan</string>
+    <string name="slot_copied">Catatan disalin</string>
+    <string name="slot_clear">Kosongkan catatan</string>
+    <string name="slot_clear_confirm_title">Kosongkan catatan ini?</string>
+    <string name="slot_clear_explainer">Salinannya disimpan di riwayat slot ini, dan bisa diurungkan beberapa detik.</string>
+    <string name="slot_cleared">Slot %1$d dikosongkan</string>
     <string name="slot_description_active">Slot %1$d, sedang aktif</string>
 
     <!-- Tugas -->
@@ -17,6 +23,8 @@
     <string name="task_delete">Hapus</string>
     <string name="task_deleted">Tugas dihapus</string>
     <string name="task_drag">Seret untuk mengurutkan atau memindahkan ke grup lain</string>
+    <string name="task_clear_done">Bersihkan %1$d yang selesai</string>
+    <string name="task_cleared_done">%1$d tugas selesai dibersihkan</string>
     <string name="task_undo">Urungkan</string>
 
     <!-- Grup -->
