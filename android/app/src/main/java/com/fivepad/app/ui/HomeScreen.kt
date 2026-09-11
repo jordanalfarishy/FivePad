@@ -4,6 +4,12 @@ import android.content.ClipData
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -75,6 +81,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -88,7 +96,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fivepad.app.R
 import com.fivepad.app.data.Note
+import com.fivepad.app.ui.markdown.MarkdownAction
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
+import com.fivepad.app.ui.markdown.applyMarkdown
 import com.fivepad.app.ui.markdown.checkboxAt
 import com.fivepad.app.ui.markdown.toggleCheckbox
 import com.fivepad.app.ui.theme.DOT_INACTIVE_ALPHA
@@ -106,19 +116,44 @@ fun HomeScreen(
 ) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
-    if (showSettings) {
-        BackHandler { showSettings = false }
-        SettingsScreen(onBack = { showSettings = false })
-        return
+    // Pengaturan masuk dari tepi kanan dan keluar ke arah yang sama. Arah itu
+    // yang memberi tahu di mana layar sebelumnya berada: ia tidak hilang, ia
+    // hanya bergeser ke kiri — dan tombol kembali mengembalikannya dari sana.
+    AnimatedContent(
+        targetState = showSettings,
+        transitionSpec = {
+            if (targetState) {
+                slideInHorizontally(SLIDE_SPEC) { it } togetherWith
+                    slideOutHorizontally(SLIDE_SPEC) { -it / 4 }
+            } else {
+                slideInHorizontally(SLIDE_SPEC) { -it / 4 } togetherWith
+                    slideOutHorizontally(SLIDE_SPEC) { it }
+            }
+        },
+        label = "settings",
+    ) { settings ->
+        if (settings) {
+            BackHandler { showSettings = false }
+            SettingsScreen(onBack = { showSettings = false })
+        } else {
+            MainScreen(
+                vm = vm,
+                request = request,
+                onRequestHandled = onRequestHandled,
+                onOpenSettings = { showSettings = true },
+            )
+        }
     }
-
-    MainScreen(
-        vm = vm,
-        request = request,
-        onRequestHandled = onRequestHandled,
-        onOpenSettings = { showSettings = true },
-    )
 }
+
+/**
+ * Laju geser antar layar.
+ *
+ * 280 ms, bukan bawaan Compose yang lebih lambat: layar ini hanya dua tingkat
+ * dalam, dan transisi yang berlama-lama pada navigasi sedangkal itu terasa
+ * seperti aplikasi yang menunggu, bukan aplikasi yang menjawab.
+ */
+private val SLIDE_SPEC = tween<IntOffset>(durationMillis = 280, easing = FastOutSlowInEasing)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -138,6 +173,12 @@ private fun MainScreen(
     var slotOptions by remember { mutableStateOf<Int?>(null) }
     var confirmClear by remember { mutableStateOf<Int?>(null) }
     var focusSlot by remember { mutableStateOf<Int?>(null) }
+    var formatSheet by remember { mutableStateOf(false) }
+    var pendingFormat by remember { mutableStateOf<MarkdownAction?>(null) }
+    // Pilihan tampilan berlaku untuk kelima slot sekaligus: ia menyangkut cara
+    // membaca, bukan isi catatannya, dan tampilan yang berbeda-beda per slot
+    // akan terasa seperti aplikasi yang lupa apa yang barusan dipilih.
+    var plainText by rememberSaveable { mutableStateOf(false) }
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val copiedMessage = stringResource(R.string.slot_copied)
@@ -213,6 +254,7 @@ private fun MainScreen(
                     scope.launch { pager.animateScrollToPage(slot - 1) }
                 },
                 onSlotOptions = { slot -> slotOptions = slot },
+                onOpenFormat = { formatSheet = true },
             )
 
             Box(Modifier.weight(1f)) {
@@ -223,6 +265,9 @@ private fun MainScreen(
                         pager = pager,
                         focusSlot = focusSlot,
                         onFocusHandled = { focusSlot = null },
+                        plainText = plainText,
+                        pendingFormat = pendingFormat,
+                        onFormatHandled = { pendingFormat = null },
                     )
                 } else {
                     TasksScreen(
@@ -264,6 +309,15 @@ private fun MainScreen(
                 notesColour = colors.slotAccents[pager.currentPage],
             )
         }
+    }
+
+    if (formatSheet) {
+        TextFormatSheet(
+            plainText = plainText,
+            onToggleView = { plainText = !plainText },
+            onAction = { pendingFormat = it },
+            onDismiss = { formatSheet = false },
+        )
     }
 
     slotOptions?.let { slot ->
@@ -345,6 +399,7 @@ private fun TopBar(
     onOpenSettings: () -> Unit,
     onSelectSlot: (Int) -> Unit,
     onSlotOptions: (Int) -> Unit,
+    onOpenFormat: () -> Unit,
 ) {
     val colors = LocalFivePadColors.current
     val accents = colors.slotAccents
@@ -401,9 +456,26 @@ private fun TopBar(
                 }
             }
 
-            // Penyeimbang selebar ikon pengaturan, supaya isi tengah benar-benar
-            // di tengah. Nanti ditempati avatar akun di M2.
-            Box(Modifier.width(Tokens.topBarHeight))
+            // Di tab catatan kotak ini memuat opsi teks; di tab tugas ia kosong
+            // dan hanya menyeimbangkan ikon pengaturan di seberangnya.
+            if (notesActive) {
+                Box(
+                    Modifier
+                        .width(Tokens.topBarHeight)
+                        .fillMaxHeight()
+                        .clickable(onClick = onOpenFormat),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_titlecase),
+                        contentDescription = stringResource(R.string.note_format),
+                        tint = ink,
+                        modifier = Modifier.size(Tokens.space6),
+                    )
+                }
+            } else {
+                Box(Modifier.width(Tokens.topBarHeight))
+            }
         }
 
         // Bilah atas catatan tidak bergaris — pemisahnya ada di bawah baris
@@ -575,6 +647,9 @@ private fun NotesPane(
     pager: PagerState,
     focusSlot: Int?,
     onFocusHandled: () -> Unit,
+    plainText: Boolean,
+    pendingFormat: MarkdownAction?,
+    onFormatHandled: () -> Unit,
 ) {
     val colors = LocalFivePadColors.current
     val ink = colors.ink
@@ -592,6 +667,31 @@ private fun NotesPane(
         val scroll = rememberScrollState()
         var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
         val bodyFocus = remember { FocusRequester() }
+
+        // Editor memegang TextFieldValue, bukan String, karena tindakan format
+        // butuh tahu apa yang sedang terseleksi. Sumber kebenarannya tetap draft
+        // di ViewModel; blok di bawah menyatukan keduanya saat teks berubah dari
+        // luar — pengosongan slot, atau pengurungannya.
+        var field by remember(slot) { mutableStateOf(TextFieldValue(text)) }
+        if (field.text != text) {
+            field = TextFieldValue(
+                text = text,
+                selection = TextRange(field.selection.start.coerceAtMost(text.length)),
+            )
+        }
+
+        LaunchedEffect(pendingFormat) {
+            val action = pendingFormat ?: return@LaunchedEffect
+            if (page != pager.currentPage) return@LaunchedEffect
+            val next = applyMarkdown(field, action)
+            field = next
+            vm.onBodyChanged(slot, next.text)
+            onFormatHandled()
+            // Papan ketik dibiarkan terbuka: satu tindakan format hampir tidak
+            // pernah berdiri sendiri, dan menutup papan ketik tiap kali membuat
+            // rangkaian dua tindakan terasa seperti dua perjalanan.
+            bodyFocus.requestFocus()
+        }
 
         LaunchedEffect(focusSlot) {
             if (focusSlot == slot) {
@@ -621,18 +721,24 @@ private fun NotesPane(
                 Spacer(Modifier.height(Tokens.stripeHeight))
 
                 BasicTextField(
-                    value = text,
-                    onValueChange = { vm.onBodyChanged(slot, it) },
+                    value = field,
+                    onValueChange = {
+                        field = it
+                        vm.onBodyChanged(slot, it.text)
+                    },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = ink,
                         fontSize = Tokens.bodyTextSize,
                         lineHeight = Tokens.bodyLineHeight,
                     ),
                     cursorBrush = SolidColor(accent),
-                    visualTransformation = if (page == pager.currentPage) {
-                        markdown
-                    } else {
+                    // Tampilan teks biasa mematikan penataannya sama sekali:
+                    // yang terlihat persis yang tersimpan, tanpa satu pun
+                    // penanda yang diredupkan atau diperbesar.
+                    visualTransformation = if (plainText || page != pager.currentPage) {
                         VisualTransformation.None
+                    } else {
+                        markdown
                     },
                     onTextLayout = { layout = it },
                     modifier = Modifier
@@ -676,7 +782,9 @@ private fun NotesPane(
                                 }
 
                                 if (released) {
-                                    vm.onBodyChanged(slot, toggleCheckbox(text, hit))
+                                    val toggled = toggleCheckbox(text, hit)
+                                    field = field.copy(text = toggled)
+                                    vm.onBodyChanged(slot, toggled)
                                 }
                             }
                         },

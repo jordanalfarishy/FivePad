@@ -267,7 +267,6 @@ fun TasksScreen(
             initialText = "",
             initialDue = null,
             confirmLabel = stringResource(R.string.dialog_add),
-            onDelete = null,
             // FR-2.2: Enter menyimpan lalu mengosongkan kolom tanpa menutup
             // lembarnya, sehingga beberapa tugas bisa diketik beruntun.
             repeatable = true,
@@ -284,10 +283,6 @@ fun TasksScreen(
             initialText = todo.text,
             initialDue = todo.dueAt,
             confirmLabel = stringResource(R.string.dialog_save),
-            onDelete = {
-                onDeleteTask(todo.id)
-                pendingUndo = todo.id
-            },
             repeatable = false,
             onDismiss = { editing = null },
             onConfirm = { text, due ->

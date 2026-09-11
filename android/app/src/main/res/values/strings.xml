@@ -19,6 +19,26 @@
     <string name="slot_cleared">Slot %1$d cleared</string>
     <string name="slot_description_active">Slot %1$d, active</string>
 
+    <!-- Text formatting -->
+    <string name="format_title">Text</string>
+    <string name="format_view_plain">View as plain text</string>
+    <string name="format_view_markdown">View as Markdown</string>
+    <string name="format_todo">To do</string>
+    <string name="format_header">Header</string>
+    <string name="format_bold">Bold</string>
+    <string name="format_italic">Italic</string>
+    <string name="format_bold_italic">Bold Italic</string>
+    <string name="format_mark">Mark</string>
+    <string name="format_strike">Strike</string>
+    <string name="format_quote">Quote</string>
+    <string name="format_list">List</string>
+    <string name="format_ordered_list">Ordered List</string>
+    <string name="format_code">Code</string>
+    <string name="format_code_block">Code Block</string>
+    <string name="format_shift_right">Shift Right</string>
+    <string name="format_shift_left">Shift Left</string>
+    <string name="note_format">Text options</string>
+
     <!-- Tasks -->
     <string name="tasks_empty">Add a task to get started.</string>
     <string name="task_new">New Task</string>
@@ -49,6 +69,10 @@
     <string name="settings_theme">Theme</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_unavailable">This device has no per-app language screen.</string>
+    <string name="settings_check_update">Check for Update</string>
+    <string name="settings_login">Login</string>
+    <string name="settings_login_blurb">Login to sync all notes and tasks.</string>
+    <string name="settings_login_pending">Sign-in arrives together with sync in a later release.</string>
     <string name="settings_terms">Terms &amp; Conditions</string>
     <string name="settings_privacy">Privacy Policy</string>
     <string name="theme_dark">Dark</string>

@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -39,10 +42,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
+import com.fivepad.app.ui.markdown.MarkdownAction
+import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.Tokens
 
 /** Satu tindakan di dalam [OptionsSheet]. */
@@ -247,6 +253,140 @@ fun TextPromptSheet(
 }
 
 /**
+ * Menu penyuntingan teks catatan — ikon `titlecase` di bilah atas.
+ *
+ * Barisnya tidak berikon, dan itu disengaja. Empat belas tindakan format
+ * menuntut empat belas ikon yang tidak ada di berkas desain, dan ikon tebak-
+ * tebakan untuk "Bold Italic" atau "Mark" justru lebih sulit dibaca daripada
+ * katanya sendiri. Yang ditaruh di kanan adalah penanda Markdown yang akan
+ * ditulis tindakan itu — sama berfungsinya seperti pintasan papan tik di menu
+ * FiveNotes, dan sekaligus mengajarkan sintaks yang memang tersimpan di catatan.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TextFormatSheet(
+    plainText: Boolean,
+    onToggleView: () -> Unit,
+    onAction: (MarkdownAction) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val colors = LocalFivePadColors.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    // Kelompoknya mengikuti menu FiveNotes: penanda blok, penekanan, daftar,
+    // kode, lalu indentasi.
+    val groups = listOf(
+        listOf(MarkdownAction.TODO),
+        listOf(
+            MarkdownAction.HEADER,
+            MarkdownAction.BOLD,
+            MarkdownAction.ITALIC,
+            MarkdownAction.BOLD_ITALIC,
+            MarkdownAction.MARK,
+            MarkdownAction.STRIKE,
+            MarkdownAction.QUOTE,
+        ),
+        listOf(MarkdownAction.LIST, MarkdownAction.ORDERED_LIST),
+        listOf(MarkdownAction.CODE, MarkdownAction.CODE_BLOCK),
+        listOf(MarkdownAction.SHIFT_RIGHT, MarkdownAction.SHIFT_LEFT),
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = scheme.surfaceContainer,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = Tokens.space4),
+        ) {
+            SheetTitle(stringResource(R.string.format_title))
+
+            SheetRow(
+                label = stringResource(
+                    if (plainText) R.string.format_view_markdown else R.string.format_view_plain,
+                ),
+                icon = painterResource(
+                    if (plainText) R.drawable.ic_titlecase else R.drawable.ic_code,
+                ),
+                tint = scheme.onSurface,
+                onClick = {
+                    onToggleView()
+                    onDismiss()
+                },
+            )
+
+            groups.forEach { group ->
+                HorizontalDivider(color = colors.hairline)
+                group.forEach { action ->
+                    // Menutup setelah satu tindakan. Lembar yang tetap terbuka
+                    // menutupi teks yang barusan diubahnya, jadi hasil setiap
+                    // ketukan baru terlihat setelah lembarnya disingkirkan —
+                    // dan menilai format tanpa melihatnya mustahil.
+                    FormatRow(
+                        action = action,
+                        onClick = {
+                            onAction(action)
+                            onDismiss()
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FormatRow(action: MarkdownAction, onClick: () -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val colors = LocalFivePadColors.current
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = Tokens.space5, vertical = Tokens.space3),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(action.labelRes),
+            style = MaterialTheme.typography.bodyLarge,
+            color = scheme.onSurface,
+            modifier = Modifier.padding(vertical = Tokens.space1),
+        )
+        Text(
+            action.syntax,
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = FontFamily.Monospace,
+            color = colors.muted,
+        )
+    }
+}
+
+private val MarkdownAction.labelRes: Int
+    get() = when (this) {
+        MarkdownAction.TODO -> R.string.format_todo
+        MarkdownAction.HEADER -> R.string.format_header
+        MarkdownAction.BOLD -> R.string.format_bold
+        MarkdownAction.ITALIC -> R.string.format_italic
+        MarkdownAction.BOLD_ITALIC -> R.string.format_bold_italic
+        MarkdownAction.MARK -> R.string.format_mark
+        MarkdownAction.STRIKE -> R.string.format_strike
+        MarkdownAction.QUOTE -> R.string.format_quote
+        MarkdownAction.LIST -> R.string.format_list
+        MarkdownAction.ORDERED_LIST -> R.string.format_ordered_list
+        MarkdownAction.CODE -> R.string.format_code
+        MarkdownAction.CODE_BLOCK -> R.string.format_code_block
+        MarkdownAction.SHIFT_RIGHT -> R.string.format_shift_right
+        MarkdownAction.SHIFT_LEFT -> R.string.format_shift_left
+    }
+
+/**
  * Lembar tunggal untuk membuat maupun menyunting satu tugas.
  *
  * Teks dan jatuh tempo ditanyakan di tempat yang sama. Memisahkannya jadi dua
@@ -254,6 +394,10 @@ fun TextPromptSheet(
  * di menu — padahal jatuh tempo itulah yang membuat tugas muncul kembali tepat
  * waktu. Pilihan tanggal dibentangkan di dalam lembar ini, bukan di lembar
  * kedua: dua bottom sheet bertumpuk saling merebut gestur tutupnya.
+ *
+ * Tanpa tindakan hapus. Menghapus sudah punya jalannya sendiri — geser ke kiri —
+ * dan tindakan merusak yang punya dua pintu berarti dua peluang salah tekan
+ * untuk satu hal yang tidak bisa diurungkan setelah lima detik berlalu.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -262,7 +406,6 @@ fun TaskEditorSheet(
     initialText: String,
     initialDue: Long?,
     confirmLabel: String,
-    onDelete: (() -> Unit)?,
     /** Enter menyimpan lalu mengosongkan kolom, bukan menutup lembar — FR-2.2. */
     repeatable: Boolean = false,
     onDismiss: () -> Unit,
@@ -378,18 +521,6 @@ fun TaskEditorSheet(
                     icon = painterResource(R.drawable.ic_close),
                     tint = scheme.onSurfaceVariant,
                     onClick = { setDue(null) },
-                )
-            }
-
-            if (onDelete != null) {
-                SheetRow(
-                    label = stringResource(R.string.task_delete),
-                    icon = painterResource(R.drawable.ic_delete),
-                    tint = scheme.error,
-                    onClick = {
-                        onDelete()
-                        onDismiss()
-                    },
                 )
             }
 

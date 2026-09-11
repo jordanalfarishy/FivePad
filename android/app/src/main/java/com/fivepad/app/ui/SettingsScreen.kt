@@ -40,16 +40,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fivepad.app.R
 import com.fivepad.app.data.ThemeMode
+import com.fivepad.app.ui.theme.FilledAccent
 import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.Tokens
 import java.util.Locale
@@ -65,6 +68,9 @@ private val ROW_RADIUS = 4.dp
 private val ROW_PAD = 12.dp
 private val ROW_GAP = 8.dp
 private val SEPARATOR_HEIGHT = 7.dp
+
+/** Tombol Login — node 16:380. Lebih besar dari tingginya, jadi selalu bulat penuh. */
+private val LOGIN_BUTTON_RADIUS = 35.dp
 
 @Composable
 fun SettingsScreen(
@@ -162,6 +168,10 @@ fun SettingsScreen(
 
             Section(stringResource(R.string.settings_section_version, versionName(context))) {
                 LinkRow(
+                    label = stringResource(R.string.settings_check_update),
+                    onClick = { openStoreListing(context) },
+                )
+                LinkRow(
                     label = stringResource(R.string.settings_terms),
                     onClick = { open(context.getString(R.string.url_terms)) },
                 )
@@ -170,6 +180,16 @@ fun SettingsScreen(
                     onClick = { open(context.getString(R.string.url_privacy)) },
                 )
             }
+
+            LoginSection(
+                onLogin = {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.settings_login_pending),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                },
+            )
         }
     }
 
@@ -225,6 +245,75 @@ private fun openLanguageSettings(context: android.content.Context) {
             context.getString(R.string.settings_language_unavailable),
             Toast.LENGTH_LONG,
         ).show()
+    }
+}
+
+/**
+ * Ajakan masuk akun — node 16:367.
+ *
+ * Tombolnya hidup meski halaman masuk baru datang di M2. Tombol mati yang
+ * tidak menjelaskan apa-apa membuat orang mengetuknya berulang kali dan
+ * menyangka aplikasinya rusak; tombol yang menjawab "belum, tapi nanti"
+ * setidaknya menjawab.
+ */
+@Composable
+private fun LoginSection(onLogin: () -> Unit) {
+    val colors = LocalFivePadColors.current
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = Tokens.space6),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Tokens.space3),
+    ) {
+        Text(
+            stringResource(R.string.settings_login_blurb),
+            fontSize = 16.sp,
+            lineHeight = 24.sp,
+            color = colors.ink,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(LOGIN_BUTTON_RADIUS))
+                .background(FilledAccent)
+                .clickable(onClick = onLogin)
+                .padding(horizontal = Tokens.space5, vertical = Tokens.space3),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.settings_login),
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+/**
+ * Membuka halaman aplikasi di Play Store.
+ *
+ * Belum ada mekanisme pembaruan sendiri, dan tidak akan pernah ada: pembaruan
+ * adalah urusan toko. Yang bisa dilakukan baris ini adalah mengantar ke sana.
+ */
+private fun openStoreListing(context: android.content.Context) {
+    val market = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}"))
+    val web = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}"),
+    )
+    try {
+        context.startActivity(market)
+    } catch (_: ActivityNotFoundException) {
+        try {
+            context.startActivity(web)
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(context, web.dataString, Toast.LENGTH_LONG).show()
+        }
     }
 }
 
