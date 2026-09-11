@@ -256,7 +256,7 @@ Kelima slot dibedakan hanya oleh warna dan label. Warna bersifat tetap dan tidak
 | FR-7.2 | P1 | Semua | Ekspor ke berkas Markdown — lima berkas slot ditambah satu berkas daftar tugas — dan ke satu berkas JSON gabungan. |
 | FR-7.3 | P1 | Semua | Impor dari berkas JSON hasil ekspor, dengan pratinjau perubahan sebelum ditimpa dan opsi batal. |
 | FR-7.4 | P1 | Semua | Pencadangan lokal otomatis setiap hari, menyimpan tujuh salinan terakhir secara bergilir. |
-| FR-7.5 | P2 | macOS | Aksi Apple Shortcuts untuk membaca slot, menambahkan teks ke slot, dan menambah tugas; ditambah skema URL `justnotes://` untuk otomatisasi dari aplikasi lain. |
+| FR-7.5 | P2 | macOS | Aksi Apple Shortcuts untuk membaca slot, menambahkan teks ke slot, dan menambah tugas; ditambah skema URL `fivepad://` untuk otomatisasi dari aplikasi lain. |
 
 ---
 
