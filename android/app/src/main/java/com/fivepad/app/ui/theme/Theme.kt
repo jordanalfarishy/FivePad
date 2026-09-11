@@ -12,26 +12,26 @@ import androidx.compose.ui.graphics.Color
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /** Warna aksen titik slot pada mode yang sedang aktif. */
-val LocalSlotAccents = staticCompositionLocalOf { SlotAccentLight }
+val LocalSlotAccents = staticCompositionLocalOf { SlotAccents }
 
 /** Warna latar selayar penuh per slot. */
-val LocalSlotSurfaces = staticCompositionLocalOf { SlotSurfaceLight }
+val LocalSlotSurfaces = staticCompositionLocalOf { SlotSurfaces }
 
 /** Warna teks di atas latar slot — satu nilai untuk kelima slot. */
-val LocalOnSlot = staticCompositionLocalOf { OnSlotLight }
+val LocalOnSlot = staticCompositionLocalOf { OnSlotInk }
 
 /** Apakah tema gelap sedang berlaku, setelah ThemeMode.SYSTEM diselesaikan. */
 val LocalIsDarkTheme = staticCompositionLocalOf { false }
 
 /** Warna teks sekunder di atas latar slot — sudah beralpha, langsung pakai. */
-val LocalOnSlotSecondary = staticCompositionLocalOf { OnSlotLight.copy(alpha = SECONDARY_ALPHA_LIGHT) }
+val LocalOnSlotSecondary = staticCompositionLocalOf { OnSlotInk.copy(alpha = SECONDARY_ALPHA_ON_SLOT) }
 
 private val LightScheme = lightColorScheme(
     // Container disetel eksplisit: FAB dan checkbox memakai primaryContainer,
     // dan tanpa nilai sendiri keduanya jatuh ke ungu bawaan Material 3.
-    primary = SlotAccentLight[3],
+    primary = AccentLight,
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = SlotAccentLight[3],
+    primaryContainer = AccentLight,
     onPrimaryContainer = Color(0xFFFFFFFF),
     background = LightBackground,
     surface = LightSurface,
@@ -44,10 +44,10 @@ private val LightScheme = lightColorScheme(
 )
 
 private val DarkScheme = darkColorScheme(
-    primary = SlotAccentDark[3],
+    primary = AccentDark,
     onPrimary = Color(0xFF0B1418),
-    primaryContainer = SlotAccentDark[3],
-    onPrimaryContainer = Color(0xFF0B1418),
+    primaryContainer = AccentDark,
+    onPrimaryContainer = Color(0xFFFFFFFF),
     background = DarkBackground,
     surface = DarkSurface,
     onSurface = DarkOnSurface,
@@ -69,12 +69,11 @@ fun FivePadTheme(
         ThemeMode.DARK -> true
     }
 
-    val accents: List<Color> = if (dark) SlotAccentDark else SlotAccentLight
-    val surfaces: List<Color> = if (dark) SlotSurfaceDark else SlotSurfaceLight
-    val onSlot: Color = if (dark) OnSlotDark else OnSlotLight
-    val onSlotSecondary = onSlot.copy(
-        alpha = if (dark) SECONDARY_ALPHA_DARK else SECONDARY_ALPHA_LIGHT,
-    )
+    // Tab catatan tidak ikut berganti tema — lihat catatan di SlotSurfaces.
+    val accents: List<Color> = SlotAccents
+    val surfaces: List<Color> = SlotSurfaces
+    val onSlot: Color = OnSlotInk
+    val onSlotSecondary = onSlot.copy(alpha = SECONDARY_ALPHA_ON_SLOT)
 
     CompositionLocalProvider(
         LocalSlotAccents provides accents,

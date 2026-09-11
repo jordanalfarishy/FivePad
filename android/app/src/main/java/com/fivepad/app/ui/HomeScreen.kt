@@ -119,13 +119,13 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
     val onSlotInk = LocalOnSlot.current
     val onSlotMuted = LocalOnSlotSecondary.current
 
-    // Ikon sistem mengikuti warna di belakangnya, bukan tema. Di mode terang latar
-    // slot kini pucat, jadi ikonnya harus gelap — kebalikan dari palet sebelumnya.
+    // Latar slot selalu pekat di kedua tema, jadi di tab catatan ikon sistem
+    // selalu terang. Di tab tugas barulah ia mengikuti tema.
     val view = LocalView.current
     SideEffect {
         val window = (view.context as Activity).window
         WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars =
-            if (notesActive) !isDark else !isDark
+            if (notesActive) false else !isDark
     }
 
     val swipeTint = run {

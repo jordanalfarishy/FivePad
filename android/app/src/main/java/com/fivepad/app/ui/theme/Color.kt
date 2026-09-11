@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.Color
  * 4,6:1, yang berarti transparansi sekecil apa pun langsung melanggar NFR-8 —
  * placeholder pun tidak mungkin dibuat tanpa gagal.
  */
-val SlotAccentLight = listOf(
+val SlotAccentsUnusedLight = listOf(
     Color(0xFFC7442A),
     Color(0xFFB0741A),
     Color(0xFF3B8A5B),
@@ -22,7 +22,7 @@ val SlotAccentLight = listOf(
     Color(0xFF6B4E9E),
 )
 
-val SlotAccentDark = listOf(
+val SlotAccents = listOf(
     Color(0xFFEF7A5A),
     Color(0xFFE0A63F),
     Color(0xFF63BC85),
@@ -31,22 +31,17 @@ val SlotAccentDark = listOf(
 )
 
 /**
- * Latar mode terang: tint cerah dengan tinta gelap, 7,0:1 pada kekuatan penuh.
+ * Latar slot — **satu palet untuk kedua tema**.
  *
- * Ini perubahan arah. Palet terang sebelumnya memakai warna jenuh dengan teks
- * putih — itu tema *berwarna*, bukan tema *terang*, dan tidak menyisakan ruang
- * untuk hierarki teks.
+ * Tab catatan sengaja tidak ikut berganti terang/gelap: warna slot itu sendiri
+ * yang menjadi identitas layar, dan mempertahankannya membuat slot 3 selalu
+ * hijau yang sama, bukan dua hijau berbeda tergantung tema. Sisa aplikasi
+ * (tugas, pengaturan) tetap mengikuti tema.
+ *
+ * Efek sampingnya menguntungkan: karena tintanya selalu terang di atas latar
+ * pekat, ruang kontras untuk teks sekunder selalu tersedia.
  */
-val SlotSurfaceLight = listOf(
-    Color(0xFFDB9081),
-    Color(0xFFD3973D),
-    Color(0xFF63B383),
-    Color(0xFF26AFDD),
-    Color(0xFFAB9BC8),
-)
-
-/** Latar mode gelap, sesuai desain Figma. 5,5:1 pada kekuatan penuh. */
-val SlotSurfaceDark = listOf(
+val SlotSurfaces = listOf(
     Color(0xFF9C3F2D),
     Color(0xFF7C551C),
     Color(0xFF336748),
@@ -54,15 +49,23 @@ val SlotSurfaceDark = listOf(
     Color(0xFF685192),
 )
 
-val OnSlotLight = Color(0xFF14181F)
-val OnSlotDark = Color(0xFFE7EBF0)
+/** Tinta di atas latar slot. Satu nilai, karena latarnya juga satu palet. */
+val OnSlotInk = Color(0xFFE7EBF0)
 
 /**
- * Alpha teks sekunder di atas latar slot, diukur bukan dikira-kira: nilai
- * terendah yang masih mencapai 4,5:1 pada kelima slot mode tersebut.
+ * Alpha teks sekunder di atas latar slot: nilai terendah yang masih mencapai
+ * 4,5:1 pada kelima slot. Diukur, bukan dikira-kira.
  */
-const val SECONDARY_ALPHA_LIGHT = 0.76f
-const val SECONDARY_ALPHA_DARK = 0.86f
+const val SECONDARY_ALPHA_ON_SLOT = 0.86f
+
+/**
+ * Aksen dari Figma (#304678) untuk tombol tambah dan tautan aksi.
+ *
+ * Nilai aslinya hanya 1,90:1 di atas latar gelap — praktis tak terbaca. Hue
+ * dipertahankan, kecerahannya disetel sampai lolos AA di masing-masing tema.
+ */
+val AccentLight = Color(0xFF304678)
+val AccentDark = Color(0xFF6380C1)
 
 internal val LightSurface = Color(0xFFFFFFFF)
 internal val LightBackground = Color(0xFFF7F8FA)

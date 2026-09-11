@@ -144,17 +144,21 @@ Palet dipakai dalam **dua peran yang berbeda**, dan keduanya tidak boleh tertuka
 | Slot 4 | `#0B6E8F` | `#48BEDD` |
 | Slot 5 | `#6B4E9E` | `#A186D6` |
 
-**Latar** — untuk warna selayar penuh yang menandai slot aktif. Nilainya diturunkan dari warna aksen dengan hue dipertahankan dan hanya kecerahan yang disetel:
+**Latar** — warna selayar penuh yang menandai slot aktif. Satu palet, **tidak mengikuti tema**, dengan tinta `#E7EBF0`:
 
-| Slot | Terang (teks putih) | Gelap (teks `#E7EBF0`) |
+| Slot | Latar | Kontras tinta penuh |
 |---|---|---|
-| Slot 1 | `#CE472C` · 4,61:1 | `#9C3F2D` · 5,5:1 |
-| Slot 2 | `#A06918` · 4,62:1 | `#7C551C` · 5,5:1 |
-| Slot 3 | `#388356` · 4,61:1 | `#336748` · 5,5:1 |
-| Slot 4 | `#0D7EA4` · 4,61:1 | `#14657F` · 5,5:1 |
-| Slot 5 | `#8367B4` · 4,62:1 | `#685192` · 5,5:1 |
+| Slot 1 | `#9C3F2D` | 5,5:1 |
+| Slot 2 | `#7C551C` | 5,5:1 |
+| Slot 3 | `#336748` | 5,5:1 |
+| Slot 4 | `#14657F` | 5,5:1 |
+| Slot 5 | `#685192` | 5,5:1 |
 
-> **Mengapa dua palet.** Warna aksen tidak dapat dipakai langsung sebagai latar selayar penuh. Dengan teks putih, Slot 3 hanya mencapai 4,22:1 dan **gagal memenuhi WCAG AA** (NFR-8); sementara Slot 2 menjadi satu-satunya yang menuntut teks gelap, sehingga tampak seperti cacat alih-alih keputusan desain. Palet latar menyelesaikan keduanya: seluruh lima slot lolos AA dengan satu warna teks yang sama. Di mode gelap, latar sengaja dibuat jauh lebih pekat daripada aksennya — satu layar penuh `#E0A63F` menyilaukan di ruang gelap, bukan nyaman.
+Teks sekunder di atas latar slot memakai alpha **0,86** — nilai terendah yang masih mencapai 4,5:1 pada kelima slot.
+
+> **Mengapa satu palet, dan kenapa tab catatan tidak ikut berganti tema.** Warna aksen tidak bisa dipakai langsung sebagai latar: dengan teks putih, Slot 3 hanya mencapai 4,22:1 dan **gagal WCAG AA** (NFR-8), sementara Slot 2 jadi satu-satunya yang menuntut teks gelap sehingga terlihat seperti cacat. Upaya membuat palet terang terpisah justru memunculkan masalah kedua: warna yang disetel tepat di ambang tidak menyisakan ruang untuk teks sekunder sama sekali — placeholder pun mustahil digambar tanpa melanggar. Mempertahankan satu palet pekat menyelesaikan keduanya sekaligus, dan memberi keuntungan produk: Slot 3 selalu hijau yang sama, bukan dua hijau berbeda tergantung tema. Sisa aplikasi — tugas, pengaturan — tetap mengikuti tema.
+
+**Aksen aksi** — untuk tombol tambah dan tautan tindakan: `#304678` di mode terang (8,7:1), `#6380C1` di mode gelap. Nilai gelapnya disetel dari hue yang sama karena `#304678` hanya mencapai 1,90:1 di atas latar gelap dan praktis tak terbaca.
 
 ### Modul & kepemilikan platform
 
@@ -268,7 +272,7 @@ Palet dipakai dalam **dua peran yang berbeda**, dan keduanya tidak boleh tertuka
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |
 | FR-6.5 | P1 | Ubin Pengaturan Cepat membuka slot yang terakhir aktif dengan papan ketik langsung aktif. |
 | FR-6.6 | P2 | Dukungan warna dinamis Material You sebagai tema opsional, dengan palet lima slot tetap tidak berubah agar identitas warna terjaga. |
-| FR-6.7 | P0 | Pilihan tema tiga keadaan: ikuti sistem, paksa terang, paksa gelap. Disimpan per perangkat dan **tidak** ikut tersinkronisasi, mengikuti preseden FR-5.2 — seseorang bisa saja ingin gelap di ponsel tapi terang di Mac. Ikon bilah status mengikuti warna di belakangnya, bukan tema, agar tetap terbaca di atas latar slot. |
+| FR-6.7 | P0 | Pilihan tema tiga keadaan: ikuti sistem, paksa terang, paksa gelap. Disimpan per perangkat dan **tidak** ikut tersinkronisasi, mengikuti preseden FR-5.2 — seseorang bisa saja ingin gelap di ponsel tapi terang di Mac. Pilihan tema berlaku untuk tab tugas dan pengaturan; **tab catatan sengaja tidak terpengaruh** dan selalu memakai latar slot yang sama (lihat §7). Ikon bilah status mengikuti warna di belakangnya, bukan tema. |
 
 ### FR-7 — Pengaturan & data
 

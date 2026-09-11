@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,7 +28,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -59,8 +61,11 @@ import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.delay
 
-/** Sejajar dengan awal teks tugas, bukan dengan tepi layar. */
-private val TEXT_INSET = Tokens.touchTarget
+/** Margin kiri-kanan blok baris, mengikuti inset 8 px di Figma. */
+private val BLOCK_INSET = Tokens.space2
+
+/** Jarak dari tepi blok ke awal teks — sejajar untuk baris, pembatas, dan "New Task". */
+private val TEXT_INSET = 44.dp
 
 @Composable
 fun TasksScreen(
@@ -76,7 +81,6 @@ fun TasksScreen(
 ) {
     val scheme = MaterialTheme.colorScheme
     var pendingUndo by remember { mutableStateOf<String?>(null) }
-    var showAdd by remember { mutableStateOf(false) }
     var showNewGroup by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<TodoGroup?>(null) }
 
@@ -90,7 +94,7 @@ fun TasksScreen(
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
             Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp),
+            contentPadding = PaddingValues(top = Tokens.space1, bottom = Tokens.space6),
         ) {
             state.sections.forEach { section ->
                 item(key = "h-${section.group?.id ?: "none"}") {
@@ -101,58 +105,41 @@ fun TasksScreen(
                     )
                 }
 
-                items(
-                    count = section.todos.size,
-                    key = { section.todos[it].id },
-                ) { index ->
-                    val todo = section.todos[index]
-                    TaskRow(
-                        todo = todo,
-                        onToggle = { onToggle(todo.id, it) },
-                        onEdit = { onEditTask(todo.id, it) },
-                        onDelete = {
-                            onDeleteTask(todo.id)
-                            pendingUndo = todo.id
-                        },
-                    )
-                    if (index != section.todos.lastIndex) {
-                        HorizontalDivider(
-                            Modifier.padding(start = TEXT_INSET),
-                            color = scheme.outlineVariant,
+                if (section.todos.isNotEmpty()) {
+                    item(key = "b-${section.group?.id ?: "none"}") {
+                        TaskBlock(
+                            todos = section.todos,
+                            onToggle = onToggle,
+                            onEdit = onEditTask,
+                            onDelete = {
+                                onDeleteTask(it)
+                                pendingUndo = it
+                            },
                         )
                     }
                 }
 
                 item(key = "a-${section.group?.id ?: "none"}") {
-                    InlineAddTask(
-                        groupId = section.group?.id,
-                        onAdd = onAddTask,
+                    InlineAddRow(
+                        label = stringResource(R.string.task_add),
+                        labelColor = scheme.onSurface,
+                        onCommit = { onAddTask(it, section.group?.id) },
                     )
-                    Spacer(Modifier.height(Tokens.space5))
+                    // Pita pemisah antar seksi: latar yang dibiarkan terlihat,
+                    // bukan garis — sesuai Rectangle 46/47 di Figma.
+                    Spacer(Modifier.height(Tokens.space3))
                 }
             }
 
             item {
-                TextButton(
-                    onClick = { showNewGroup = true },
-                    modifier = Modifier.padding(start = Tokens.space2),
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(
-                        stringResource(R.string.group_new),
-                        modifier = Modifier.padding(start = Tokens.space2),
-                    )
-                }
+                InlineAddRow(
+                    label = stringResource(R.string.group_new),
+                    labelColor = scheme.primary,
+                    onCommit = onAddGroup,
+                    maxLength = TodoGroup.MAX_NAME_LENGTH,
+                    hintRes = R.string.group_name_hint,
+                )
             }
-        }
-
-        FloatingActionButton(
-            onClick = { showAdd = true },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(Tokens.space4),
-        ) {
-            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.task_add))
         }
 
         pendingUndo?.let { id ->
@@ -178,17 +165,6 @@ fun TasksScreen(
         }
     }
 
-    if (showAdd) {
-        AddTaskDialog(
-            groups = state.groups,
-            onDismiss = { showAdd = false },
-            onConfirm = { text, groupId ->
-                onAddTask(text, groupId)
-                showAdd = false
-            },
-        )
-    }
-
     if (showNewGroup) {
         TextPromptDialog(
             title = stringResource(R.string.group_new),
@@ -197,10 +173,7 @@ fun TasksScreen(
             confirmLabel = stringResource(R.string.dialog_add),
             maxLength = TodoGroup.MAX_NAME_LENGTH,
             onDismiss = { showNewGroup = false },
-            onConfirm = {
-                onAddGroup(it)
-                showNewGroup = false
-            },
+            onConfirm = { onAddGroup(it); showNewGroup = false },
         )
     }
 
@@ -212,10 +185,7 @@ fun TasksScreen(
             confirmLabel = stringResource(R.string.dialog_save),
             maxLength = TodoGroup.MAX_NAME_LENGTH,
             onDismiss = { renaming = null },
-            onConfirm = {
-                onRenameGroup(group.id, it)
-                renaming = null
-            },
+            onConfirm = { onRenameGroup(group.id, it); renaming = null },
         )
     }
 }
@@ -228,16 +198,21 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(start = Tokens.space4, end = Tokens.space2, top = Tokens.space3),
+            .padding(start = Tokens.space4, end = Tokens.space2)
+            .heightIn(min = 32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            group?.name ?: stringResource(R.string.group_none),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = scheme.onSurface,
+            (group?.name ?: stringResource(R.string.group_none)).uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            // onSurfaceVariant, bukan abu-abu 3,81:1 dari desain — label seksi
+            // adalah informasi navigasi dan harus lolos AA seperti teks lain.
+            color = scheme.onSurfaceVariant,
             modifier = Modifier.weight(1f),
         )
+        // Kelompok "tanpa grup" tidak punya menu: ia bukan grup, jadi tidak bisa
+        // diubah namanya maupun dihapus.
         if (group != null) {
             Box {
                 Box(
@@ -251,6 +226,7 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
                         Icons.Default.MoreVert,
                         contentDescription = stringResource(R.string.group_menu),
                         tint = scheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -262,8 +238,6 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
                         text = {
                             Column {
                                 Text(stringResource(R.string.group_delete))
-                                // Menyebut apa yang TIDAK terjadi, karena itulah
-                                // yang ditakutkan saat menghapus wadah berisi sesuatu.
                                 Text(
                                     stringResource(R.string.group_delete_explainer),
                                     style = MaterialTheme.typography.bodySmall,
@@ -277,70 +251,99 @@ private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () 
             }
         }
     }
-    HorizontalDivider(color = scheme.outlineVariant)
+}
+
+@Composable
+private fun TaskBlock(
+    todos: List<Todo>,
+    onToggle: (String, Boolean) -> Unit,
+    onEdit: (String, String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = BLOCK_INSET)
+            .clip(RoundedCornerShape(Tokens.radiusMd))
+            .background(scheme.surfaceContainer),
+    ) {
+        todos.forEachIndexed { index, todo ->
+            TaskRow(
+                todo = todo,
+                onToggle = { onToggle(todo.id, it) },
+                onEdit = { onEdit(todo.id, it) },
+                onDelete = { onDelete(todo.id) },
+            )
+            if (index != todos.lastIndex) {
+                HorizontalDivider(
+                    Modifier.padding(start = TEXT_INSET),
+                    color = scheme.outlineVariant,
+                )
+            }
+        }
+    }
 }
 
 /**
- * Penambahan di tempat, mengikuti Todoist: baris "Add task" berubah jadi kolom
- * isian, dan Enter menyimpan lalu **membiarkan kolomnya tetap terbuka** supaya
- * tugas berikutnya bisa langsung diketik. Menutup sendiri saat ditinggalkan kosong.
+ * Baris "New Task" / "New Group" yang berubah menjadi kolom isian di tempat.
+ *
+ * Enter menyimpan lalu **membiarkan kolomnya terbuka**, sehingga beberapa entri
+ * bisa diketik beruntun tanpa kembali menekan tombol. Menutup sendiri saat
+ * ditinggalkan dalam keadaan kosong.
  */
 @Composable
-private fun InlineAddTask(groupId: String?, onAdd: (String, String?) -> Unit) {
+private fun InlineAddRow(
+    label: String,
+    labelColor: Color,
+    onCommit: (String) -> Unit,
+    maxLength: Int = Todo.MAX_TEXT_LENGTH,
+    hintRes: Int = R.string.task_text_hint,
+) {
     val scheme = MaterialTheme.colorScheme
     var editing by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
     val focus = remember { FocusRequester() }
 
-    if (!editing) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clickable { editing = true }
-                .padding(start = Tokens.space4, top = Tokens.space3, bottom = Tokens.space3),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Default.Add,
-                contentDescription = null,
-                tint = scheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
-            Text(
-                stringResource(R.string.task_add),
-                style = MaterialTheme.typography.bodyLarge,
-                color = scheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = Tokens.space3),
-            )
-        }
-    } else {
-        LaunchedEffect(Unit) { focus.requestFocus() }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = Tokens.space4, end = Tokens.space4, top = Tokens.space2, bottom = Tokens.space2),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .then(if (editing) Modifier else Modifier.clickable { editing = true })
+            .padding(start = BLOCK_INSET + 12.dp, end = Tokens.space4)
+            .heightIn(min = 44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Default.Add,
+            contentDescription = null,
+            tint = scheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.size(Tokens.space3))
+
+        if (!editing) {
+            Text(label, style = MaterialTheme.typography.bodyLarge, color = labelColor)
+        } else {
+            LaunchedEffect(Unit) { focus.requestFocus() }
             BasicTextField(
                 value = text,
-                onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
+                onValueChange = { if (it.length <= maxLength) text = it },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),
                 cursorBrush = SolidColor(scheme.primary),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
-                    onAdd(text, groupId)
+                    onCommit(text)
                     text = ""
                 }),
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focus)
-                    .onFocusChanged { if (!it.isFocused && text.isBlank()) editing = false }
-                    .padding(vertical = Tokens.space3),
+                    .onFocusChanged { if (!it.isFocused && text.isBlank()) editing = false },
                 decorationBox = { inner ->
                     if (text.isEmpty()) {
                         Text(
-                            stringResource(R.string.task_text_hint),
+                            stringResource(hintRes),
                             style = MaterialTheme.typography.bodyLarge,
                             color = scheme.onSurfaceVariant,
                         )
@@ -390,25 +393,26 @@ private fun TaskRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(scheme.background)
-                .padding(end = Tokens.space4),
+                .background(scheme.surfaceContainer)
+                .heightIn(min = 48.dp)
+                .padding(end = Tokens.space3),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 Modifier
-                    .size(Tokens.touchTarget)
+                    .size(TEXT_INSET)
                     .clip(CircleShape)
                     .clickable { onToggle(!todo.done) },
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
                     Modifier
-                        .size(21.dp)
+                        .size(20.dp)
                         .clip(CircleShape)
-                        .background(if (todo.done) scheme.primary else scheme.background)
+                        .background(if (todo.done) scheme.primary else scheme.onSurface.copy(alpha = 0.18f))
                         .border(
                             width = if (todo.done) 0.dp else 1.5.dp,
-                            color = scheme.onSurfaceVariant,
+                            color = if (todo.done) Color.Transparent else scheme.onSurfaceVariant,
                             shape = CircleShape,
                         ),
                     contentAlignment = Alignment.Center,
@@ -418,7 +422,7 @@ private fun TaskRow(
                             Icons.Default.Check,
                             contentDescription = null,
                             tint = scheme.onPrimary,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(13.dp),
                         )
                     }
                 }
@@ -429,8 +433,6 @@ private fun TaskRow(
                 onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    // Tugas selesai tetap memakai warna yang lolos AA; coretan
-                    // sudah cukup menandai status tanpa mengorbankan keterbacaan.
                     color = if (todo.done) scheme.onSurfaceVariant else scheme.onSurface,
                     textDecoration = if (todo.done) TextDecoration.LineThrough else null,
                 ),
