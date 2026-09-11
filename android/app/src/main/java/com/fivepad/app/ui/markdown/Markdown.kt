@@ -185,3 +185,42 @@ private fun AnnotatedString.Builder.styleInline(
         addStyle(SpanStyle(color = faint), s + 1 + textLen, e)
     }
 }
+
+/** Kotak centang Markdown yang terkena ketukan. */
+data class CheckboxHit(
+    /** Indeks karakter di antara kurung siku — ' ' atau 'x'. */
+    val stateIndex: Int,
+    val checked: Boolean,
+)
+
+private val CHECKBOX_MARKER = Regex("""^(\s*[-*+]\s+\[)([ xX])(])""")
+
+/**
+ * Mencari penanda kotak centang pada baris yang memuat [offset].
+ *
+ * Seluruh awalan `- [ ]` dianggap sasaran, bukan hanya karakter di dalam kurung —
+ * satu karakter jauh di bawah ukuran sasaran sentuh yang wajar.
+ */
+fun checkboxAt(text: String, offset: Int): CheckboxHit? {
+    if (offset < 0 || offset > text.length) return null
+
+    val lineStart = text.lastIndexOf('\n', (offset - 1).coerceAtLeast(0))
+        .let { if (it < 0) 0 else it + 1 }
+    val lineEnd = text.indexOf('\n', offset).let { if (it < 0) text.length else it }
+    if (lineStart > lineEnd) return null
+
+    val m = CHECKBOX_MARKER.find(text.substring(lineStart, lineEnd)) ?: return null
+    val markerEnd = lineStart + m.value.length
+    if (offset > markerEnd) return null
+
+    return CheckboxHit(
+        stateIndex = lineStart + m.groupValues[1].length,
+        checked = m.groupValues[2].lowercase() == "x",
+    )
+}
+
+/** Mengembalikan teks dengan satu kotak centang dibalik statusnya. */
+fun toggleCheckbox(text: String, hit: CheckboxHit): String =
+    text.substring(0, hit.stateIndex) +
+        (if (hit.checked) " " else "x") +
+        text.substring(hit.stateIndex + 1)

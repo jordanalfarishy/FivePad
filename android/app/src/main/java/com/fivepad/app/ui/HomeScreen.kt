@@ -5,6 +5,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -43,10 +45,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.VisualTransformation
@@ -59,6 +64,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fivepad.app.R
 import com.fivepad.app.data.Note
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
+import com.fivepad.app.ui.markdown.checkboxAt
+import com.fivepad.app.ui.markdown.toggleCheckbox
 import com.fivepad.app.ui.theme.LocalOnSlot
 import com.fivepad.app.ui.theme.LocalOnSlotSecondary
 import com.fivepad.app.ui.theme.LocalSlotAccents
@@ -382,6 +389,8 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
         HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { page ->
             val slot = page + 1
             val text = state.draftFor(slot)
+            var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
+
             BasicTextField(
                 value = text,
                 onValueChange = { vm.onBodyChanged(slot, it) },
@@ -396,9 +405,47 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
                 } else {
                     VisualTransformation.None
                 },
+                onTextLayout = { layout = it },
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2),
+                    .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2)
+                    // FR-1.8: mengetuk `- [ ]` membalik statusnya tanpa masuk mode
+                    // edit. Ketukan dicegat pada pass Initial dan dikonsumsi hanya
+                    // bila benar-benar mengenai penanda — kalau tidak, kolom teks
+                    // sudah lebih dulu memindahkan kursor dan membuka papan ketik.
+                    .pointerInput(text) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(
+                                requireUnconsumed = false,
+                                pass = PointerEventPass.Initial,
+                            )
+                            val lr = layout ?: return@awaitEachGesture
+                            val hit = checkboxAt(text, lr.getOffsetForPosition(down.position))
+                                ?: return@awaitEachGesture
+
+                            down.consume()
+
+                            // waitForUpOrCancellation() memperlakukan pointer yang
+                            // sudah dikonsumsi sebagai gestur batal dan langsung
+                            // mengembalikan null — jadi angkat-jari ditunggu manual
+                            // pada pass Initial yang sama.
+                            var released = false
+                            while (true) {
+                                val change = awaitPointerEvent(PointerEventPass.Initial)
+                                    .changes
+                                    .firstOrNull { it.id == down.id } ?: break
+                                change.consume()
+                                if (!change.pressed) {
+                                    released = true
+                                    break
+                                }
+                            }
+
+                            if (released) {
+                                vm.onBodyChanged(slot, toggleCheckbox(text, hit))
+                            }
+                        }
+                    },
                 decorationBox = { inner ->
                     if (text.isEmpty()) {
                         Text(
