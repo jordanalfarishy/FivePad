@@ -54,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
@@ -115,6 +116,8 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
 
     val notesActive = tab == TAB_NOTES
     val isDark = LocalIsDarkTheme.current
+    val onSlotInk = LocalOnSlot.current
+    val onSlotMuted = LocalOnSlotSecondary.current
 
     // Ikon sistem mengikuti warna di belakangnya, bukan tema. Di mode terang latar
     // slot kini pucat, jadi ikonnya harus gelap — kebalikan dari palet sebelumnya.
@@ -181,6 +184,11 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                 doneCount = state.doneCount,
                 totalCount = state.totalCount,
                 onSelect = { tab = it },
+                // Di tab catatan bilah bawah ikut warna slot, jadi seluruh layar
+                // membaca sebagai satu bidang warna; di tab tugas kembali netral.
+                container = if (notesActive) background else MaterialTheme.colorScheme.surface,
+                ink = if (notesActive) onSlotInk else MaterialTheme.colorScheme.onSurface,
+                inkMuted = if (notesActive) onSlotMuted else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -274,10 +282,12 @@ private fun BottomNav(
     doneCount: Int,
     totalCount: Int,
     onSelect: (Int) -> Unit,
+    container: Color,
+    ink: Color,
+    inkMuted: Color,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    Column(Modifier.background(scheme.surface)) {
-        HorizontalDivider(color = scheme.outlineVariant)
+    Column(Modifier.background(container)) {
+        HorizontalDivider(color = ink.copy(alpha = 0.15f))
         Row(
             Modifier
                 .fillMaxWidth()
@@ -287,6 +297,8 @@ private fun BottomNav(
             NavItem(
                 selected = selected == TAB_NOTES,
                 label = stringResource(R.string.tab_notes),
+                ink = ink,
+                inkMuted = inkMuted,
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_NOTES) },
             ) {
@@ -295,6 +307,8 @@ private fun BottomNav(
             NavItem(
                 selected = selected == TAB_TODOS,
                 label = stringResource(R.string.tab_tasks),
+                ink = ink,
+                inkMuted = inkMuted,
                 badge = if (totalCount > 0) {
                     stringResource(R.string.tab_tasks_count, doneCount, totalCount)
                 } else {
@@ -313,19 +327,20 @@ private fun BottomNav(
 private fun NavItem(
     selected: Boolean,
     label: String,
+    ink: Color,
+    inkMuted: Color,
     modifier: Modifier = Modifier,
     badge: String? = null,
     onClick: () -> Unit,
     icon: @Composable (Color) -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val tint = if (selected) scheme.onSurface else scheme.onSurfaceVariant
+    val tint = if (selected) ink else inkMuted
 
     Box(modifier, contentAlignment = Alignment.Center) {
         Row(
             Modifier
                 .clip(RoundedCornerShape(Tokens.radiusPill))
-                .background(if (selected) scheme.onSurface.copy(alpha = 0.09f) else Color.Transparent)
+                .background(if (selected) ink.copy(alpha = 0.14f) else Color.Transparent)
                 .clickable(onClick = onClick)
                 // Ikon tanpa teks butuh label yang dibacakan pembaca layar,
                 // kalau tidak navigasinya kosong tak bernama bagi mereka.
@@ -368,21 +383,26 @@ private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) 
             textStyle = MaterialTheme.typography.titleMedium.copy(
                 color = onSlot,
                 fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
             ),
             cursorBrush = SolidColor(onSlot),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2),
             decorationBox = { inner ->
-                if (label.isEmpty()) {
-                    Text(
-                        stringResource(R.string.slot_label_placeholder),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = onSlotSecondary,
-                    )
+                // Kotak pembungkus dipakai supaya placeholder ikut rata tengah;
+                // textAlign saja hanya mengatur teks yang sudah ada isinya.
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    if (label.isEmpty()) {
+                        Text(
+                            stringResource(R.string.slot_label_placeholder),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = onSlotSecondary,
+                        )
+                    }
+                    inner()
                 }
-                inner()
             },
         )
 

@@ -29,8 +29,8 @@ object Tokens {
     val radiusPill = 999.dp
 
     /** Titik penanda slot: yang terlihat kecil, yang bisa disentuh besar. */
-    val dotActive = 20.dp
-    val dotInactive = 14.dp
+    val dotActive = 28.dp
+    val dotInactive = 24.dp
 
     /**
      * Area sentuh minimum. Pedoman Material meminta 48 dp; titik yang hanya

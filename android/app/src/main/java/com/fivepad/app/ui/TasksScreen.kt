@@ -6,16 +6,19 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
@@ -41,9 +44,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.fivepad.app.R
@@ -51,6 +58,9 @@ import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.delay
+
+/** Sejajar dengan awal teks tugas, bukan dengan tepi layar. */
+private val TEXT_INSET = Tokens.touchTarget
 
 @Composable
 fun TasksScreen(
@@ -67,8 +77,8 @@ fun TasksScreen(
     val scheme = MaterialTheme.colorScheme
     var pendingUndo by remember { mutableStateOf<String?>(null) }
     var showAdd by remember { mutableStateOf(false) }
-    var renaming by remember { mutableStateOf<TodoGroup?>(null) }
     var showNewGroup by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf<TodoGroup?>(null) }
 
     LaunchedEffect(pendingUndo) {
         if (pendingUndo != null) {
@@ -78,79 +88,60 @@ fun TasksScreen(
     }
 
     Box(Modifier.fillMaxSize()) {
-        if (state.totalCount == 0 && state.groups.isEmpty()) {
-            Column(
-                Modifier
-                    .align(Alignment.Center)
-                    .padding(Tokens.space6),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    stringResource(R.string.tasks_empty),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = scheme.onSurface,
-                )
-                Text(
-                    stringResource(R.string.tasks_empty_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = Tokens.space2),
-                )
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 120.dp),
+        ) {
+            state.sections.forEach { section ->
+                item(key = "h-${section.group?.id ?: "none"}") {
+                    SectionHeader(
+                        group = section.group,
+                        onRename = { renaming = section.group },
+                        onDelete = { section.group?.let { onDeleteGroup(it.id) } },
+                    )
+                }
+
+                items(
+                    count = section.todos.size,
+                    key = { section.todos[it].id },
+                ) { index ->
+                    val todo = section.todos[index]
+                    TaskRow(
+                        todo = todo,
+                        onToggle = { onToggle(todo.id, it) },
+                        onEdit = { onEditTask(todo.id, it) },
+                        onDelete = {
+                            onDeleteTask(todo.id)
+                            pendingUndo = todo.id
+                        },
+                    )
+                    if (index != section.todos.lastIndex) {
+                        HorizontalDivider(
+                            Modifier.padding(start = TEXT_INSET),
+                            color = scheme.outlineVariant,
+                        )
+                    }
+                }
+
+                item(key = "a-${section.group?.id ?: "none"}") {
+                    InlineAddTask(
+                        groupId = section.group?.id,
+                        onAdd = onAddTask,
+                    )
+                    Spacer(Modifier.height(Tokens.space5))
+                }
             }
-        } else {
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = Tokens.space2,
-                    end = Tokens.space2,
-                    top = Tokens.space2,
-                    bottom = 96.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(Tokens.space4),
-            ) {
-                if (state.totalCount > 0) {
-                    item {
-                        Text(
-                            stringResource(R.string.task_progress, state.doneCount, state.totalCount),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = scheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = Tokens.space2),
-                        )
-                    }
-                }
 
-                item {
-                    TextButton(
-                        onClick = { showNewGroup = true },
-                        modifier = Modifier.padding(start = Tokens.space1),
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Text(
-                            stringResource(R.string.group_new),
-                            modifier = Modifier.padding(start = Tokens.space2),
-                        )
-                    }
-                }
-
-                state.sections.forEach { section ->
-                    item(key = section.group?.id ?: "ungrouped") {
-                        SectionCard(
-                            group = section.group,
-                            todos = section.todos,
-                            onToggle = onToggle,
-                            onEditTask = onEditTask,
-                            onDeleteTask = {
-                                onDeleteTask(it)
-                                pendingUndo = it
-                            },
-                            onRename = { renaming = section.group },
-                            onDelete = { section.group?.let { g -> onDeleteGroup(g.id) } },
-                        )
-                    }
+            item {
+                TextButton(
+                    onClick = { showNewGroup = true },
+                    modifier = Modifier.padding(start = Tokens.space2),
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Text(
+                        stringResource(R.string.group_new),
+                        modifier = Modifier.padding(start = Tokens.space2),
+                    )
                 }
             }
         }
@@ -230,108 +221,132 @@ fun TasksScreen(
 }
 
 @Composable
-private fun SectionCard(
-    group: TodoGroup?,
-    todos: List<Todo>,
-    onToggle: (String, Boolean) -> Unit,
-    onEditTask: (String, String) -> Unit,
-    onDeleteTask: (String) -> Unit,
-    onRename: () -> Unit,
-    onDelete: () -> Unit,
-) {
+private fun SectionHeader(group: TodoGroup?, onRename: () -> Unit, onDelete: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
+    var menuOpen by remember { mutableStateOf(false) }
 
-    Column(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(start = Tokens.space2, bottom = Tokens.space2),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                (group?.name ?: stringResource(R.string.group_none)).uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                // onSurfaceVariant, bukan abu-abu redup: label grup adalah
-                // informasi navigasi, jadi harus lolos AA seperti teks lain.
-                color = scheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-            )
-            if (group != null) {
-                GroupMenu(onRename = onRename, onDelete = onDelete)
-            }
-        }
-
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(Tokens.radiusMd))
-                // Batas eksplisit, bukan mengandalkan beda warna isian. Kartu
-                // desain hanya berbeda 1,14:1 dari latar — jauh di bawah 3:1
-                // yang dituntut untuk batas komponen.
-                .border(1.dp, scheme.outline, RoundedCornerShape(Tokens.radiusMd))
-                .background(scheme.surfaceContainer),
-        ) {
-            if (todos.isEmpty()) {
-                Text(
-                    stringResource(R.string.tasks_empty),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = scheme.onSurfaceVariant,
-                    modifier = Modifier.padding(Tokens.space4),
-                )
-            } else {
-                todos.forEachIndexed { index, todo ->
-                    TaskRow(
-                        todo = todo,
-                        onToggle = { onToggle(todo.id, it) },
-                        onEdit = { onEditTask(todo.id, it) },
-                        onDelete = { onDeleteTask(todo.id) },
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(start = Tokens.space4, end = Tokens.space2, top = Tokens.space3),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            group?.name ?: stringResource(R.string.group_none),
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = scheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        if (group != null) {
+            Box {
+                Box(
+                    Modifier
+                        .size(Tokens.touchTarget)
+                        .clip(CircleShape)
+                        .clickable { menuOpen = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = stringResource(R.string.group_menu),
+                        tint = scheme.onSurfaceVariant,
                     )
-                    if (index != todos.lastIndex) {
-                        HorizontalDivider(color = scheme.outline)
-                    }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.group_rename)) },
+                        onClick = { menuOpen = false; onRename() },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Column {
+                                Text(stringResource(R.string.group_delete))
+                                // Menyebut apa yang TIDAK terjadi, karena itulah
+                                // yang ditakutkan saat menghapus wadah berisi sesuatu.
+                                Text(
+                                    stringResource(R.string.group_delete_explainer),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = scheme.onSurfaceVariant,
+                                )
+                            }
+                        },
+                        onClick = { menuOpen = false; onDelete() },
+                    )
                 }
             }
         }
     }
+    HorizontalDivider(color = scheme.outlineVariant)
 }
 
+/**
+ * Penambahan di tempat, mengikuti Todoist: baris "Add task" berubah jadi kolom
+ * isian, dan Enter menyimpan lalu **membiarkan kolomnya tetap terbuka** supaya
+ * tugas berikutnya bisa langsung diketik. Menutup sendiri saat ditinggalkan kosong.
+ */
 @Composable
-private fun GroupMenu(onRename: () -> Unit, onDelete: () -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    Box {
-        Box(
+private fun InlineAddTask(groupId: String?, onAdd: (String, String?) -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    var editing by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+
+    if (!editing) {
+        Row(
             Modifier
-                .size(Tokens.touchTarget)
-                .clip(CircleShape)
-                .clickable { open = true },
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .clickable { editing = true }
+                .padding(start = Tokens.space4, top = Tokens.space3, bottom = Tokens.space3),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                Icons.Default.MoreVert,
-                contentDescription = stringResource(R.string.group_menu),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                Icons.Default.Add,
+                contentDescription = null,
+                tint = scheme.primary,
+                modifier = Modifier.size(20.dp),
+            )
+            Text(
+                stringResource(R.string.task_add),
+                style = MaterialTheme.typography.bodyLarge,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = Tokens.space3),
             )
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.group_rename)) },
-                onClick = { open = false; onRename() },
-            )
-            DropdownMenuItem(
-                text = {
-                    Column {
-                        Text(stringResource(R.string.group_delete))
-                        // Menjelaskan apa yang TIDAK terjadi, karena itulah yang
-                        // orang takutkan saat menghapus wadah berisi sesuatu.
+    } else {
+        LaunchedEffect(Unit) { focus.requestFocus() }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(start = Tokens.space4, end = Tokens.space4, top = Tokens.space2, bottom = Tokens.space2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            BasicTextField(
+                value = text,
+                onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyLarge.copy(color = scheme.onSurface),
+                cursorBrush = SolidColor(scheme.primary),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    onAdd(text, groupId)
+                    text = ""
+                }),
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focus)
+                    .onFocusChanged { if (!it.isFocused && text.isBlank()) editing = false }
+                    .padding(vertical = Tokens.space3),
+                decorationBox = { inner ->
+                    if (text.isEmpty()) {
                         Text(
-                            stringResource(R.string.group_delete_explainer),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            stringResource(R.string.task_text_hint),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = scheme.onSurfaceVariant,
                         )
                     }
+                    inner()
                 },
-                onClick = { open = false; onDelete() },
             )
         }
     }
@@ -375,8 +390,8 @@ private fun TaskRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(scheme.surfaceContainer)
-                .padding(end = Tokens.space3),
+                .background(scheme.background)
+                .padding(end = Tokens.space4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -388,11 +403,11 @@ private fun TaskRow(
             ) {
                 Box(
                     Modifier
-                        .size(22.dp)
+                        .size(21.dp)
                         .clip(CircleShape)
-                        .background(if (todo.done) scheme.primary else scheme.surfaceContainer)
+                        .background(if (todo.done) scheme.primary else scheme.background)
                         .border(
-                            width = if (todo.done) 0.dp else 2.dp,
+                            width = if (todo.done) 0.dp else 1.5.dp,
                             color = scheme.onSurfaceVariant,
                             shape = CircleShape,
                         ),
@@ -403,7 +418,7 @@ private fun TaskRow(
                             Icons.Default.Check,
                             contentDescription = null,
                             tint = scheme.onPrimary,
-                            modifier = Modifier.size(15.dp),
+                            modifier = Modifier.size(14.dp),
                         )
                     }
                 }
@@ -414,8 +429,8 @@ private fun TaskRow(
                 onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
                 singleLine = true,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    // Tugas selesai memakai onSurfaceVariant yang lolos AA, bukan
-                    // abu-abu 3,68:1 dari desain. Coretan sudah cukup menandai status.
+                    // Tugas selesai tetap memakai warna yang lolos AA; coretan
+                    // sudah cukup menandai status tanpa mengorbankan keterbacaan.
                     color = if (todo.done) scheme.onSurfaceVariant else scheme.onSurface,
                     textDecoration = if (todo.done) TextDecoration.LineThrough else null,
                 ),
