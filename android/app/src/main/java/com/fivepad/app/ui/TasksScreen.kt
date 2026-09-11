@@ -1,12 +1,10 @@
 package com.fivepad.app.ui
 
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,19 +13,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,44 +28,52 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.zIndex
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.TodoGroup
+import com.fivepad.app.ui.theme.Accent
 import com.fivepad.app.ui.theme.CheckboxFill
 import com.fivepad.app.ui.theme.CheckboxStroke
+import com.fivepad.app.ui.theme.CheckedFill
 import com.fivepad.app.ui.theme.CheckedStroke
+import com.fivepad.app.ui.theme.DRAG_HANDLE_ALPHA
 import com.fivepad.app.ui.theme.MUTED_ALPHA_TASKS
 import com.fivepad.app.ui.theme.TaskSeparator
 import com.fivepad.app.ui.theme.Tokens
+import kotlin.math.abs
 import kotlinx.coroutines.delay
 
 // Nilai diambil langsung dari Figma (node 3:377).
@@ -84,17 +85,18 @@ private val ROW_RADIUS = 4.dp
 private val ROW_PAD = 12.dp
 private val ROW_GAP = 8.dp
 private val SEPARATOR_HEIGHT = 7.dp
+private val HANDLE_SIZE = 20.dp
 
-/** 8 atas + 20 isi + 8 bawah, sesuai `px-[12px] py-[8px]` di Figma. */
-private val ADD_ROW_HEIGHT = 36.dp
+/** `px-[12px] py-[14px]` dengan isi 20 dp — node 3:580. */
+private val ADD_ROW_PAD_V = 14.dp
 
-/** 12 atas + 24 isi + 12 bawah, sesuai `p-[12px]` di Figma. */
-private val TASK_ROW_HEIGHT = 48.dp
+/** Seberapa dekat ke tepi daftar sebelum daftarnya ikut bergulir saat menyeret. */
+private val AUTOSCROLL_EDGE = 72.dp
 
 @Composable
 fun TasksScreen(
     state: HomeUiState,
-    onAddTask: (String, String?) -> Unit,
+    onAddTask: (String, String?, Long?) -> Unit,
     onToggle: (String, Boolean) -> Unit,
     onEditTask: (String, String) -> Unit,
     onDeleteTask: (String) -> Unit,
@@ -103,24 +105,21 @@ fun TasksScreen(
     onRenameGroup: (String, String) -> Unit,
     onDeleteGroup: (String) -> Unit,
     onSetDue: (String, Long?) -> Unit,
-    onMoveTask: (List<Todo>, Int, Int) -> Unit,
+    onMoveTaskToSection: (String, String?, Double?, Double?) -> Unit,
     onMoveGroup: (Int, Int) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val sections = state.sections
     var pendingUndo by remember { mutableStateOf<String?>(null) }
     var groupOptions by remember { mutableStateOf<TodoGroup?>(null) }
     var renamingGroup by remember { mutableStateOf<TodoGroup?>(null) }
-    var renamingTask by remember { mutableStateOf<Todo?>(null) }
-    var taskOptions by remember { mutableStateOf<Todo?>(null) }
-    var duePicker by remember { mutableStateOf<Todo?>(null) }
-    var showDatePicker by remember { mutableStateOf<Todo?>(null) }
+    var addingGroup by remember { mutableStateOf(false) }
+    var composing by remember { mutableStateOf<String?>(null) }
+    var editing by remember { mutableStateOf<Todo?>(null) }
 
-    // Izin diminta saat pengguna benar-benar memasang jatuh tempo, bukan di
-    // pembukaan pertama: permintaan tanpa konteks lebih sering ditolak, dan
-    // aplikasi ini berguna penuh tanpa notifikasi.
-    val notificationPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { /* ditolak pun jatuh temponya tetap tersimpan, hanya tanpa pengingat */ }
+    val listState = rememberLazyListState()
+    val drag = remember { DragState() }
+    val edgePx = with(LocalDensity.current) { AUTOSCROLL_EDGE.toPx() }
 
     LaunchedEffect(pendingUndo) {
         if (pendingUndo != null) {
@@ -129,63 +128,78 @@ fun TasksScreen(
         }
     }
 
+    // Saat jari menahan baris di dekat tepi, daftarnya bergulir sendiri — tanpa
+    // ini grup yang ada di luar layar tidak bisa dijadikan tujuan sama sekali.
+    // Yang digulirkan ditambahkan ke offset baris terbang, supaya baris itu tetap
+    // berada persis di bawah jari alih-alih ikut hanyut bersama daftar.
+    LaunchedEffect(drag.todo?.id) {
+        if (drag.todo == null) return@LaunchedEffect
+        while (drag.todo != null) {
+            withFrameNanos { }
+            val viewport = drag.viewport
+            val y = drag.pointerY
+            val step = when {
+                viewport == Rect.Zero -> 0f
+                y < viewport.top + edgePx -> -((viewport.top + edgePx - y) / edgePx) * MAX_SCROLL_STEP
+                y > viewport.bottom - edgePx ->
+                    ((y - (viewport.bottom - edgePx)) / edgePx) * MAX_SCROLL_STEP
+                else -> 0f
+            }
+            if (step != 0f) {
+                drag.offsetY += listState.scrollBy(step)
+                drag.refreshPointer()
+                drag.target = dropTargetFor(sections, drag)
+            }
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier
+                .fillMaxSize()
+                .onGloballyPositioned { drag.viewport = it.boundsInRoot() },
+            state = listState,
             contentPadding = PaddingValues(bottom = Tokens.space6),
+            // Menyeret baris sudah memakai gestur vertikal; tanpa ini daftarnya
+            // ikut bergulir dan barisnya seperti lepas dari jari.
+            userScrollEnabled = drag.todo == null,
         ) {
-            state.sections.forEachIndexed { index, section ->
-                item(key = "s-${section.group?.id ?: "none"}") {
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
-                        verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-                    ) {
-                        SectionHeader(
-                            group = section.group,
-                            onOptions = { groupOptions = section.group },
-                        )
-
-                        if (section.todos.isNotEmpty()) {
-                            TaskBlock(
-                                todos = section.todos,
-                                onToggle = onToggle,
-                                onOptions = { taskOptions = it },
-                                onRename = { renamingTask = it },
-                                onDelete = {
-                                    onDeleteTask(it)
-                                    pendingUndo = it
-                                },
-                                onMove = { from, to -> onMoveTask(section.todos, from, to) },
-                            )
-                        }
-
-                        InlineAddRow(
-                            label = stringResource(R.string.task_add),
-                            labelColor = scheme.onSurface,
-                            hintRes = R.string.task_text_hint,
-                            maxLength = Todo.MAX_TEXT_LENGTH,
-                            onCommit = { onAddTask(it, section.group?.id) },
-                        )
-                    }
+            sections.forEach { section ->
+                item(key = "s-${section.key()}") {
+                    SectionColumn(
+                        section = section,
+                        drag = drag,
+                        onOptions = { groupOptions = section.group },
+                        onToggle = onToggle,
+                        onEdit = { editing = it },
+                        onDelete = {
+                            onDeleteTask(it)
+                            pendingUndo = it
+                        },
+                        onAdd = { composing = section.key() },
+                        onDragMove = { todo, coords, local, dy ->
+                            drag.onMove(todo, coords, local, dy)
+                            drag.target = dropTargetFor(sections, drag)
+                        },
+                        onDragEnd = {
+                            drag.commit(sections, onMoveTaskToSection)
+                        },
+                    )
                 }
 
-                item(key = "sep-$index") { Separator() }
+                item(key = "sep-${section.key()}") { Separator() }
             }
 
-            item {
+            item(key = "new-group") {
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
                 ) {
-                    InlineAddRow(
+                    AddRow(
                         label = stringResource(R.string.group_new),
-                        labelColor = scheme.primary,
-                        hintRes = R.string.group_name_hint,
-                        maxLength = TodoGroup.MAX_NAME_LENGTH,
-                        onCommit = onAddGroup,
+                        labelColor = Accent,
+                        onClick = { addingGroup = true },
                     )
                 }
             }
@@ -214,92 +228,36 @@ fun TasksScreen(
         }
     }
 
-    taskOptions?.let { todo ->
-        OptionsSheet(
-            title = todo.text,
-            actions = buildList {
-                add(
-                    SheetAction(
-                        label = stringResource(R.string.group_rename),
-                        onClick = { renamingTask = todo },
-                    ),
-                )
-                add(
-                    SheetAction(
-                        label = stringResource(
-                            if (todo.dueAt == null) R.string.due_set else R.string.due_change,
-                        ),
-                        description = todo.dueAt?.let { DueDates.format(it) },
-                        onClick = {
-                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                notificationPermission.launch(
-                                    android.Manifest.permission.POST_NOTIFICATIONS,
-                                )
-                            }
-                            duePicker = todo
-                        },
-                    ),
-                )
-                if (todo.dueAt != null) {
-                    add(
-                        SheetAction(
-                            label = stringResource(R.string.due_remove),
-                            onClick = { onSetDue(todo.id, null) },
-                        ),
-                    )
-                }
-                add(
-                    SheetAction(
-                        label = stringResource(R.string.task_delete),
-                        destructive = true,
-                        onClick = { onDeleteTask(todo.id); pendingUndo = todo.id },
-                    ),
-                )
+    composing?.let { sectionKey ->
+        TaskEditorSheet(
+            title = stringResource(R.string.task_new),
+            initialText = "",
+            initialDue = null,
+            confirmLabel = stringResource(R.string.dialog_add),
+            onDelete = null,
+            onDismiss = { composing = null },
+            onConfirm = { text, due ->
+                onAddTask(text, sectionKey.takeIf { it != UNGROUPED_KEY }, due)
             },
-            onDismiss = { taskOptions = null },
         )
     }
 
-    duePicker?.let { todo ->
-        OptionsSheet(
-            title = stringResource(R.string.due_set),
-            actions = listOf(
-                SheetAction(stringResource(R.string.due_today)) {
-                    onSetDue(todo.id, DueDates.todayEvening())
-                },
-                SheetAction(stringResource(R.string.due_tomorrow)) {
-                    onSetDue(todo.id, DueDates.tomorrowMorning())
-                },
-                SheetAction(stringResource(R.string.due_next_week)) {
-                    onSetDue(todo.id, DueDates.nextWeek())
-                },
-                SheetAction(stringResource(R.string.due_pick)) { showDatePicker = todo },
-            ),
-            onDismiss = { duePicker = null },
+    editing?.let { todo ->
+        TaskEditorSheet(
+            title = stringResource(R.string.task_edit),
+            initialText = todo.text,
+            initialDue = todo.dueAt,
+            confirmLabel = stringResource(R.string.dialog_save),
+            onDelete = {
+                onDeleteTask(todo.id)
+                pendingUndo = todo.id
+            },
+            onDismiss = { editing = null },
+            onConfirm = { text, due ->
+                if (text != todo.text) onEditTask(todo.id, text)
+                if (due != todo.dueAt) onSetDue(todo.id, due)
+            },
         )
-    }
-
-    showDatePicker?.let { todo ->
-        val pickerState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = null },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pickerState.selectedDateMillis?.let {
-                            onSetDue(todo.id, DueDates.fromPickedDate(it))
-                        }
-                        showDatePicker = null
-                    },
-                    enabled = pickerState.selectedDateMillis != null,
-                ) { Text(stringResource(R.string.dialog_save)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = null }) {
-                    Text(stringResource(R.string.dialog_cancel))
-                }
-            },
-        ) { DatePicker(state = pickerState) }
     }
 
     groupOptions?.let { group ->
@@ -308,10 +266,12 @@ fun TasksScreen(
             actions = listOf(
                 SheetAction(
                     label = stringResource(R.string.group_rename),
+                    icon = painterResource(R.drawable.ic_edit),
                     onClick = { renamingGroup = group },
                 ),
                 SheetAction(
                     label = stringResource(R.string.move_up),
+                    icon = painterResource(R.drawable.ic_arrow_upward),
                     onClick = {
                         val i = state.groups.indexOfFirst { it.id == group.id }
                         if (i > 0) onMoveGroup(i, i - 1)
@@ -319,6 +279,7 @@ fun TasksScreen(
                 ),
                 SheetAction(
                     label = stringResource(R.string.move_down),
+                    icon = painterResource(R.drawable.ic_arrow_downward),
                     onClick = {
                         val i = state.groups.indexOfFirst { it.id == group.id }
                         if (i >= 0 && i < state.groups.lastIndex) onMoveGroup(i, i + 1)
@@ -326,6 +287,7 @@ fun TasksScreen(
                 ),
                 SheetAction(
                     label = stringResource(R.string.group_delete),
+                    icon = painterResource(R.drawable.ic_delete),
                     // Menyebut apa yang TIDAK terjadi, karena itulah yang
                     // ditakutkan saat menghapus wadah berisi sesuatu.
                     description = stringResource(R.string.group_delete_explainer),
@@ -349,15 +311,116 @@ fun TasksScreen(
         )
     }
 
-    renamingTask?.let { todo ->
+    if (addingGroup) {
         TextPromptSheet(
-            title = stringResource(R.string.task_rename),
-            initial = todo.text,
-            hint = stringResource(R.string.task_text_hint),
-            confirmLabel = stringResource(R.string.dialog_save),
-            maxLength = Todo.MAX_TEXT_LENGTH,
-            onDismiss = { renamingTask = null },
-            onConfirm = { onEditTask(todo.id, it) },
+            title = stringResource(R.string.group_new),
+            initial = "",
+            hint = stringResource(R.string.group_name_hint),
+            confirmLabel = stringResource(R.string.dialog_add),
+            maxLength = TodoGroup.MAX_NAME_LENGTH,
+            onDismiss = { addingGroup = false },
+            onConfirm = onAddGroup,
+        )
+    }
+}
+
+// ---------------------------------------------------------------- bagian daftar
+
+@Composable
+private fun SectionColumn(
+    section: TaskSection,
+    drag: DragState,
+    onOptions: () -> Unit,
+    onToggle: (String, Boolean) -> Unit,
+    onEdit: (Todo) -> Unit,
+    onDelete: (String) -> Unit,
+    onAdd: () -> Unit,
+    onDragMove: (Todo, LayoutCoordinates, Offset, Float) -> Unit,
+    onDragEnd: () -> Unit,
+) {
+    val key = section.key()
+    val indicator = MaterialTheme.colorScheme.onSurface
+    val indicatorThickness = with(LocalDensity.current) { 2.dp.toPx() }
+
+    val carrying = section.todos.any { it.id == drag.todo?.id }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            // Baris terbang harus melintas di ATAS bagian lain, dan bagian lain
+            // punya baris berlatar padat yang akan menelannya. zIndex di sini
+            // mengangkat seluruh bagian, bukan barisnya saja, karena tetangga
+            // yang harus dilewati adalah butir-butir daftar, bukan baris.
+            .zIndex(if (carrying) 1f else 0f)
+            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V)
+            .onGloballyPositioned { drag.sections[key] = it.boundsInRoot() }
+            // Garis sisip digambar sebagai lapisan atas, bukan sebagai baris
+            // tambahan: menyisipkan elemen nyata akan menggeser semua tetangganya,
+            // mengubah batas yang baru saja diukur, dan membuat sasaran jatuhnya
+            // berkedip bolak-balik antara dua posisi.
+            .drawWithContent {
+                drawContent()
+                val target = drag.target ?: return@drawWithContent
+                if (target.sectionKey != key) return@drawWithContent
+                val here = drag.sections[key] ?: return@drawWithContent
+                val rows = section.todos.filter { it.id != drag.todo?.id }
+                val y = when {
+                    rows.isEmpty() -> 0f
+                    target.index < rows.size -> drag.rows[rows[target.index].id]?.top
+                    else -> drag.rows[rows.last().id]?.bottom
+                } ?: return@drawWithContent
+                drawRect(
+                    color = indicator,
+                    topLeft = Offset(0f, y - here.top - indicatorThickness / 2f),
+                    size = Size(size.width, indicatorThickness),
+                )
+            },
+        verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+    ) {
+        SectionHeader(group = section.group, onOptions = onOptions)
+
+        if (section.todos.isNotEmpty()) {
+            // Sudut luar 12 dp memangkas baris pertama dan terakhir, sementara
+            // tiap baris tetap punya sudut 4 dp-nya sendiri.
+            Column(
+                // Pemotongan dilepas selama menyeret: sudut 12 dp memangkas
+                // barisnya begitu ia keluar dari bloknya, dan yang terlihat
+                // adalah baris yang lenyap separuh, bukan baris yang berpindah.
+                if (carrying) Modifier else Modifier.clip(RoundedCornerShape(BLOCK_RADIUS)),
+                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+            ) {
+                section.todos.forEach { todo ->
+                    val dragging = drag.todo?.id == todo.id
+                    Box(
+                        Modifier
+                            .onGloballyPositioned { drag.rows[todo.id] = it.boundsInRoot() }
+                            // Baris yang diseret harus menimpa tetangganya saat melintas.
+                            .zIndex(if (dragging) 1f else 0f)
+                            .graphicsLayer {
+                                translationY = if (dragging) drag.offsetY else 0f
+                                alpha = if (dragging) 0.9f else 1f
+                            },
+                    ) {
+                        TaskRow(
+                            todo = todo,
+                            dragging = dragging,
+                            onToggle = { onToggle(todo.id, it) },
+                            onEdit = { onEdit(todo) },
+                            onDelete = { onDelete(todo.id) },
+                            onDragMove = { coords, local, delta ->
+                                onDragMove(todo, coords, local, delta)
+                            },
+                            onDragEnd = onDragEnd,
+                        )
+                    }
+                }
+            }
+        }
+
+        AddRow(
+            label = stringResource(R.string.task_new),
+            labelColor = MaterialTheme.colorScheme.onSurface,
+            onClick = onAdd,
         )
     }
 }
@@ -392,7 +455,7 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
         )
         // Kelompok tanpa grup bukan grup, jadi tidak bisa diubah nama atau dihapus.
         if (group != null) {
-            Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(Tokens.space6), contentAlignment = Alignment.Center) {
                 // Kotak tata letak tetap 24 dp; area sentuh dilebarkan ke 48 dp
                 // lewat requiredSize, yang menembus batasan induk tanpa ikut
                 // menambah tinggi baris.
@@ -406,7 +469,7 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
                     Icon(
                         painterResource(R.drawable.ic_more_vert),
                         contentDescription = stringResource(R.string.group_menu),
-                        tint = scheme.onSurface.copy(alpha = 0.6f),
+                        tint = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -415,209 +478,33 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
     }
 }
 
+/** Baris "New Task" / "New Group". Satu ketukan, satu lembar — tanpa mode sunting di tempat. */
 @Composable
-private fun TaskBlock(
-    todos: List<Todo>,
-    onToggle: (String, Boolean) -> Unit,
-    onOptions: (Todo) -> Unit,
-    onRename: (Todo) -> Unit,
-    onDelete: (String) -> Unit,
-    onMove: (Int, Int) -> Unit,
-) {
-    var draggingIndex by remember { mutableStateOf<Int?>(null) }
-    var dragOffset by remember { mutableFloatStateOf(0f) }
-    // Tinggi baris tidak seragam — baris berjatuh tempo punya baris kedua — jadi
-    // sasaran jatuhnya dihitung dari tinggi terukur, bukan angka tetap.
-    val heights = remember(todos.size) { mutableStateMapOf<Int, Int>() }
-
-    // Sudut luar 12 dp memangkas baris pertama dan terakhir, sementara tiap baris
-    // tetap punya sudut 4 dp-nya sendiri.
-    Column(
-        Modifier.clip(RoundedCornerShape(BLOCK_RADIUS)),
-        verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-    ) {
-        todos.forEachIndexed { index, todo ->
-            val dragging = draggingIndex == index
-            Box(
-                Modifier
-                    .onGloballyPositioned { heights[index] = it.size.height }
-                    // Baris yang diseret harus menimpa tetangganya saat melintas.
-                    .zIndex(if (dragging) 1f else 0f)
-                    .graphicsLayer {
-                        translationY = if (dragging) dragOffset else 0f
-                        scaleX = if (dragging) 1.02f else 1f
-                        scaleY = if (dragging) 1.02f else 1f
-                    }
-                    .pointerInput(todo.id, todos.size) {
-                        // Setelah tekan-lama, bukan langsung: geser mendatar tetap
-                        // milik hapus/ubah-nama, dan gulir daftar tidak terganggu.
-                        detectDragGesturesAfterLongPress(
-                            onDragStart = {
-                                draggingIndex = index
-                                dragOffset = 0f
-                            },
-                            onDrag = { change, amount ->
-                                change.consume()
-                                dragOffset += amount.y
-                            },
-                            onDragEnd = {
-                                onMove(index, dropTarget(index, dragOffset, heights, todos.size))
-                                draggingIndex = null
-                                dragOffset = 0f
-                            },
-                            onDragCancel = {
-                                draggingIndex = null
-                                dragOffset = 0f
-                            },
-                        )
-                    },
-            ) {
-                TaskRow(
-                    todo = todo,
-                    onToggle = { onToggle(todo.id, it) },
-                    onOptions = { onOptions(todo) },
-                    onRename = { onRename(todo) },
-                    onDelete = { onDelete(todo.id) },
-                )
-            }
-        }
-    }
-}
-
-/**
- * Indeks tujuan sebuah baris yang digeser sejauh [offset] piksel.
- *
- * Baris dianggap melewati tetangganya begitu tergeser lebih dari setengah tinggi
- * tetangga itu — ambang yang sama dipakai daftar bawaan sistem, sehingga jatuhnya
- * terasa sesuai dugaan alih-alih meloncat terlalu cepat atau terlambat.
- */
-private fun dropTarget(from: Int, offset: Float, heights: Map<Int, Int>, count: Int): Int {
-    var index = from
-    var travelled = 0f
-
-    if (offset > 0f) {
-        while (index < count - 1) {
-            val next = (heights[index + 1] ?: 0).toFloat()
-            if (next > 0f && offset - travelled > next / 2f) {
-                travelled += next
-                index++
-            } else {
-                break
-            }
-        }
-    } else if (offset < 0f) {
-        while (index > 0) {
-            val previous = (heights[index - 1] ?: 0).toFloat()
-            if (previous > 0f && -offset - travelled > previous / 2f) {
-                travelled += previous
-                index--
-            } else {
-                break
-            }
-        }
-    }
-    return index
-}
-
-/**
- * Baris "Add task" / "New group" yang berubah jadi kolom isian di tempat.
- *
- * [hadFocus] bukan hiasan: `onFocusChanged` menyala sekali saat komposisi
- * pertama dengan `isFocused = false`, dan tanpa penjaga ini baris langsung
- * menutup dirinya sebelum fokus sempat mendarat — sehingga ketukan pengguna
- * tampak tidak melakukan apa-apa sama sekali.
- */
-@Composable
-private fun InlineAddRow(
-    label: String,
-    labelColor: Color,
-    hintRes: Int,
-    maxLength: Int,
-    onCommit: (String) -> Unit,
-) {
-    val scheme = MaterialTheme.colorScheme
-    var editing by remember { mutableStateOf(false) }
-    var text by remember { mutableStateOf("") }
-    var hadFocus by remember { mutableStateOf(false) }
-    val focus = remember { FocusRequester() }
-
-    LaunchedEffect(editing) {
-        if (editing) {
-            hadFocus = false
-            focus.requestFocus()
-        }
-    }
-
+private fun AddRow(label: String, labelColor: Color, onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ROW_RADIUS))
-            .then(if (editing) Modifier else Modifier.clickable { editing = true })
-            .height(ADD_ROW_HEIGHT)
-            .padding(horizontal = ROW_PAD),
+            .clickable(onClick = onClick)
+            .padding(horizontal = ROW_PAD, vertical = ADD_ROW_PAD_V),
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Figma menetapkan lebar 24 tapi tidak tingginya — tingginya mengikuti
-        // ikon 20 dp. Kotak persegi akan menambah 4 dp tak terlihat di tiap baris.
-        Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                painterResource(R.drawable.ic_add),
-                contentDescription = null,
-                tint = scheme.primary,
-                modifier = Modifier.size(20.dp),
-            )
-        }
-
-        if (!editing) {
-            Text(
-                label,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                fontWeight = FontWeight.Medium,
-                color = labelColor,
-            )
-        } else {
-            BasicTextField(
-                value = text,
-                onValueChange = { if (it.length <= maxLength) text = it },
-                singleLine = true,
-                textStyle = MaterialTheme.typography.bodyMedium.copy(
-                    color = scheme.onSurface,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                ),
-                cursorBrush = SolidColor(scheme.primary),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                // Enter menyimpan lalu mengosongkan kolom tanpa menutupnya,
-                // sehingga beberapa entri bisa diketik beruntun.
-                keyboardActions = KeyboardActions(onDone = {
-                    onCommit(text)
-                    text = ""
-                }),
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(focus)
-                    .onFocusChanged { st ->
-                        if (st.isFocused) {
-                            hadFocus = true
-                        } else if (hadFocus && text.isBlank()) {
-                            editing = false
-                        }
-                    },
-                decorationBox = { inner ->
-                    if (text.isEmpty()) {
-                        Text(
-                            stringResource(hintRes),
-                            fontSize = 14.sp,
-                            lineHeight = 20.sp,
-                            color = scheme.onSurface.copy(alpha = MUTED_ALPHA_TASKS),
-                        )
-                    }
-                    inner()
-                },
-            )
-        }
+        // Ikonnya selalu beraksen; hanya teksnya yang berubah warna antara
+        // "New Task" dan "New Group" — keduanya satu aset yang sama di Figma.
+        Icon(
+            painterResource(R.drawable.ic_add),
+            contentDescription = null,
+            tint = Accent,
+            modifier = Modifier.size(HANDLE_SIZE),
+        )
+        Text(
+            label,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.Medium,
+            color = labelColor,
+        )
     }
 }
 
@@ -625,10 +512,12 @@ private fun InlineAddRow(
 @Composable
 private fun TaskRow(
     todo: Todo,
+    dragging: Boolean,
     onToggle: (Boolean) -> Unit,
-    onOptions: () -> Unit,
-    onRename: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onDragMove: (LayoutCoordinates, Offset, Float) -> Unit,
+    onDragEnd: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val dismiss = rememberSwipeToDismissBoxState()
@@ -639,10 +528,10 @@ private fun TaskRow(
                 onDelete()
                 dismiss.snapTo(SwipeToDismissBoxValue.Settled)
             }
-            // Ubah nama tidak menghilangkan barisnya, jadi baris harus
-            // dikembalikan ke posisi semula setelah sheet dibuka.
+            // Menyunting tidak menghilangkan barisnya, jadi baris harus
+            // dikembalikan ke posisi semula setelah lembarnya terbuka.
             SwipeToDismissBoxValue.StartToEnd -> {
-                onRename()
+                onEdit()
                 dismiss.snapTo(SwipeToDismissBoxValue.Settled)
             }
             SwipeToDismissBoxValue.Settled -> Unit
@@ -651,21 +540,22 @@ private fun TaskRow(
 
     SwipeToDismissBox(
         state = dismiss,
+        gesturesEnabled = !dragging,
         backgroundContent = {
-            val renaming = dismiss.dismissDirection == SwipeToDismissBoxValue.StartToEnd
+            val editing = dismiss.dismissDirection == SwipeToDismissBoxValue.StartToEnd
             // Di-clip dengan bentuk yang sama seperti barisnya; tanpa ini latarnya
             // mengintip lewat sudut membulat dan terbaca sebagai garis tipis.
             Box(
                 Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(ROW_RADIUS))
-                    .background(if (renaming) RenameSwipeColor else scheme.errorContainer)
+                    .background(if (editing) Accent else scheme.errorContainer)
                     .padding(horizontal = Tokens.space5),
-                contentAlignment = if (renaming) Alignment.CenterStart else Alignment.CenterEnd,
+                contentAlignment = if (editing) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
                 Text(
-                    stringResource(if (renaming) R.string.task_rename else R.string.task_delete),
-                    color = if (renaming) Color.White else scheme.onErrorContainer,
+                    stringResource(if (editing) R.string.task_edit else R.string.task_delete),
+                    color = if (editing) Color.White else scheme.onErrorContainer,
                 )
             }
         },
@@ -675,14 +565,13 @@ private fun TaskRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(ROW_RADIUS))
                 .background(scheme.surfaceContainer)
-                .clickable(onClick = onOptions)
-                // Minimum, bukan tinggi pasti: baris dengan jatuh tempo perlu
-                // ruang untuk barisan keduanya.
-                .heightIn(min = TASK_ROW_HEIGHT)
-                .padding(horizontal = ROW_PAD, vertical = Tokens.space2),
+                .clickable(onClick = onEdit)
+                .padding(ROW_PAD),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            DragHandle(onMove = onDragMove, onEnd = onDragEnd)
+
             Checkbox(done = todo.done, onToggle = { onToggle(!todo.done) })
 
             Column(Modifier.weight(1f)) {
@@ -723,12 +612,64 @@ private fun TaskRow(
     }
 }
 
+/**
+ * Pegangan seret pada tepi kiri baris.
+ *
+ * Gesturnya langsung, bukan setelah tekan-lama: pegangan yang harus ditunggu
+ * dulu tidak terasa seperti pegangan. Karena hanya bagian sempit ini yang
+ * menangkap seretan, geser mendatar di sisa baris tetap milik hapus/sunting.
+ */
 @Composable
-private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
+private fun DragHandle(
+    onMove: (LayoutCoordinates, Offset, Float) -> Unit,
+    onEnd: () -> Unit,
+) {
+    var coords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    val label = stringResource(R.string.task_drag)
+
     Box(
         Modifier
-            .size(24.dp)
+            .width(HANDLE_SIZE)
+            .height(Tokens.space6)
+            .onGloballyPositioned { coords = it },
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .requiredSize(width = 32.dp, height = Tokens.touchTarget)
+                .semantics { contentDescription = label }
+                .pointerInput(Unit) {
+                    // Khusus tegak. detectDragGestures biasa juga menangkap
+                    // gerakan mendatar, dan pegangan ini berada persis di tepi
+                    // kiri baris — tempat geser-ke-kanan untuk menyunting
+                    // dimulai. Dengan versi tegak, geseran mendatar lewat begitu
+                    // saja ke SwipeToDismissBox di belakangnya.
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, dy ->
+                            change.consume()
+                            coords?.let { onMove(it, change.position, dy) }
+                        },
+                        onDragEnd = onEnd,
+                        onDragCancel = onEnd,
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_drag_indicator),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = DRAG_HANDLE_ALPHA),
+                modifier = Modifier.size(HANDLE_SIZE),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
+    Box(
+        Modifier
+            .size(Tokens.space6)
             .clip(CircleShape)
             .clickable(onClick = onToggle),
         contentAlignment = Alignment.Center,
@@ -736,9 +677,9 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
         if (done) {
             Box(
                 Modifier
-                    .size(20.dp)
+                    .size(HANDLE_SIZE)
                     .clip(CircleShape)
-                    .background(scheme.primary)
+                    .background(CheckedFill)
                     .border(1.dp, CheckedStroke, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
@@ -761,4 +702,109 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
     }
 }
 
+// ------------------------------------------------------------------- seret-lepas
+
+private const val UNGROUPED_KEY = "__ungrouped__"
+
+private fun TaskSection.key(): String = group?.id ?: UNGROUPED_KEY
+
+/** Ke mana sebuah baris akan mendarat: bagian mana, di urutan ke berapa. */
+private data class DropTarget(val sectionKey: String, val index: Int)
+
+/**
+ * Keadaan seretan yang sedang berlangsung.
+ *
+ * Batas tiap baris dan tiap bagian disimpan dalam koordinat akar, bukan indeks,
+ * karena tujuannya bisa berada di bagian lain — dan hanya koordinat yang punya
+ * arti lintas bagian.
+ */
+@Stable
+private class DragState {
+    var todo by mutableStateOf<Todo?>(null)
+    var offsetY by mutableFloatStateOf(0f)
+    var pointerY by mutableFloatStateOf(0f)
+    var target by mutableStateOf<DropTarget?>(null)
+    var viewport by mutableStateOf(Rect.Zero)
+
+    val rows = mutableMapOf<String, Rect>()
+    val sections = mutableMapOf<String, Rect>()
+
+    private var handle: LayoutCoordinates? = null
+    private var handleLocal = Offset.Zero
+
+    fun onMove(todo: Todo, coords: LayoutCoordinates, local: Offset, dy: Float) {
+        if (this.todo?.id != todo.id) {
+            this.todo = todo
+            offsetY = 0f
+        }
+        handle = coords
+        handleLocal = local
+        offsetY += dy
+        refreshPointer()
+    }
+
+    /**
+     * Membaca ulang posisi jari dari koordinat pegangan yang sekarang.
+     *
+     * Dipanggil juga saat daftar bergulir sendiri: jari tidak bergerak, jadi
+     * tidak ada peristiwa seret baru, tapi seluruh baris di bawahnya bergeser.
+     */
+    fun refreshPointer() {
+        val coords = handle ?: return
+        if (!coords.isAttached) return
+        pointerY = coords.localToRoot(handleLocal).y
+    }
+
+    fun commit(
+        sections: List<TaskSection>,
+        onMove: (String, String?, Double?, Double?) -> Unit,
+    ) {
+        val moving = todo
+        val where = target
+        todo = null
+        target = null
+        offsetY = 0f
+        handle = null
+        if (moving == null || where == null) return
+
+        val section = sections.firstOrNull { it.key() == where.sectionKey } ?: return
+        val neighbours = section.todos.filter { it.id != moving.id }
+        val before = neighbours.getOrNull(where.index - 1)?.position
+        val after = neighbours.getOrNull(where.index)?.position
+        if (section.group?.id == moving.groupId && before == null && after == null) return
+        onMove(moving.id, section.group?.id, before, after)
+    }
+}
+
+/**
+ * Bagian dan urutan tempat baris akan jatuh, dari posisi jari saat ini.
+ *
+ * Bagian ditentukan lebih dulu dan baru kemudian urutannya, bukan sebaliknya:
+ * di antara dua bagian ada pita pemisah, dan jari yang berhenti di sana harus
+ * tetap punya jawaban alih-alih membatalkan seretan.
+ */
+private fun dropTargetFor(sections: List<TaskSection>, drag: DragState): DropTarget? {
+    val moving = drag.todo ?: return null
+    val y = drag.pointerY
+
+    val section = sections.firstOrNull { s ->
+        drag.sections[s.key()]?.let { y >= it.top && y <= it.bottom } == true
+    } ?: sections.minByOrNull { s ->
+        val r = drag.sections[s.key()] ?: return@minByOrNull Float.MAX_VALUE
+        minOf(abs(y - r.top), abs(y - r.bottom))
+    } ?: return null
+
+    val neighbours = section.todos.filter { it.id != moving.id }
+    var index = neighbours.size
+    for ((i, candidate) in neighbours.withIndex()) {
+        val r = drag.rows[candidate.id] ?: continue
+        if (y < r.center.y) {
+            index = i
+            break
+        }
+    }
+    return DropTarget(section.key(), index)
+}
+
+private const val MAX_SCROLL_STEP = 18f
 private const val UNDO_WINDOW_MS = 5_000L

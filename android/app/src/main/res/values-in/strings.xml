@@ -6,32 +6,27 @@
     <!-- Catatan -->
     <string name="slot_label_placeholder">Beri nama slot ini</string>
     <string name="note_placeholder">Mulai menulis…</string>
-    <string name="editor_counter">%1$d kata · %2$d karakter</string>
-    <string name="editor_counter_limit">%1$d kata · %2$d / %3$d karakter</string>
+    <string name="editor_counter_limit">%1$d / %2$d karakter</string>
     <string name="slot_description">Slot %1$d</string>
     <string name="slot_description_active">Slot %1$d, sedang aktif</string>
 
     <!-- Tugas -->
-    <string name="tasks_empty">Belum ada tugas</string>
-    <string name="tasks_empty_hint">Ketuk tombol tambah untuk membuat yang pertama</string>
-    <string name="task_progress">%1$d dari %2$d selesai</string>
-    <string name="task_add">Tambah tugas</string>
+    <string name="task_new">Tugas Baru</string>
+    <string name="task_edit">Sunting</string>
     <string name="task_text_hint">Apa yang perlu dikerjakan?</string>
     <string name="task_delete">Hapus</string>
     <string name="task_deleted">Tugas dihapus</string>
-    <string name="task_rename">Ubah nama tugas</string>
-    <string name="task_options">Opsi tugas</string>
+    <string name="task_drag">Seret untuk mengurutkan atau memindahkan ke grup lain</string>
     <string name="task_undo">Urungkan</string>
 
     <!-- Grup -->
     <string name="group_none">Tanpa grup</string>
-    <string name="group_new">Grup baru</string>
+    <string name="group_new">Grup Baru</string>
     <string name="group_name_hint">Nama grup</string>
     <string name="group_rename">Ubah nama</string>
     <string name="group_delete">Hapus grup</string>
     <string name="group_delete_explainer">Tugas di dalamnya tetap ada — hanya keluar dari grup ini.</string>
     <string name="group_menu">Opsi grup</string>
-    <string name="group_picker">Grup</string>
 
     <!-- Pengaturan -->
     <string name="settings_title">Pengaturan</string>
@@ -50,7 +45,6 @@
     <string name="reminder_channel_description">Memberi tahu saat tugas jatuh tempo</string>
     <string name="reminder_title">Tugas jatuh tempo</string>
     <string name="due_set">Atur jatuh tempo</string>
-    <string name="due_change">Ubah jatuh tempo</string>
     <string name="due_remove">Hapus jatuh tempo</string>
     <string name="due_today">Hari ini, 18.00</string>
     <string name="due_tomorrow">Besok, 09.00</string>

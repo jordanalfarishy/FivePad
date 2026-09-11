@@ -25,16 +25,17 @@ class FivePadRepository(private val db: FivePadDatabase) {
      * Tugas baru selalu mendarat di akhir grupnya. Jarak [POSITION_GAP] menyisakan
      * ruang di antara dua tugas untuk penyisipan nanti tanpa menyentuh baris lain.
      */
-    suspend fun addTodo(text: String, groupId: String? = null) {
+    suspend fun addTodo(text: String, groupId: String? = null, dueAt: Long? = null): Todo? {
         val trimmed = text.trim().take(Todo.MAX_TEXT_LENGTH)
-        if (trimmed.isEmpty()) return
-        todos.insert(
-            Todo(
-                text = trimmed,
-                position = todos.maxPosition() + POSITION_GAP,
-                groupId = groupId,
-            ),
+        if (trimmed.isEmpty()) return null
+        val todo = Todo(
+            text = trimmed,
+            position = todos.maxPosition() + POSITION_GAP,
+            groupId = groupId,
+            dueAt = dueAt,
         )
+        todos.insert(todo)
+        return todo
     }
 
     suspend fun setTodoDone(id: String, done: Boolean) = todos.setDone(id, done, now())
@@ -66,6 +67,24 @@ class FivePadRepository(private val db: FivePadDatabase) {
 
     suspend fun moveTodo(id: String, before: Double?, after: Double?) =
         todos.setPosition(id, between(before, after), now())
+
+    /**
+     * Memindahkan tugas ke grup lain sekaligus ke posisi barunya.
+     *
+     * Keduanya satu transaksi: kalau hanya grupnya yang tersimpan, tugas mendarat
+     * di grup tujuan pada urutan lamanya — melompat ke tempat yang tidak dituju
+     * siapa pun, dan dari layar tidak terlihat sebagai kegagalan.
+     */
+    suspend fun moveTodoToGroup(
+        id: String,
+        groupId: String?,
+        before: Double?,
+        after: Double?,
+    ) = db.withTransaction {
+        val stamp = now()
+        todos.setGroup(id, groupId, stamp)
+        todos.setPosition(id, between(before, after), stamp)
+    }
 
     suspend fun moveGroup(id: String, before: Double?, after: Double?) =
         groups.setPosition(id, between(before, after), now())

@@ -144,21 +144,23 @@ Palet dipakai dalam **dua peran yang berbeda**, dan keduanya tidak boleh tertuka
 | Slot 4 | `#0B6E8F` | `#48BEDD` |
 | Slot 5 | `#6B4E9E` | `#A186D6` |
 
-**Latar** — warna selayar penuh yang menandai slot aktif. Satu palet, **tidak mengikuti tema**, dengan tinta `#E7EBF0`:
+**Latar** — warna selayar penuh yang menandai slot aktif. Satu palet, **tidak mengikuti tema**, dengan tinta putih penuh `#FFFFFF`:
 
 | Slot | Latar | Kontras tinta penuh |
 |---|---|---|
-| Slot 1 | `#9C3F2D` | 5,5:1 |
-| Slot 2 | `#7C551C` | 5,5:1 |
-| Slot 3 | `#336748` | 5,5:1 |
-| Slot 4 | `#14657F` | 5,5:1 |
-| Slot 5 | `#685192` | 5,5:1 |
+| Slot 1 | `#6C1700` | 11,9:1 |
+| Slot 2 | `#68480E` | 8,3:1 |
+| Slot 3 | `#204E32` | 9,6:1 |
+| Slot 4 | `#034151` | 11,2:1 |
+| Slot 5 | `#25183E` | 16,4:1 |
 
-Teks sekunder di atas latar slot memakai alpha **0,86** — nilai terendah yang masih mencapai 4,5:1 pada kelima slot.
+Seluruh chrome di atas latar slot — bilah status, bilah atas, baris judul, bilah bawah — memakai satu lapisan putih **6%**, bukan lima warna terpisah. Itulah yang membuat kelima slot terbaca sebagai satu aplikasi, bukan lima aplikasi berbeda. Pil navigasi yang aktif memakai putih **16%**, dan garis pemisahnya hitam **16%**.
+
+Teks sekunder di atas latar slot — penanda sintaks Markdown dan placeholder — memakai alpha **0,40** sesuai desain. Nilai ini hanya mencapai **2,7–3,7:1** dan karena itu **gagal WCAG AA** untuk teks biasa; ia dipakai hanya untuk penanda dan teks contoh, tidak pernah untuk isi catatan. Menaikkannya adalah keputusan satu baris di `Color.kt` bila pemilik desain menghendaki.
 
 > **Mengapa satu palet.** Aplikasi ini hanya bermode gelap, jadi tidak ada palet kedua yang perlu diselaraskan. Warna aksen tidak bisa dipakai langsung sebagai latar: dengan teks putih, Slot 3 hanya mencapai 4,22:1 dan **gagal WCAG AA** (NFR-8), sementara Slot 2 jadi satu-satunya yang menuntut teks gelap sehingga terlihat seperti cacat. Upaya membuat palet terang terpisah justru memunculkan masalah kedua: warna yang disetel tepat di ambang tidak menyisakan ruang untuk teks sekunder sama sekali — placeholder pun mustahil digambar tanpa melanggar. Mempertahankan satu palet pekat menyelesaikan keduanya sekaligus, dan memberi keuntungan produk: Slot 3 selalu hijau yang sama, bukan dua hijau berbeda tergantung tema. Sisa aplikasi — tugas, pengaturan — tetap mengikuti tema.
 
-**Aksen aksi** — untuk tombol tambah dan tautan tindakan: `#304678` di mode terang (8,7:1), `#6380C1` di mode gelap. Nilai gelapnya disetel dari hue yang sama karena `#304678` hanya mencapai 1,90:1 di atas latar gelap dan praktis tak terbaca.
+**Aksen aksi** — untuk tombol tambah, teks "New Group", dan kotak centang yang tercentang: `#304678`, persis nilai Figma. Di atas latar tugas `#19191B` warna ini hanya mencapai **1,90:1**: sebagai ikon dan sebagai isian kotak centang ia masih terbaca sebagai bentuk, tapi sebagai **teks** ("New Group") ia di bawah ambang AA. Nilai desain tetap dipakai agar layar sama persis dengan Figma; `#6380C1` dari hue yang sama adalah penggantinya bila kontras diprioritaskan.
 
 ### Modul & kepemilikan platform
 
@@ -203,10 +205,10 @@ Teks sekunder di atas latar slot memakai alpha **0,86** — nilai terendah yang 
 | FR-2.1 | P0 | Semua | Satu daftar tugas global, terpisah dari kelima slot catatan dan tidak terikat pada salah satunya. |
 | FR-2.2 | P0 | Semua | Menambah tugas lewat satu kolom masukan. Menekan Enter menyimpan tugas dan mengosongkan kolom agar siap untuk entri berikutnya. Maksimal 500 karakter per tugas. |
 | FR-2.3 | P0 | Semua | Menandai tugas selesai atau belum lewat kotak centang, dengan perubahan tersimpan seketika. |
-| FR-2.4 | P0 | Semua | Mengubah teks tugas langsung di tempat, tanpa membuka layar atau dialog terpisah. |
+| FR-2.4 | P0 | Semua | Menyunting tugas tanpa berpindah layar. Di Android: geser baris ke kanan, atau ketuk baris, membuka lembar bawah berisi teks **dan** jatuh tempo sekaligus — bukan dua langkah terpisah. Di macOS: klik ganda pada baris. |
 | FR-2.5 | P0 | Semua | Menghapus tugas: geser ke kiri di Android; tombol hapus yang muncul saat kursor di atas baris, atau menu klik kanan, di macOS. |
-| FR-2.6 | P0 | Semua | Kepala daftar menampilkan penghitung kemajuan dalam bentuk "n dari m selesai". |
-| FR-2.7 | P1 | Semua | Menyusun ulang tugas dengan seret dan lepas. Urutan disimpan sebagai kolom `position` dan ikut tersinkronisasi antar perangkat. |
+| FR-2.6 | P0 | Semua | Penghitung kemajuan "n/m" tampil pada tab Tugas itu sendiri, sehingga terlihat juga saat pengguna sedang berada di tab Catatan. Tidak ada baris kemajuan terpisah yang memakan tinggi daftar. |
+| FR-2.7 | P1 | Semua | Menyusun ulang tugas dengan seret dan lepas lewat pegangan khusus di tepi kiri baris — bukan tekan-lama, agar geser mendatar tetap milik hapus dan sunting. Seretan yang sama memindahkan tugas **ke grup lain**: bagian tujuan ditentukan dari posisi jari, dan garis sisip menunjukkan tempat jatuhnya. Daftar ikut bergulir sendiri saat jari mendekati tepi, sehingga grup di luar layar tetap bisa dituju. Grup dan posisi ditulis dalam satu transaksi. |
 | FR-2.8 | P1 | Semua | Tugas yang selesai otomatis turun ke bagian bawah daftar. Perilaku ini dapat dimatikan lewat Pengaturan. |
 | FR-2.9 | P1 | Semua | Aksi "Bersihkan yang selesai" menghapus seluruh tugas berstatus selesai sekaligus, dengan opsi urungkan selama 5 detik. |
 | FR-2.10 | P1 | Semua | Tanggal dan waktu jatuh tempo opsional per tugas. Tugas yang lewat jatuh tempo ditandai dengan warna semantik, bukan hanya teks. |
@@ -266,7 +268,7 @@ Teks sekunder di atas latar slot memakai alpha **0,86** — nilai terendah yang 
 
 | ID | Prio | Kebutuhan |
 |---|---|---|
-| FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Slot aktif ditandai warna latar selayar penuh yang bertransisi mengikuti geseran, bukan meloncat saat halaman berganti. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
+| FR-6.1 | P0 | Layar tunggal: baris lima titik di tepi atas, editor di tengah, dan tab Catatan/Tugas di tepi bawah dalam jangkauan ibu jari. Slot aktif ditandai warna latar selayar penuh yang bertransisi mengikuti geseran, bukan meloncat saat halaman berganti, dan titik yang aktif bercincin putih 2 dp. Nama slot **ikut menggulung bersama isinya**, tidak terpaku di bilah atas: di layar ponsel setiap baris yang dipaku memakan ruang menulis, sementara nama slot hanya perlu dilihat sesekali. Mengetuk titik dari tab Tugas langsung kembali ke slot tersebut. Tidak ada laci navigasi maupun bilah bawah bertingkat. |
 | FR-6.2 | P0 | Papan ketik muncul otomatis saat aplikasi dibuka dari widget atau ubin Pengaturan Cepat, tapi tidak saat dibuka dari peluncur. |
 | FR-6.3 | P1 | Widget layar utama ukuran 2×2 dan 4×2 menampilkan satu slot pilihan atau daftar tugas. Menyentuh widget membuka langsung ke isi tersebut. |
 | FR-6.4 | P1 | Menerima teks dari aplikasi lain lewat lembar berbagi sistem, dengan pemilih slot tujuan di dalam dialog berbagi. |

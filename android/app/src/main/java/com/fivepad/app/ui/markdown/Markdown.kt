@@ -2,6 +2,7 @@ package com.fivepad.app.ui.markdown
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.ParagraphStyle
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -13,6 +14,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
 
 /**
  * Menata teks Markdown **tanpa mengubah jumlah karakternya**.
@@ -39,7 +41,7 @@ class MarkdownVisualTransformation(
         val styled = if (source == cachedSource) {
             cachedResult!!
         } else {
-            buildMarkdownAnnotated(source, ink).also {
+            buildMarkdownAnnotated(source, ink, baseSize).also {
                 cachedSource = source
                 cachedResult = it
             }
@@ -61,7 +63,11 @@ private val ITALIC_UNDER = Regex("""(?<![\w_])_([^_\n]+)_(?![\w_])""")
 private val CODE = Regex("""`([^`\n]+)`""")
 private val LINK = Regex("""\[([^\]\n]+)]\(([^)\n]+)\)""")
 
-fun buildMarkdownAnnotated(raw: String, ink: Color): AnnotatedString = buildAnnotatedString {
+fun buildMarkdownAnnotated(
+    raw: String,
+    ink: Color,
+    baseSize: TextUnit = 16.sp,
+): AnnotatedString = buildAnnotatedString {
     append(raw)
 
     val faint = ink.copy(alpha = 0.4f)
@@ -96,12 +102,22 @@ fun buildMarkdownAnnotated(raw: String, ink: Color): AnnotatedString = buildAnno
         when {
             heading != null -> {
                 val markerEnd = start + heading.value.length
-                // Judul: H1 paling besar, turun bertahap ke H3.
-                val scale = when (heading.groupValues[1].length) {
-                    1 -> 1.5f
-                    2 -> 1.28f
-                    else -> 1.13f
+                // Ukuran dan tinggi baris judul dari Figma: H1 26/1,2 dan
+                // H2 20/1,32 terhadap isi 16/24.
+                val (scale, leading) = when (heading.groupValues[1].length) {
+                    1 -> 26f / 16f to 1.2f
+                    2 -> 20f / 16f to 1.32f
+                    else -> 18f / 16f to 1.4f
                 }
+                // Tinggi baris hanya bisa diatur lewat ParagraphStyle, dan tanpa
+                // itu judul 26 sp akan bertumpuk di dalam baris 24 sp. Rentangnya
+                // persis satu baris, jadi tidak ada ParagraphStyle yang tumpang
+                // tindih — syarat yang ditegakkan Compose saat runtime.
+                addStyle(
+                    ParagraphStyle(lineHeight = (baseSize.value * scale * leading).sp),
+                    start,
+                    end,
+                )
                 addStyle(SpanStyle(color = faint), start, markerEnd)
                 addStyle(
                     SpanStyle(fontSize = scale.em, fontWeight = FontWeight.Bold),
@@ -114,7 +130,7 @@ fun buildMarkdownAnnotated(raw: String, ink: Color): AnnotatedString = buildAnno
             checkbox != null -> {
                 val markerEnd = start + checkbox.groupValues[1].length
                 val checked = checkbox.groupValues[2].lowercase() == "x"
-                addStyle(SpanStyle(color = if (checked) faint else muted), start, markerEnd)
+                addStyle(SpanStyle(color = faint), start, markerEnd)
                 if (checked) {
                     addStyle(
                         SpanStyle(color = muted, textDecoration = TextDecoration.LineThrough),
@@ -126,9 +142,10 @@ fun buildMarkdownAnnotated(raw: String, ink: Color): AnnotatedString = buildAnno
             }
 
             quote != null -> {
+                // Hanya penandanya yang diredupkan. Figma menampilkan isi kutipan
+                // dengan warna dan gaya yang sama seperti teks biasa.
                 val markerEnd = start + quote.value.length
                 addStyle(SpanStyle(color = faint), start, markerEnd)
-                addStyle(SpanStyle(color = muted, fontStyle = FontStyle.Italic), markerEnd, end)
                 contentStart = markerEnd
             }
 

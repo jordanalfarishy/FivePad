@@ -102,8 +102,16 @@ class HomeViewModel(
         }
     }
 
-    fun addTodo(text: String, groupId: String?) = viewModelScope.launch {
-        repo.addTodo(text, groupId)
+    /**
+     * Jatuh tempo ikut ditetapkan saat tugas dibuat, bukan lewat langkah kedua:
+     * lembar tambah-tugas sudah menanyakannya sekalian, jadi pengingatnya harus
+     * terpasang sejak tugas itu ada.
+     */
+    fun addTodo(text: String, groupId: String?, dueAt: Long?) = viewModelScope.launch {
+        val todo = repo.addTodo(text, groupId, dueAt) ?: return@launch
+        if (dueAt != null && dueAt > System.currentTimeMillis()) {
+            Reminders.schedule(app, todo.id, todo.text, dueAt)
+        }
     }
 
     /**
@@ -161,25 +169,13 @@ class HomeViewModel(
     }
 
     /**
-     * [from] dan [to] adalah indeks pada daftar yang sedang tampil, bukan pada
-     * basis data — pengguna menyeret apa yang dilihatnya. Tetangga di posisi
-     * tujuan yang menentukan nilai posisi barunya.
+     * Menjatuhkan tugas di antara dua tetangga, entah di grup yang sama atau di
+     * grup lain. Yang dikirim adalah posisi kedua tetangganya, bukan indeks:
+     * indeks milik daftar yang sedang tampil, sedangkan posisi milik basis data
+     * dan tetap bermakna walau daftarnya berubah di sela-sela.
      */
-    fun moveTodo(sectionTodos: List<Todo>, from: Int, to: Int) {
-        if (from == to) return
-        val moving = sectionTodos.getOrNull(from) ?: return
-        val reordered = sectionTodos.toMutableList().apply {
-            removeAt(from)
-            add(to.coerceIn(0, size), moving)
-        }
-        val index = reordered.indexOfFirst { it.id == moving.id }
-        viewModelScope.launch {
-            repo.moveTodo(
-                id = moving.id,
-                before = reordered.getOrNull(index - 1)?.position,
-                after = reordered.getOrNull(index + 1)?.position,
-            )
-        }
+    fun moveTodoToSection(id: String, groupId: String?, before: Double?, after: Double?) {
+        viewModelScope.launch { repo.moveTodoToGroup(id, groupId, before, after) }
     }
 
     fun moveGroup(groups: List<TodoGroup>, from: Int, to: Int) {

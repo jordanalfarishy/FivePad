@@ -5,27 +5,39 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,9 +65,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -66,10 +79,14 @@ import com.fivepad.app.data.Note
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
 import com.fivepad.app.ui.markdown.checkboxAt
 import com.fivepad.app.ui.markdown.toggleCheckbox
+import com.fivepad.app.ui.theme.ChromeOnSlot
+import com.fivepad.app.ui.theme.HairlineOnSlot
 import com.fivepad.app.ui.theme.LocalOnSlot
 import com.fivepad.app.ui.theme.LocalOnSlotSecondary
 import com.fivepad.app.ui.theme.LocalSlotAccents
 import com.fivepad.app.ui.theme.LocalSlotSurfaces
+import com.fivepad.app.ui.theme.PillActiveOnSlot
+import com.fivepad.app.ui.theme.TasksBar
 import com.fivepad.app.ui.theme.Tokens
 import kotlin.math.abs
 import kotlinx.coroutines.launch
@@ -105,8 +122,6 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
     }
 
     val notesActive = tab == TAB_NOTES
-    val onSlotInk = LocalOnSlot.current
-    val onSlotMuted = LocalOnSlotSecondary.current
 
     val swipeTint = run {
         val offset = pager.currentPageOffsetFraction
@@ -121,6 +136,11 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
         label = "background",
     )
 
+    // Di tab catatan chrome adalah putih 6% yang membiarkan warna slot menembus,
+    // jadi kelima slot tetap terbaca sebagai satu aplikasi. Di tab tugas warna
+    // slot tidak ada, jadi bilahnya memakai warna padatnya sendiri.
+    val bar = if (notesActive) ChromeOnSlot else TasksBar
+
     Box(
         Modifier
             .fillMaxSize()
@@ -131,8 +151,16 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                 .fillMaxSize()
                 .imePadding(),
         ) {
+            Spacer(
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsTopHeight(WindowInsets.statusBars)
+                    .background(bar),
+            )
+
             TopBar(
                 notesActive = notesActive,
+                bar = bar,
                 activeSlot = pager.currentPage + 1,
                 onOpenSettings = onOpenSettings,
                 onSelectSlot = { slot ->
@@ -143,7 +171,7 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
 
             Box(Modifier.weight(1f)) {
                 if (notesActive) {
-                    NotesPane(state = state, vm = vm, pager = pager)
+                    NotesPane(state = state, vm = vm, pager = pager, bar = bar)
                 } else {
                     TasksScreen(
                         state = state,
@@ -156,7 +184,7 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                         onRenameGroup = vm::renameGroup,
                         onDeleteGroup = vm::deleteGroup,
                         onSetDue = vm::setTodoDue,
-                        onMoveTask = vm::moveTodo,
+                        onMoveTaskToSection = vm::moveTodoToSection,
                         onMoveGroup = { from, to -> vm.moveGroup(state.groups, from, to) },
                     )
                 }
@@ -167,11 +195,7 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
                 doneCount = state.doneCount,
                 totalCount = state.totalCount,
                 onSelect = { tab = it },
-                // Di tab catatan bilah bawah ikut warna slot, jadi seluruh layar
-                // membaca sebagai satu bidang warna; di tab tugas kembali netral.
-                container = if (notesActive) background else MaterialTheme.colorScheme.surface,
-                ink = if (notesActive) onSlotInk else MaterialTheme.colorScheme.onSurface,
-                inkMuted = if (notesActive) onSlotMuted else MaterialTheme.colorScheme.onSurfaceVariant,
+                container = bar,
             )
         }
     }
@@ -180,82 +204,119 @@ private fun MainScreen(vm: HomeViewModel, onOpenSettings: () -> Unit) {
 @Composable
 private fun TopBar(
     notesActive: Boolean,
+    bar: Color,
     activeSlot: Int,
     onOpenSettings: () -> Unit,
     onSelectSlot: (Int) -> Unit,
 ) {
     val accents = LocalSlotAccents.current
-    val onSlot = LocalOnSlot.current
-    val ink = if (notesActive) onSlot else MaterialTheme.colorScheme.onSurface
+    val ink = LocalOnSlot.current
 
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = Tokens.space2),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
+    Column {
+        Row(
             Modifier
-                .size(Tokens.touchTarget)
-                .clip(CircleShape)
-                .clickable(onClick = onOpenSettings),
-            contentAlignment = Alignment.Center,
+                .fillMaxWidth()
+                .height(Tokens.topBarHeight)
+                .background(bar),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                painterResource(R.drawable.ic_settings),
-                contentDescription = stringResource(R.string.settings_open),
-                tint = ink,
-            )
-        }
+            Box(
+                Modifier
+                    .width(Tokens.topBarHeight)
+                    .fillMaxHeight()
+                    .clickable(onClick = onOpenSettings),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_settings),
+                    contentDescription = stringResource(R.string.settings_open),
+                    tint = ink,
+                    modifier = Modifier.size(Tokens.space6),
+                )
+            }
 
-        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-            if (notesActive) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Tokens.space1),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    for (slot in 1..Note.SLOT_COUNT) {
-                        val selected = slot == activeSlot
-                        val label = if (selected) {
-                            stringResource(R.string.slot_description_active, slot)
-                        } else {
-                            stringResource(R.string.slot_description, slot)
-                        }
-                        Box(
-                            Modifier
-                                .size(Tokens.touchTarget)
-                                .clip(CircleShape)
-                                .clickable { onSelectSlot(slot) }
-                                .semantics { contentDescription = label },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                Modifier
-                                    .size(if (selected) Tokens.dotActive else Tokens.dotInactive)
-                                    .background(accents[slot - 1], CircleShape)
-                                    .border(
-                                        width = if (selected) 2.dp else 1.dp,
-                                        color = if (selected) ink else ink.copy(alpha = 0.35f),
-                                        shape = CircleShape,
-                                    ),
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                if (notesActive) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(Tokens.dotGap),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        for (slot in 1..Note.SLOT_COUNT) {
+                            SlotDot(
+                                colour = accents[slot - 1],
+                                selected = slot == activeSlot,
+                                ring = ink,
+                                slot = slot,
+                                onClick = { onSelectSlot(slot) },
                             )
                         }
                     }
+                } else {
+                    Text(
+                        stringResource(R.string.tab_tasks),
+                        fontSize = 22.sp,
+                        lineHeight = 29.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ink,
+                        textAlign = TextAlign.Center,
+                    )
                 }
-            } else {
-                Text(
-                    stringResource(R.string.tab_tasks),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = ink,
-                )
             }
+
+            // Penyeimbang selebar ikon pengaturan, supaya isi tengah benar-benar
+            // di tengah. Nanti ditempati avatar akun di M2.
+            Box(Modifier.width(Tokens.topBarHeight))
         }
 
-        // Penyeimbang selebar ikon pengaturan, supaya isi tengah benar-benar
-        // di tengah. Nanti ditempati avatar akun di M2.
-        Box(Modifier.size(Tokens.touchTarget))
+        // Bilah atas catatan tidak bergaris — pemisahnya ada di bawah baris
+        // judul, yang ikut menggulung bersama isinya.
+        if (!notesActive) HorizontalDivider(color = HairlineOnSlot)
+    }
+}
+
+/**
+ * Titik penanda slot.
+ *
+ * Lingkarannya 24 dp sesuai desain, sasaran sentuhnya 40 × 48 dp lewat
+ * [requiredSize] yang menembus batasan induk. 40 dp, bukan 48: jarak antar
+ * pusat titik hanya 40 dp, jadi sasaran yang lebih lebar akan saling tindih dan
+ * membuat titik tetangga mencuri ketukan.
+ */
+@Composable
+private fun SlotDot(
+    colour: Color,
+    selected: Boolean,
+    ring: Color,
+    slot: Int,
+    onClick: () -> Unit,
+) {
+    val label = if (selected) {
+        stringResource(R.string.slot_description_active, slot)
+    } else {
+        stringResource(R.string.slot_description, slot)
+    }
+
+    Box(Modifier.size(Tokens.dot), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .requiredSize(width = 40.dp, height = Tokens.touchTarget)
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                Modifier
+                    .size(Tokens.dot)
+                    .background(colour, CircleShape)
+                    .then(
+                        if (selected) {
+                            Modifier.border(Tokens.dotRing, ring, CircleShape)
+                        } else {
+                            Modifier
+                        },
+                    ),
+            )
+        }
     }
 }
 
@@ -266,32 +327,30 @@ private fun BottomNav(
     totalCount: Int,
     onSelect: (Int) -> Unit,
     container: Color,
-    ink: Color,
-    inkMuted: Color,
 ) {
     Column(Modifier.background(container)) {
-        HorizontalDivider(color = ink.copy(alpha = 0.15f))
+        HorizontalDivider(color = HairlineOnSlot)
         Row(
             Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
+                .height(Tokens.navHeight),
         ) {
             NavItem(
                 selected = selected == TAB_NOTES,
                 label = stringResource(R.string.tab_notes),
-                ink = ink,
-                inkMuted = inkMuted,
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_NOTES) },
             ) {
-                Icon(painterResource(R.drawable.ic_notes), contentDescription = null, tint = it)
+                Icon(
+                    painterResource(R.drawable.ic_notes),
+                    contentDescription = null,
+                    tint = LocalOnSlot.current,
+                    modifier = Modifier.size(Tokens.space6),
+                )
             }
             NavItem(
                 selected = selected == TAB_TODOS,
                 label = stringResource(R.string.tab_tasks),
-                ink = ink,
-                inkMuted = inkMuted,
                 badge = if (totalCount > 0) {
                     stringResource(R.string.tab_tasks_count, doneCount, totalCount)
                 } else {
@@ -300,9 +359,19 @@ private fun BottomNav(
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_TODOS) },
             ) {
-                Icon(painterResource(R.drawable.ic_tasks), contentDescription = null, tint = it)
+                Icon(
+                    painterResource(R.drawable.ic_tasks),
+                    contentDescription = null,
+                    tint = LocalOnSlot.current,
+                    modifier = Modifier.size(Tokens.space6),
+                )
             }
         }
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars),
+        )
     }
 }
 
@@ -310,37 +379,37 @@ private fun BottomNav(
 private fun NavItem(
     selected: Boolean,
     label: String,
-    ink: Color,
-    inkMuted: Color,
     modifier: Modifier = Modifier,
     badge: String? = null,
     onClick: () -> Unit,
-    icon: @Composable (Color) -> Unit,
+    icon: @Composable () -> Unit,
 ) {
-    val tint = if (selected) ink else inkMuted
+    val ink = LocalOnSlot.current
 
-    Box(modifier, contentAlignment = Alignment.Center) {
+    Box(modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
         Row(
             Modifier
+                .width(Tokens.pillWidth)
+                .height(Tokens.pillHeight)
                 .clip(RoundedCornerShape(Tokens.radiusPill))
-                .background(if (selected) ink.copy(alpha = 0.14f) else Color.Transparent)
+                .background(if (selected) PillActiveOnSlot else Color.Transparent)
                 .clickable(onClick = onClick)
                 // Ikon tanpa teks butuh label yang dibacakan pembaca layar,
                 // kalau tidak navigasinya kosong tak bernama bagi mereka.
                 .semantics {
                     contentDescription = if (badge == null) label else "$label, $badge"
-                }
-                .padding(horizontal = Tokens.space4, vertical = Tokens.space2),
+                },
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
         ) {
-            icon(tint)
+            icon()
             if (badge != null) {
                 Text(
                     badge,
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    color = tint,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ink,
                 )
             }
         }
@@ -348,144 +417,183 @@ private fun NavItem(
 }
 
 @Composable
-private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState) {
+private fun NotesPane(state: HomeUiState, vm: HomeViewModel, pager: PagerState, bar: Color) {
     val onSlot = LocalOnSlot.current
     val onSlotSecondary = LocalOnSlotSecondary.current
-    val active = pager.currentPage + 1
-    val label = state.labelFor(active)
 
     val markdown = remember(onSlot) {
         MarkdownVisualTransformation(ink = onSlot, baseSize = Tokens.bodyTextSize)
     }
 
-    Column(Modifier.fillMaxSize()) {
+    HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+        val slot = page + 1
+        val text = state.draftFor(slot)
+        val scroll = rememberScrollState()
+        var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
+
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val bodyMinHeight = maxHeight - Tokens.titleRowHeight
+
+            Column(Modifier.verticalScroll(scroll)) {
+                // Judul ikut menggulung bersama isinya, bukan terpaku di bilah
+                // atas: di layar ponsel setiap baris yang dipaku memakan ruang
+                // menulis, dan nama slot cuma perlu dilihat sesekali.
+                SlotTitleField(
+                    label = state.labelFor(slot),
+                    bar = bar,
+                    ink = onSlot,
+                    hint = onSlotSecondary,
+                    onChange = { vm.onLabelChanged(slot, it.take(Note.MAX_LABEL_LENGTH)) },
+                )
+
+                BasicTextField(
+                    value = text,
+                    onValueChange = { vm.onBodyChanged(slot, it) },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                        color = onSlot,
+                        fontSize = Tokens.bodyTextSize,
+                        lineHeight = Tokens.bodyLineHeight,
+                    ),
+                    cursorBrush = SolidColor(onSlot),
+                    visualTransformation = if (page == pager.currentPage) {
+                        markdown
+                    } else {
+                        VisualTransformation.None
+                    },
+                    onTextLayout = { layout = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // Tinggi minimum sepanjang sisa layar, supaya mengetuk
+                        // ruang kosong di bawah teks tetap membuka papan ketik.
+                        .heightIn(min = bodyMinHeight)
+                        .padding(Tokens.screenPadding)
+                        // FR-1.8: mengetuk `- [ ]` membalik statusnya tanpa masuk
+                        // mode edit. Ketukan dicegat pada pass Initial dan
+                        // dikonsumsi hanya bila benar-benar mengenai penanda —
+                        // kalau tidak, kolom teks sudah lebih dulu memindahkan
+                        // kursor dan membuka papan ketik.
+                        .pointerInput(text) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(
+                                    requireUnconsumed = false,
+                                    pass = PointerEventPass.Initial,
+                                )
+                                val lr = layout ?: return@awaitEachGesture
+                                val hit = checkboxAt(text, lr.getOffsetForPosition(down.position))
+                                    ?: return@awaitEachGesture
+
+                                down.consume()
+
+                                // waitForUpOrCancellation() memperlakukan pointer
+                                // yang sudah dikonsumsi sebagai gestur batal dan
+                                // langsung mengembalikan null — jadi angkat-jari
+                                // ditunggu manual pada pass Initial yang sama.
+                                var released = false
+                                while (true) {
+                                    val change = awaitPointerEvent(PointerEventPass.Initial)
+                                        .changes
+                                        .firstOrNull { it.id == down.id } ?: break
+                                    change.consume()
+                                    if (!change.pressed) {
+                                        released = true
+                                        break
+                                    }
+                                }
+
+                                if (released) {
+                                    vm.onBodyChanged(slot, toggleCheckbox(text, hit))
+                                }
+                            }
+                        },
+                    decorationBox = { inner ->
+                        if (text.isEmpty()) {
+                            Text(
+                                stringResource(R.string.note_placeholder),
+                                color = onSlotSecondary,
+                                fontSize = Tokens.bodyTextSize,
+                                lineHeight = Tokens.bodyLineHeight,
+                            )
+                        }
+                        inner()
+                    },
+                )
+            }
+
+            // Penghitung karakter hanya muncul saat ambang batas sudah dekat.
+            // Di luar itu ia cuma hiasan yang tidak ada di desain, dan ruang
+            // layar lebih berguna untuk menulis.
+            if (text.length >= Note.BODY_WARN_LENGTH) {
+                Text(
+                    stringResource(
+                        R.string.editor_counter_limit,
+                        text.length,
+                        Note.MAX_BODY_LENGTH,
+                    ),
+                    color = onSlot,
+                    fontSize = Tokens.captionTextSize,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(Tokens.space2)
+                        .clip(RoundedCornerShape(Tokens.radiusSm))
+                        .background(bar)
+                        .padding(horizontal = Tokens.space2, vertical = Tokens.space1),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SlotTitleField(
+    label: String,
+    bar: Color,
+    ink: Color,
+    hint: Color,
+    onChange: (String) -> Unit,
+) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(Tokens.titleRowHeight)
+            .background(bar),
+        contentAlignment = Alignment.TopCenter,
+    ) {
         BasicTextField(
             value = label,
-            onValueChange = { vm.onLabelChanged(active, it.take(Note.MAX_LABEL_LENGTH)) },
+            onValueChange = onChange,
             singleLine = true,
-            textStyle = MaterialTheme.typography.titleMedium.copy(
-                color = onSlot,
-                fontWeight = FontWeight.SemiBold,
+            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                color = ink,
+                fontSize = 14.sp,
+                lineHeight = 24.sp,
+                fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
             ),
-            cursorBrush = SolidColor(onSlot),
+            cursorBrush = SolidColor(ink),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2),
+                .padding(horizontal = Tokens.screenPadding),
             decorationBox = { inner ->
                 // Kotak pembungkus dipakai supaya placeholder ikut rata tengah;
                 // textAlign saja hanya mengatur teks yang sudah ada isinya.
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     if (label.isEmpty()) {
                         Text(
                             stringResource(R.string.slot_label_placeholder),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = onSlotSecondary,
+                            fontSize = 14.sp,
+                            lineHeight = 24.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = hint,
                         )
                     }
                     inner()
                 }
             },
         )
-
-        HorizontalPager(state = pager, modifier = Modifier.weight(1f)) { page ->
-            val slot = page + 1
-            val text = state.draftFor(slot)
-            var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
-
-            BasicTextField(
-                value = text,
-                onValueChange = { vm.onBodyChanged(slot, it) },
-                textStyle = MaterialTheme.typography.bodyLarge.copy(
-                    color = onSlot,
-                    fontSize = Tokens.bodyTextSize,
-                    lineHeight = Tokens.bodyLineHeight,
-                ),
-                cursorBrush = SolidColor(onSlot),
-                visualTransformation = if (page == pager.currentPage) {
-                    markdown
-                } else {
-                    VisualTransformation.None
-                },
-                onTextLayout = { layout = it },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2)
-                    // FR-1.8: mengetuk `- [ ]` membalik statusnya tanpa masuk mode
-                    // edit. Ketukan dicegat pada pass Initial dan dikonsumsi hanya
-                    // bila benar-benar mengenai penanda — kalau tidak, kolom teks
-                    // sudah lebih dulu memindahkan kursor dan membuka papan ketik.
-                    .pointerInput(text) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(
-                                requireUnconsumed = false,
-                                pass = PointerEventPass.Initial,
-                            )
-                            val lr = layout ?: return@awaitEachGesture
-                            val hit = checkboxAt(text, lr.getOffsetForPosition(down.position))
-                                ?: return@awaitEachGesture
-
-                            down.consume()
-
-                            // waitForUpOrCancellation() memperlakukan pointer yang
-                            // sudah dikonsumsi sebagai gestur batal dan langsung
-                            // mengembalikan null — jadi angkat-jari ditunggu manual
-                            // pada pass Initial yang sama.
-                            var released = false
-                            while (true) {
-                                val change = awaitPointerEvent(PointerEventPass.Initial)
-                                    .changes
-                                    .firstOrNull { it.id == down.id } ?: break
-                                change.consume()
-                                if (!change.pressed) {
-                                    released = true
-                                    break
-                                }
-                            }
-
-                            if (released) {
-                                vm.onBodyChanged(slot, toggleCheckbox(text, hit))
-                            }
-                        }
-                    },
-                decorationBox = { inner ->
-                    if (text.isEmpty()) {
-                        Text(
-                            stringResource(R.string.note_placeholder),
-                            color = onSlotSecondary,
-                            fontSize = Tokens.bodyTextSize,
-                        )
-                    }
-                    inner()
-                },
-            )
-        }
-
-        EditorFooter(text = state.draftFor(active), ink = onSlotSecondary)
-    }
-}
-
-@Composable
-private fun EditorFooter(text: String, ink: Color) {
-    val words = remember(text) { text.split(Regex("\\s+")).count { it.isNotBlank() } }
-    val nearLimit = text.length >= Note.BODY_WARN_LENGTH
-
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(horizontal = Tokens.screenPadding, vertical = Tokens.space2),
-        horizontalArrangement = Arrangement.End,
-    ) {
-        Text(
-            if (nearLimit) {
-                stringResource(R.string.editor_counter_limit, words, text.length, Note.MAX_BODY_LENGTH)
-            } else {
-                stringResource(R.string.editor_counter, words, text.length)
-            },
-            color = ink,
-            fontSize = Tokens.captionTextSize,
-            fontWeight = if (nearLimit) FontWeight.SemiBold else FontWeight.Normal,
+        HorizontalDivider(
+            color = HairlineOnSlot,
+            modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
 }
