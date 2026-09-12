@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -64,6 +65,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +74,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -83,11 +86,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
@@ -115,6 +120,7 @@ import com.fivepad.app.ui.markdown.MarkdownAction
 import com.fivepad.app.ui.markdown.MarkdownPalette
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
 import com.fivepad.app.ui.markdown.applyMarkdown
+import com.fivepad.app.ui.markdown.closeEmphasisOnBreak
 import com.fivepad.app.ui.markdown.continueListOnNewline
 import com.fivepad.app.ui.markdown.insertLink
 import com.fivepad.app.ui.markdown.selectedLink
@@ -125,6 +131,7 @@ import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.PILL_ALPHA
 import com.fivepad.app.ui.theme.QUOTE_FILL_ALPHA
 import com.fivepad.app.ui.theme.Tokens
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -249,6 +256,13 @@ private fun MainScreen(
     // Kedua tab memakai permukaan yang sama persis. Warna slot tidak lagi
     // mengisi layar; yang membawanya tinggal titik penanda dan nama catatan.
     val background = MaterialTheme.colorScheme.background
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
+
+    // Tinggi bilah bawah beserta sisipan navigasinya, diukur bukan ditebak:
+    // isinya perlu tahu berapa banyak dari papan ketik yang sudah tertutupi
+    // oleh bilah itu.
+    var barHeightPx by remember { mutableIntStateOf(0) }
 
     Box(
         Modifier
@@ -279,10 +293,19 @@ private fun MainScreen(
             // Mendorongnya berarti memakan tinggi layar dua kali: sekali oleh
             // papan ketiknya, sekali lagi oleh bilah yang ikut naik — padahal
             // yang sedang dibutuhkan justru ruang menulis.
+            //
+            // Sisipannya dihitung sendiri, bukan lewat imePadding(): kotak ini
+            // sudah berhenti di atas bilah bawah, jadi menyisipkannya setinggi
+            // papan ketik penuh akan menghitung tinggi bilah itu dua kali dan
+            // meninggalkan pita kosong di antara keduanya.
+            val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+            val contentInset = with(LocalDensity.current) {
+                (imeBottom - barHeightPx).coerceAtLeast(0).toDp()
+            }
             Box(
                 Modifier
                     .weight(1f)
-                    .imePadding(),
+                    .padding(bottom = contentInset),
             ) {
                 if (notesActive) {
                     NotesPane(
@@ -324,6 +347,7 @@ private fun MainScreen(
             }
 
             BottomNav(
+                modifier = Modifier.onSizeChanged { barHeightPx = it.height },
                 selected = tab,
                 doneCount = state.doneCount,
                 totalCount = state.totalCount,
@@ -345,6 +369,16 @@ private fun MainScreen(
             onAction = { pendingFormat = it },
             onDismiss = { formatSheet = false },
         )
+    }
+
+    // Menyalin dan mengosongkan sama-sama menjawab lewat snackbar atau toast di
+    // tepi bawah layar — dan papan ketik yang masih terbuka persis menutupi
+    // tepi itu. "Urungkan" yang tidak terlihat sama saja dengan tidak ada.
+    LaunchedEffect(slotOptions) {
+        if (slotOptions != null) {
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
     }
 
     slotOptions?.let { slot ->
@@ -572,6 +606,7 @@ private fun SlotDot(
 
 @Composable
 private fun BottomNav(
+    modifier: Modifier = Modifier,
     selected: Int,
     doneCount: Int,
     totalCount: Int,
@@ -580,7 +615,7 @@ private fun BottomNav(
 ) {
     val colors = LocalFivePadColors.current
 
-    Column(Modifier.background(colors.bar)) {
+    Column(modifier.background(colors.bar)) {
         HorizontalDivider(color = colors.hairline)
         Row(
             Modifier
@@ -725,7 +760,18 @@ private fun NotesPane(
     val accents = colors.slotAccents
     val check = rememberVectorPainter(ImageVector.vectorResource(R.drawable.ic_check))
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val context = LocalContext.current
+
+    // Berpindah slot berarti selesai menulis di slot sebelumnya. Papan ketik
+    // yang tertinggal terbuka menutupi separuh catatan yang baru saja dibuka,
+    // dan ketikan berikutnya mendarat di slot yang salah.
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.currentPage }.drop(1).collect {
+            focusManager.clearFocus()
+            keyboard?.hide()
+        }
+    }
 
     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
         val slot = page + 1
@@ -895,7 +941,11 @@ private fun NotesPane(
                         // ada bersamaan, dan tanpa nilai sebelumnya tidak ada
                         // cara membedakan Enter dari tempelan yang memuat
                         // baris baru.
-                        push(continueListOnNewline(field, changed) ?: changed)
+                        push(
+                            closeEmphasisOnBreak(field, changed)
+                                ?: continueListOnNewline(field, changed)
+                                ?: changed,
+                        )
                     },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = ink,
@@ -1143,6 +1193,21 @@ private fun SlotTitleField(
 ) {
     val colors = LocalFivePadColors.current
 
+    // Alasannya sama seperti badan catatan (FR-1.20), dan di sini akibatnya
+    // lebih kasar: nama slot disimpan lewat basis data, jadi gemanya kembali
+    // beberapa bingkai kemudian — dan kolom teks berbasis String memindahkan
+    // kursornya ke awal setiap kali nilainya datang dari luar. Mengetik "judul"
+    // menghasilkan "udulj".
+    var field by remember { mutableStateOf(TextFieldValue(label)) }
+    var echoed by remember { mutableStateOf(label) }
+    if (label != echoed) {
+        field = TextFieldValue(
+            text = label,
+            selection = TextRange(field.selection.start.coerceAtMost(label.length)),
+        )
+        echoed = label
+    }
+
     Box(
         Modifier
             .fillMaxWidth()
@@ -1151,8 +1216,12 @@ private fun SlotTitleField(
         contentAlignment = Alignment.TopCenter,
     ) {
         BasicTextField(
-            value = label,
-            onValueChange = onChange,
+            value = field,
+            onValueChange = {
+                field = it
+                echoed = it.text
+                onChange(it.text)
+            },
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = accent,
@@ -1169,7 +1238,7 @@ private fun SlotTitleField(
                 // Kotak pembungkus dipakai supaya placeholder ikut rata tengah;
                 // textAlign saja hanya mengatur teks yang sudah ada isinya.
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    if (label.isEmpty()) {
+                    if (field.text.isEmpty()) {
                         Text(
                             stringResource(R.string.slot_label_placeholder),
                             fontSize = 14.sp,

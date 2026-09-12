@@ -39,11 +39,14 @@ data class HomeUiState(
     val groups: List<TodoGroup> = emptyList(),
     /** Teks yang sedang diketik per slot; inilah sumber kebenaran bagi editor. */
     val drafts: Map<Int, String> = emptyMap(),
+    /** Nama slot yang sedang diketik. Alasannya sama seperti [drafts]. */
+    val labelDrafts: Map<Int, String> = emptyMap(),
 ) {
     val doneCount: Int get() = todos.count { it.done }
     val totalCount: Int get() = todos.size
 
-    fun labelFor(slot: Int): String = notes.firstOrNull { it.slot == slot }?.label.orEmpty()
+    fun labelFor(slot: Int): String =
+        labelDrafts[slot] ?: notes.firstOrNull { it.slot == slot }?.label.orEmpty()
     fun draftFor(slot: Int): String = drafts[slot].orEmpty()
 
     /**
@@ -73,16 +76,24 @@ class HomeViewModel(
     fun setTheme(mode: ThemeMode) = preferences.setTheme(mode)
 
     private val drafts = MutableStateFlow<Map<Int, String>>(emptyMap())
+    private val labelDrafts = MutableStateFlow<Map<Int, String>>(emptyMap())
 
     val uiState = combine(
         repo.observeNotes(),
         repo.observeTodos(),
         repo.observeGroups(),
         drafts,
-    ) { notes, todos, groups, typed ->
+        labelDrafts,
+    ) { notes, todos, groups, typed, typedLabels ->
         val merged = typed.toMutableMap()
         notes.forEach { note -> merged.putIfAbsent(note.slot, note.body) }
-        HomeUiState(notes = notes, todos = todos, groups = groups, drafts = merged)
+        HomeUiState(
+            notes = notes,
+            todos = todos,
+            groups = groups,
+            drafts = merged,
+            labelDrafts = typedLabels,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     private var autosaveJob: Job? = null
@@ -101,9 +112,26 @@ class HomeViewModel(
         }
     }
 
+    /**
+     * Nama slot melewati draft lebih dulu, sama seperti isi catatan.
+     *
+     * Dikirim langsung ke basis data, gemanya kembali beberapa bingkai
+     * kemudian — dan beberapa nilai lama sempat beredar di jalan. Kolom teks
+     * yang menerima nilai-nilai itu sebagai "perubahan dari luar" akan
+     * memindahkan kursornya di tengah orang mengetik: "judul" keluar sebagai
+     * "udulj". Draft di sini diperbarui seketika, jadi gemanya hanya satu dan
+     * selalu sama dengan yang baru saja dikirim.
+     */
     fun onLabelChanged(slot: Int, label: String) {
-        viewModelScope.launch { repo.saveLabel(slot, label) }
+        labelDrafts.update { it + (slot to label) }
+        labelSaveJob?.cancel()
+        labelSaveJob = viewModelScope.launch {
+            delay(AUTOSAVE_DELAY_MS)
+            repo.saveLabel(slot, label)
+        }
     }
+
+    private var labelSaveJob: Job? = null
 
     /**
      * Revisi hasil pengosongan slot yang masih bisa diurungkan, atau null.

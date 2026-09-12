@@ -130,6 +130,7 @@ private val QUOTE = Regex("""^\s*>\s?""")
 private val FENCE = Regex("""^\s*```""")
 private val FENCE_INLINE = Regex("""^(\s*```\s*)(.*?)(\s*```\s*)$""")
 
+private val BOLD_ITALIC = Regex("""\*\*\*([^*\n]+)\*\*\*""")
 private val BOLD = Regex("""\*\*([^*\n]+)\*\*""")
 private val ITALIC_STAR = Regex("""(?<!\*)\*([^*\n]+)\*(?!\*)""")
 private val ITALIC_UNDER = Regex("""(?<![\w_])_([^_\n]+)_(?![\w_])""")
@@ -221,7 +222,18 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
         // berdiri saat berada di ujung baris.
         val paraEnd = if (last) end else end + 1
 
-        if (!last) edits += Edit(end, end + 1, LINE_BREAK, tieToStart = true)
+        // Baris kosong di paling akhir tidak punya pemisah sesudahnya, jadi
+        // tidak punya apa pun untuk ditempati — kursor sesudah Enter akan
+        // tertinggal di ujung baris sebelumnya. Pemisah terakhirnya digandakan:
+        // satu menutup baris sebelumnya, satu lagi menjadi baris barunya.
+        if (!last) {
+            val tail = index == lines.size - 2 && lines.last().isEmpty()
+            edits += if (tail) {
+                Edit(end, end + 1, LINE_BREAK + LINE_BREAK)
+            } else {
+                Edit(end, end + 1, LINE_BREAK, tieToStart = true)
+            }
+        }
 
         if (inFence) {
             if (FENCE.containsMatchIn(line)) {
@@ -377,10 +389,21 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
         if (transformed.isNotEmpty()) {
             addStyle(SpanStyle(color = palette.ink), 0, transformed.length)
         }
+        // Pemisah terakhir yang digandakan: bagian keduanya milik baris kosong
+        // di bawahnya, jadi paragraf di atasnya tidak boleh ikut menelannya.
+        val tailBreak = raw.endsWith("\n") && transformed.isNotEmpty()
+        val limit = if (tailBreak) transformed.length - 1 else transformed.length
         for (p in paras) {
             val s = mapping.originalToTransformed(p.start)
-            val e = mapping.originalToTransformed(p.end)
+            val e = mapping.originalToTransformed(p.end).coerceAtMost(limit)
             if (e > s) addStyle(p.style, s, e)
+        }
+        if (tailBreak) {
+            addStyle(
+                ParagraphStyle(lineHeight = (base * LINE_FACTOR).sp),
+                transformed.length - 1,
+                transformed.length,
+            )
         }
         for (sp in spans) {
             val s = mapping.originalToTransformed(sp.start)
@@ -493,6 +516,13 @@ private fun styleInline(
     }
 
     emphasise(CODE, 1, SpanStyle(fontFamily = FontFamily.Monospace))
+    // Tiga bintang lebih dulu. Dibiarkan ke pola tebal, `***x***` tertangkap
+    // mulai bintang kedua — tebal dengan sebutir bintang tersisa di tiap ujung.
+    emphasise(
+        BOLD_ITALIC,
+        3,
+        SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic),
+    )
     emphasise(BOLD, 2, SpanStyle(fontWeight = FontWeight.Bold))
     emphasise(STRIKE, 2, SpanStyle(textDecoration = TextDecoration.LineThrough))
     emphasise(ITALIC_STAR, 1, SpanStyle(fontStyle = FontStyle.Italic))

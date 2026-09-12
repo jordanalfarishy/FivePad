@@ -81,9 +81,14 @@ private fun wrap(value: TextFieldValue, marker: String): TextFieldValue {
     val text = value.text
     val start = value.selection.min
     val end = value.selection.max
-    val len = marker.length
 
-    val wrappedOutside = start >= len && end + len <= text.length &&
+    // Satu bintang di kiri-kanan seleksi belum tentu penanda miring: bisa jadi
+    // itu separuh dari penanda tebal yang mengapitnya. Mencabutnya akan
+    // mengubah tebal menjadi miring, bukan menambahkan miring pada yang tebal.
+    val len = marker.length
+    val neighbours = marker != "*" ||
+        (text.getOrNull(start - 2) != '*' && text.getOrNull(end + 1) != '*')
+    val wrappedOutside = neighbours && start >= len && end + len <= text.length &&
         text.regionMatches(start - len, marker, 0, len) &&
         text.regionMatches(end, marker, 0, len)
     if (wrappedOutside) {
@@ -329,5 +334,43 @@ fun continueListOnNewline(before: TextFieldValue, after: TextFieldValue): TextFi
     return TextFieldValue(
         text = after.text.substring(0, caret) + prefix + after.text.substring(caret),
         selection = TextRange(caret + prefix.length),
+    )
+}
+
+
+/** Penanda penekanan sebaris yang ditutup oleh spasi atau baris baru. */
+private val EMPHASIS_MARKERS = listOf("***", "**", "~~", "*")
+
+/**
+ * Menutup penekanan saat pengguna mengetik spasi atau menekan Enter tepat di
+ * dalam penanda penutupnya.
+ *
+ * Menerapkan Tebal tanpa menyeleksi apa pun lalu mengetik berarti mengetik di
+ * antara sepasang penanda, dan tanpa aturan ini penanda itu tidak pernah
+ * ditutup — seluruh sisa kalimat ikut menebal. Spasi adalah tempat berhenti
+ * yang paling masuk akal: yang dimaksud orang hampir selalu satu kata. Untuk
+ * lebih dari satu kata, seleksi dulu lalu terapkan.
+ *
+ * Kode sengaja tidak ikut: `kode sebaris` justru kerap memuat spasi.
+ */
+fun closeEmphasisOnBreak(before: TextFieldValue, after: TextFieldValue): TextFieldValue? {
+    val at = before.selection.min
+    if (!before.selection.collapsed) return null
+    if (after.text.length != before.text.length + 1) return null
+    if (after.selection.start != at + 1) return null
+    val typed = after.text.getOrNull(at) ?: return null
+    if (typed != ' ' && typed != '\n') return null
+
+    val marker = EMPHASIS_MARKERS.firstOrNull { before.text.startsWith(it, at) } ?: return null
+    // Penanda itu harus benar-benar penutup: pasangannya ada di baris yang sama,
+    // sebelum kursor.
+    val lineStart = before.text.lastIndexOf('\n', (at - 1).coerceAtLeast(0))
+        .let { if (it < 0) 0 else it + 1 }
+    if (!before.text.substring(lineStart, at).contains(marker)) return null
+
+    val past = at + marker.length
+    return TextFieldValue(
+        text = before.text.substring(0, past) + typed + before.text.substring(past),
+        selection = TextRange(past + 1),
     )
 }
