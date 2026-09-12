@@ -3,4 +3,11 @@
     <!-- Latar ikon adaptif dan splash — sama dengan latar aplikasi. -->
     <color name="brand_background">#19191B</color>
     <color name="brand_background_light">#EAEAE8</color>
+
+    <!--
+      Latar layar pembuka versi terang — node Figma 6:2162. #F9F9F9, bukan
+      #EAEAE8: bingkai pembukanya memakai warna chrome, bukan warna halaman.
+      Pasangan gelapnya ada di values-night/.
+    -->
+    <color name="splash_background">#F9F9F9</color>
 </resources>

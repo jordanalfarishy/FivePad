@@ -48,6 +48,15 @@ class MarkdownBlock(
     val code: Boolean,
 )
 
+/** Tautan di teks tampil — labelnya terlihat, alamatnya tidak. */
+@Immutable
+class MarkdownLink(
+    /** Rentang label di teks **tampil**. */
+    val start: Int,
+    val end: Int,
+    val url: String,
+)
+
 /** Kotak centang yang digambar di awal baris tugas. */
 @Immutable
 class MarkdownBox(
@@ -67,6 +76,7 @@ class MarkdownRender(
     val mapping: OffsetMapping,
     val blocks: List<MarkdownBlock>,
     val boxes: List<MarkdownBox>,
+    val links: List<MarkdownLink>,
 )
 
 /**
@@ -123,8 +133,7 @@ private val FENCE_INLINE = Regex("""^(\s*```\s*)(.*?)(\s*```\s*)$""")
 private val BOLD = Regex("""\*\*([^*\n]+)\*\*""")
 private val ITALIC_STAR = Regex("""(?<!\*)\*([^*\n]+)\*(?!\*)""")
 private val ITALIC_UNDER = Regex("""(?<![\w_])_([^_\n]+)_(?![\w_])""")
-private val STRIKE_DOUBLE = Regex("""~~([^~\n]+)~~""")
-private val STRIKE_SINGLE = Regex("""(?<!~)~([^~\n]+)~(?!~)""")
+private val STRIKE = Regex("""~~([^~\n]+)~~""")
 private val CODE = Regex("""`([^`\n]+)`""")
 private val LINK = Regex("""\[([^\]\n]*)]\(([^)\n]*)\)""")
 
@@ -133,6 +142,8 @@ private class Edit(val start: Int, val end: Int, val replacement: String = "")
 
 private class SpanAt(val style: SpanStyle, val start: Int, val end: Int)
 private class ParaAt(val style: ParagraphStyle, val start: Int, val end: Int)
+private class PendingLink(val start: Int, val end: Int, val url: String)
+
 private class PendingBox(
     val contentStart: Int,
     val markerStart: Int,
@@ -163,6 +174,7 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
     val quoteRuns = ArrayList<IntRange>()
     val codeRuns = ArrayList<IntRange>()
     val pending = ArrayList<PendingBox>()
+    val pendingLinks = ArrayList<PendingLink>()
 
     val mono = SpanStyle(fontFamily = FontFamily.Monospace)
     val base = palette.baseSize.value
@@ -332,7 +344,7 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
             paraEnd,
         )
 
-        styleInline(line, start, contentStart, palette, edits, spans)
+        styleInline(line, start, contentStart, palette, edits, spans, pendingLinks)
     }
 
     closeQuoteRun()
@@ -371,6 +383,11 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
         annotated = annotated,
         mapping = mapping,
         blocks = blocksOf(quoteRuns, code = false) + blocksOf(codeRuns, code = true),
+        links = pendingLinks.mapNotNull {
+            val a = mapping.originalToTransformed(it.start)
+            val b = mapping.originalToTransformed(it.end)
+            if (b > a) MarkdownLink(a, b, it.url) else null
+        },
         boxes = pending.map {
             MarkdownBox(
                 transformed = mapping.originalToTransformed(it.contentStart),
@@ -418,6 +435,7 @@ private fun styleInline(
     palette: MarkdownPalette,
     edits: MutableList<Edit>,
     spans: MutableList<SpanAt>,
+    links: MutableList<PendingLink>,
 ) {
     if (line.isEmpty()) return
     val claimed = BooleanArray(line.length)
@@ -455,14 +473,14 @@ private fun styleInline(
             s + 1,
             s + 1 + labelLen,
         )
+        links += PendingLink(s + 1, s + 1 + labelLen, m.groupValues[2])
     }
 
     emphasise(CODE, 1, SpanStyle(fontFamily = FontFamily.Monospace))
     emphasise(BOLD, 2, SpanStyle(fontWeight = FontWeight.Bold))
-    emphasise(STRIKE_DOUBLE, 2, SpanStyle(textDecoration = TextDecoration.LineThrough))
+    emphasise(STRIKE, 2, SpanStyle(textDecoration = TextDecoration.LineThrough))
     emphasise(ITALIC_STAR, 1, SpanStyle(fontStyle = FontStyle.Italic))
     emphasise(ITALIC_UNDER, 1, SpanStyle(fontStyle = FontStyle.Italic))
-    emphasise(STRIKE_SINGLE, 1, SpanStyle(textDecoration = TextDecoration.LineThrough))
 }
 
 /**

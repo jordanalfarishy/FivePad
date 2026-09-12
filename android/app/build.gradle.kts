@@ -26,6 +26,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            // Ditandatangani dengan kunci debug: ini build untuk dipasang
+            // sendiri, bukan untuk diunggah. Play menolak APK bertanda tangan
+            // debug, jadi kekeliruan ini tidak bisa lolos tanpa terlihat —
+            // kunci unggah yang sebenarnya dibuat saat akun Play sudah ada.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

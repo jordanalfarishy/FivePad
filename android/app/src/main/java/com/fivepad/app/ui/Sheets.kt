@@ -1,8 +1,5 @@
 package com.fivepad.app.ui
 
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -435,19 +432,9 @@ fun TaskEditorSheet(
     var picking by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
 
-    // Izin diminta saat pengguna benar-benar memasang jatuh tempo, bukan di
-    // pembukaan pertama: permintaan tanpa konteks lebih sering ditolak, dan
-    // aplikasi ini berguna penuh tanpa notifikasi.
-    val notificationPermission = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { /* ditolak pun jatuh temponya tetap tersimpan, hanya tanpa pengingat */ }
-
     fun setDue(value: Long?) {
         due = value
         dueOpen = false
-        if (value != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-        }
     }
 
     LaunchedEffect(Unit) { focus.requestFocus() }

@@ -27,6 +27,23 @@ class AppPreferences(context: Context) {
         _theme.value = mode
     }
 
+    /**
+     * Mode gelap terakhir yang sudah dititipkan ke sistem, atau null.
+     *
+     * Dicatat sendiri, bukan dibaca dari sistem: `UiModeManager.nightMode`
+     * menjawab setelan **perangkat**, bukan yang berlaku untuk aplikasi ini.
+     * Membandingkan dengan jawaban yang salah berarti menitipkan ulang nilai
+     * yang sama di setiap kali buka — dan tiap penitipan memicu aplikasi
+     * dibuat ulang.
+     */
+    var appliedNightMode: Int?
+        get() = if (prefs.contains(KEY_NIGHT_MODE)) prefs.getInt(KEY_NIGHT_MODE, 0) else null
+        set(value) {
+            prefs.edit().apply {
+                if (value == null) remove(KEY_NIGHT_MODE) else putInt(KEY_NIGHT_MODE, value)
+            }.apply()
+        }
+
     private fun readTheme(): ThemeMode {
         val stored = prefs.getString(KEY_THEME, null) ?: return ThemeMode.DARK
         // Nilai tersimpan bisa berasal dari versi yang tidak lagi mengenalnya —
@@ -36,5 +53,6 @@ class AppPreferences(context: Context) {
 
     private companion object {
         const val KEY_THEME = "theme"
+        const val KEY_NIGHT_MODE = "appliedNightMode"
     }
 }

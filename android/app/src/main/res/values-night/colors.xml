@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Latar layar pembuka versi gelap — node Figma 5:927.
+
+      Dipisahkan lewat kualifikasi `-night`, bukan dipilih di dalam kode:
+      jendela awal digambar sistem dari tema di manifes, sebelum satu baris
+      kode aplikasi pun berjalan, jadi satu-satunya yang bisa memilihkannya
+      adalah penyelesai sumber daya.
+    -->
+    <color name="splash_background">#19191B</color>
+</resources>

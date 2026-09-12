@@ -1,6 +1,9 @@
 package com.fivepad.app.ui
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -659,6 +662,23 @@ private fun NavItem(
     }
 }
 
+/**
+ * Membuka alamat tautan di peramban.
+ *
+ * Alamat tanpa skema dilengkapi `https://` lebih dulu: yang diketik orang
+ * hampir selalu `contoh.id`, dan tanpa skema niatnya tidak dikenali siapa pun.
+ * Bila tidak ada yang bisa membukanya, alamatnya ditampilkan — tautan yang
+ * diam-diam tidak terbuka adalah kegagalan yang tidak boleh tak terlihat.
+ */
+private fun openLink(context: android.content.Context, url: String) {
+    val target = if (url.contains("://") || url.startsWith("mailto:")) url else "https://$url"
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, target, Toast.LENGTH_LONG).show()
+    }
+}
+
 /** Pemisah baris di teks tampil, sama seperti yang dipakai penata Markdown. */
 private const val LINE_BREAK_CHAR = '\u200B'
 
@@ -697,6 +717,7 @@ private fun NotesPane(
     val accents = colors.slotAccents
     val check = rememberVectorPainter(ImageVector.vectorResource(R.drawable.ic_check))
     val keyboard = LocalSoftwareKeyboardController.current
+    val context = LocalContext.current
 
     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
         val slot = page + 1
@@ -931,11 +952,13 @@ private fun NotesPane(
                                 }
                             }
                         }
-                        // Dua hal yang harus dicegat sebelum kolom teks
+                        // Tiga hal yang harus dicegat sebelum kolom teks
                         // sempat menanganinya sendiri.
                         //
                         // FR-1.8: mengetuk kotak centang membalik statusnya
                         // tanpa masuk mode edit.
+                        //
+                        // FR-1.18: mengetuk tautan membukanya di peramban.
                         //
                         // Dan mengetuk ruang kosong di kanan sebuah baris harus
                         // menaruh kursor di ujung baris itu. Pemisah baris di
@@ -943,7 +966,13 @@ private fun NotesPane(
                         // menjadi bagian barisnya, jadi kolom teks menganggap
                         // ketukan setelahnya sebagai awal baris berikutnya —
                         // kursor mendarat satu baris di bawah jari.
+                        //
+                        // Yang dikonsumsi hanya angkat-jarinya, bukan
+                        // turun-jarinya: gestur yang ternyata sebuah gulungan
+                        // harus tetap menggulung, dan menahan turun-jari akan
+                        // mematikannya sejak awal.
                         .pointerInput(markdownView) {
+                            val slop = viewConfiguration.touchSlop
                             awaitEachGesture {
                                 val down = awaitFirstDown(
                                     requireUnconsumed = false,
@@ -964,23 +993,30 @@ private fun NotesPane(
                                 } else {
                                     null
                                 }
-                                val pastEnd = box == null &&
-                                    down.position.x > lr.getLineRight(line)
-                                if (box == null && !pastEnd) return@awaitEachGesture
+                                val onLine = down.position.x <= lr.getLineRight(line)
+                                val link = if (box == null && onLine) {
+                                    val at = lr.getOffsetForPosition(down.position)
+                                    render.links.firstOrNull { at >= it.start && at < it.end }
+                                } else {
+                                    null
+                                }
+                                val pastEnd = box == null && link == null && !onLine
+                                if (box == null && link == null && !pastEnd) {
+                                    return@awaitEachGesture
+                                }
 
-                                down.consume()
-
-                                // waitForUpOrCancellation() memperlakukan pointer
-                                // yang sudah dikonsumsi sebagai gestur batal dan
-                                // langsung mengembalikan null — jadi angkat-jari
-                                // ditunggu manual pada pass Initial yang sama.
                                 var released = false
                                 while (true) {
                                     val change = awaitPointerEvent(PointerEventPass.Initial)
                                         .changes
                                         .firstOrNull { it.id == down.id } ?: break
-                                    change.consume()
+                                    if ((change.position - down.position).getDistance() > slop) {
+                                        break
+                                    }
                                     if (!change.pressed) {
+                                        // Ketukan milik kolom teks dibatalkan di
+                                        // sini, sebelum pass Main melihatnya.
+                                        change.consume()
                                         released = true
                                         break
                                     }
@@ -996,6 +1032,11 @@ private fun NotesPane(
                                         ),
                                     )
                                     vm.onBodyChanged(slot, toggled)
+                                    return@awaitEachGesture
+                                }
+
+                                if (link != null) {
+                                    openLink(context, link.url)
                                     return@awaitEachGesture
                                 }
 

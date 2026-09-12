@@ -18,9 +18,14 @@
       tidak — tanpa ini ia memakai ikon peluncur bawaan, yang sebelumnya berarti
       robot Android. postSplashScreenTheme mengembalikan tema aplikasi begitu
       splash selesai, sehingga tema pembuka tidak ikut terbawa ke layar utama.
+
+      Latarnya ikut mode gelap perangkat (values-night). Di Android 12+ pilihan
+      tema di dalam aplikasi ikut diturunkan ke sistem lewat
+      UiModeManager.setApplicationNightMode, jadi keduanya menjawab hal yang
+      sama; di bawah itu splash hanya bisa mengikuti perangkat.
     -->
     <style name="Theme.FivePad.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/brand_background</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.FivePad</item>
     </style>

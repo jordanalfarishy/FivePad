@@ -1,5 +1,11 @@
 package com.fivepad.app.ui
 
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -113,6 +119,7 @@ fun TasksScreen(
     val scheme = MaterialTheme.colorScheme
     val colors = LocalFivePadColors.current
     val sections = state.sections
+    val context = LocalContext.current
     var pendingUndo by remember { mutableStateOf<String?>(null) }
     var groupOptions by remember { mutableStateOf<TodoGroup?>(null) }
     var renamingGroup by remember { mutableStateOf<TodoGroup?>(null) }
@@ -261,6 +268,25 @@ fun TasksScreen(
         }
     }
 
+    // Izin notifikasi diminta setelah tugasnya benar-benar tersimpan, bukan
+    // saat tanggalnya dipilih. Diminta lebih awal, dialog sistem menutupi
+    // lembar yang masih terbuka — dan tombol kembali yang dipakai untuk
+    // menyingkirkan dialog itu ikut menutup lembarnya, membuang suntingan yang
+    // belum disimpan. Ditolak pun jatuh temponya tetap tersimpan; yang hilang
+    // hanya pengingatnya.
+    val notificationPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { }
+
+    fun askForReminders() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.POST_NOTIFICATIONS,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (!granted) notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     composing?.let { sectionKey ->
         TaskEditorSheet(
             title = stringResource(R.string.task_new),
@@ -273,6 +299,7 @@ fun TasksScreen(
             onDismiss = { composing = null },
             onConfirm = { text, due ->
                 onAddTask(text, sectionKey.takeIf { it != UNGROUPED_KEY }, due)
+                if (due != null) askForReminders()
             },
         )
     }
@@ -288,6 +315,7 @@ fun TasksScreen(
             onConfirm = { text, due ->
                 if (text != todo.text) onEditTask(todo.id, text)
                 if (due != todo.dueAt) onSetDue(todo.id, due)
+                if (due != null && due != todo.dueAt) askForReminders()
             },
         )
     }
