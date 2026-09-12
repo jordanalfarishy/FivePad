@@ -66,25 +66,37 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.vectorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -97,13 +109,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.fivepad.app.R
 import com.fivepad.app.data.Note
 import com.fivepad.app.ui.markdown.MarkdownAction
+import com.fivepad.app.ui.markdown.MarkdownPalette
 import com.fivepad.app.ui.markdown.MarkdownVisualTransformation
 import com.fivepad.app.ui.markdown.applyMarkdown
-import com.fivepad.app.ui.markdown.checkboxAt
-import com.fivepad.app.ui.markdown.toggleCheckbox
+import com.fivepad.app.ui.markdown.continueListOnNewline
+import com.fivepad.app.ui.markdown.insertLink
+import com.fivepad.app.ui.markdown.selectedLink
+import com.fivepad.app.ui.markdown.unlink
+import com.fivepad.app.ui.markdown.toggleBox
 import com.fivepad.app.ui.theme.DOT_INACTIVE_ALPHA
 import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.PILL_ALPHA
+import com.fivepad.app.ui.theme.QUOTE_FILL_ALPHA
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -178,7 +195,9 @@ private fun MainScreen(
     // Pilihan tampilan berlaku untuk kelima slot sekaligus: ia menyangkut cara
     // membaca, bukan isi catatannya, dan tampilan yang berbeda-beda per slot
     // akan terasa seperti aplikasi yang lupa apa yang barusan dipilih.
-    var plainText by rememberSaveable { mutableStateOf(false) }
+    // Tampilan Markdown adalah pilihan membaca, bukan isi catatan — satu
+    // sakelar untuk kelima slot, dan bertahan melewati rotasi layar.
+    var markdownView by rememberSaveable { mutableStateOf(false) }
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val copiedMessage = stringResource(R.string.slot_copied)
@@ -265,7 +284,7 @@ private fun MainScreen(
                         pager = pager,
                         focusSlot = focusSlot,
                         onFocusHandled = { focusSlot = null },
-                        plainText = plainText,
+                        markdownView = markdownView,
                         pendingFormat = pendingFormat,
                         onFormatHandled = { pendingFormat = null },
                     )
@@ -313,8 +332,8 @@ private fun MainScreen(
 
     if (formatSheet) {
         TextFormatSheet(
-            plainText = plainText,
-            onToggleView = { plainText = !plainText },
+            markdownView = markdownView,
+            onToggleView = { markdownView = !markdownView },
             onAction = { pendingFormat = it },
             onDismiss = { formatSheet = false },
         )
@@ -467,7 +486,7 @@ private fun TopBar(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        painterResource(R.drawable.ic_titlecase),
+                        painterResource(R.drawable.ic_match_case),
                         contentDescription = stringResource(R.string.note_format),
                         tint = ink,
                         modifier = Modifier.size(Tokens.space6),
@@ -640,6 +659,27 @@ private fun NavItem(
     }
 }
 
+/** Pemisah baris di teks tampil, sama seperti yang dipakai penata Markdown. */
+private const val LINE_BREAK_CHAR = '\u200B'
+
+/** Pita aksen di tepi kiri kutipan dan blok kode — node Figma 17:485. */
+private val BLOCK_BAR_WIDTH = 4.dp
+
+/** Kotak centang catatan: lingkaran 20 dp di dalam petak 24 dp, sama seperti daftar tugas. */
+private val NOTE_BOX_SLOT = 24.dp
+private val NOTE_BOX_SIZE = 20.dp
+private val NOTE_CHECK_WIDTH = 10.dp
+private val NOTE_CHECK_HEIGHT = 7.dp
+
+/**
+ * Seberapa lebar sasaran ketukan kotak centang.
+ *
+ * Lebih lebar dari kotaknya sendiri, sampai tepat sebelum huruf pertama:
+ * lingkaran 20 dp jauh di bawah sasaran sentuh yang wajar, dan ruang kosong di
+ * sebelahnya tidak dipakai apa pun.
+ */
+private val NOTE_BOX_HIT_WIDTH = 32.dp
+
 @Composable
 private fun NotesPane(
     state: HomeUiState,
@@ -647,7 +687,7 @@ private fun NotesPane(
     pager: PagerState,
     focusSlot: Int?,
     onFocusHandled: () -> Unit,
-    plainText: Boolean,
+    markdownView: Boolean,
     pendingFormat: MarkdownAction?,
     onFormatHandled: () -> Unit,
 ) {
@@ -655,10 +695,8 @@ private fun NotesPane(
     val ink = colors.ink
     val faint = colors.muted
     val accents = colors.slotAccents
-
-    val markdown = remember(ink) {
-        MarkdownVisualTransformation(ink = ink, baseSize = Tokens.bodyTextSize)
-    }
+    val check = rememberVectorPainter(ImageVector.vectorResource(R.drawable.ic_check))
+    val keyboard = LocalSoftwareKeyboardController.current
 
     HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
         val slot = page + 1
@@ -667,6 +705,21 @@ private fun NotesPane(
         val scroll = rememberScrollState()
         var layout by remember(slot) { mutableStateOf<TextLayoutResult?>(null) }
         val bodyFocus = remember { FocusRequester() }
+
+        val palette = remember(colors, accent) {
+            MarkdownPalette(
+                ink = ink,
+                accent = accent,
+                quoteFill = accent.copy(alpha = QUOTE_FILL_ALPHA),
+                codeFill = colors.codeFill,
+                link = colors.link,
+                checkboxFill = colors.checkboxFill,
+                checkboxStroke = colors.checkboxStroke,
+                muted = colors.muted,
+                baseSize = Tokens.bodyTextSize,
+            )
+        }
+        val markdown = remember(palette) { MarkdownVisualTransformation(palette) }
 
         // Editor memegang TextFieldValue, bukan String, karena tindakan format
         // butuh tahu apa yang sedang terseleksi. Sumber kebenarannya tetap draft
@@ -680,9 +733,28 @@ private fun NotesPane(
             )
         }
 
+        // Alamat tautan ditanyakan lebih dulu; sampai dijawab, catatannya belum
+        // disentuh sama sekali.
+        var linkLabel by remember(slot) { mutableStateOf<String?>(null) }
+
         LaunchedEffect(pendingFormat) {
             val action = pendingFormat ?: return@LaunchedEffect
             if (page != pager.currentPage) return@LaunchedEffect
+            if (action == MarkdownAction.LINK) {
+                onFormatHandled()
+                if (selectedLink(field) != null) {
+                    // Menekan "Tautan" di atas tautan yang sudah ada berarti
+                    // membongkarnya — sama seperti tindakan format lainnya, yang
+                    // semuanya membalik.
+                    val next = unlink(field)
+                    field = next
+                    vm.onBodyChanged(slot, next.text)
+                    bodyFocus.requestFocus()
+                } else {
+                    linkLabel = field.text.substring(field.selection.min, field.selection.max)
+                }
+                return@LaunchedEffect
+            }
             val next = applyMarkdown(field, action)
             field = next
             vm.onBodyChanged(slot, next.text)
@@ -700,9 +772,30 @@ private fun NotesPane(
             }
         }
 
+        linkLabel?.let { initial ->
+            LinkSheet(
+                initialLabel = initial,
+                accent = accent,
+                onConfirm = { label, url ->
+                    val next = insertLink(field, label, url)
+                    field = next
+                    vm.onBodyChanged(slot, next.text)
+                },
+                onDismiss = { linkLabel = null },
+            )
+        }
+
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val bodyMinHeight = maxHeight - Tokens.titleRowHeight - Tokens.stripeHeight
-            val titleHeightPx = with(LocalDensity.current) { Tokens.titleRowHeight.roundToPx() }
+            val density = LocalDensity.current
+            val titleHeightPx = with(density) { Tokens.titleRowHeight.roundToPx() }
+            val barWidthPx = with(density) { BLOCK_BAR_WIDTH.toPx() }
+            val boxSlotPx = with(density) { NOTE_BOX_SLOT.toPx() }
+            val boxSizePx = with(density) { NOTE_BOX_SIZE.toPx() }
+            val boxHitPx = with(density) { NOTE_BOX_HIT_WIDTH.toPx() }
+            val checkSize = with(density) {
+                Size(NOTE_CHECK_WIDTH.toPx(), NOTE_CHECK_HEIGHT.toPx())
+            }
 
             Column(Modifier.verticalScroll(scroll)) {
                 // Judul ikut menggulung bersama isinya, bukan terpaku di bilah
@@ -722,20 +815,45 @@ private fun NotesPane(
 
                 BasicTextField(
                     value = field,
-                    onValueChange = {
-                        field = it
-                        vm.onBodyChanged(slot, it.text)
+                    onValueChange = { changed ->
+                        // FR-1.16: Enter di dalam daftar melanjutkan daftarnya.
+                        // Diputuskan di sini, bukan lewat KeyboardActions:
+                        // hanya di sini kedua nilai — sebelum dan sesudah —
+                        // ada bersamaan, dan tanpa nilai sebelumnya tidak ada
+                        // cara membedakan Enter dari tempelan yang memuat
+                        // baris baru.
+                        val next = continueListOnNewline(field, changed) ?: changed
+                        field = next
+                        vm.onBodyChanged(slot, next.text)
                     },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = ink,
                         fontSize = Tokens.bodyTextSize,
                         lineHeight = Tokens.bodyLineHeight,
+                        // Tampilan Markdown memakai huruf lebar tetap, seperti
+                        // di Figma: yang ditunjukkannya adalah berkas sumber,
+                        // dan penanda yang sejajar jauh lebih mudah dibaca.
+                        // Dibiarkan kosong di tampilan biasa, bukan diisi
+                        // FontFamily.Default. Keluarga huruf yang ditetapkan di
+                        // gaya dasar membuat Compose mengabaikan keluarga huruf
+                        // pada rentang di dalamnya — dan `kode sebaris` justru
+                        // hidup dari itu.
+                        fontFamily = if (markdownView) FontFamily.Monospace else null,
+                        // Tanpa ini setiap baris menyusut ke tinggi hurufnya
+                        // sendiri, karena tiap baris di sini adalah satu
+                        // paragraf — dan Compose memangkas sisa ruang di atas
+                        // baris pertama dan di bawah baris terakhir tiap
+                        // paragraf. Yang dipangkas itu justru jarak antar baris
+                        // yang digambar Figma.
+                        lineHeightStyle = LineHeightStyle(
+                            alignment = LineHeightStyle.Alignment.Proportional,
+                            trim = LineHeightStyle.Trim.None,
+                        ),
                     ),
                     cursorBrush = SolidColor(accent),
-                    // Tampilan teks biasa mematikan penataannya sama sekali:
-                    // yang terlihat persis yang tersimpan, tanpa satu pun
-                    // penanda yang diredupkan atau diperbesar.
-                    visualTransformation = if (plainText || page != pager.currentPage) {
+                    // Tampilan Markdown mematikan penataannya sama sekali: yang
+                    // terlihat persis yang tersimpan, penanda dan semuanya.
+                    visualTransformation = if (markdownView) {
                         VisualTransformation.None
                     } else {
                         markdown
@@ -748,20 +866,107 @@ private fun NotesPane(
                         // ruang kosong di bawah teks tetap membuka papan ketik.
                         .heightIn(min = bodyMinHeight)
                         .padding(Tokens.screenPadding)
-                        // FR-1.8: mengetuk `- [ ]` membalik statusnya tanpa masuk
-                        // mode edit. Ketukan dicegat pada pass Initial dan
-                        // dikonsumsi hanya bila benar-benar mengenai penanda —
-                        // kalau tidak, kolom teks sudah lebih dulu memindahkan
-                        // kursor dan membuka papan ketik.
-                        .pointerInput(text) {
+                        // Latar kutipan, blok kode, dan kotak centang. Semuanya
+                        // digambar terpisah karena tidak satu pun bisa
+                        // dinyatakan sebagai gaya teks: latar yang penuh selebar
+                        // kolom, pita di tepi kiri, dan lingkaran 20 dp.
+                        .drawBehind {
+                            val render = markdown.last.takeIf { !markdownView }
+                                ?: return@drawBehind
+                            val lr = layout ?: return@drawBehind
+                            // Tata letak bisa tertinggal satu frame dari teks.
+                            // Menggambar dengan offset dari teks yang lain akan
+                            // menaruh blok di baris yang salah, jadi frame itu
+                            // dilewati saja.
+                            if (lr.layoutInput.text.length != render.annotated.length) {
+                                return@drawBehind
+                            }
+
+                            for (block in render.blocks) {
+                                val first = lr.getLineForOffset(block.start)
+                                val last = lr.getLineForOffset(
+                                    (block.end - 1).coerceAtLeast(block.start),
+                                )
+                                val top = lr.getLineTop(first)
+                                val height = lr.getLineBottom(last) - top
+                                drawRect(
+                                    color = if (block.code) palette.codeFill else palette.quoteFill,
+                                    topLeft = Offset(0f, top),
+                                    size = Size(size.width, height),
+                                )
+                                drawRect(
+                                    color = accent,
+                                    topLeft = Offset(0f, top),
+                                    size = Size(barWidthPx, height),
+                                )
+                            }
+
+                            for (box in render.boxes) {
+                                val line = lr.getLineForOffset(box.transformed)
+                                val centre = Offset(
+                                    boxSlotPx / 2f,
+                                    (lr.getLineTop(line) + lr.getLineBottom(line)) / 2f,
+                                )
+                                if (box.checked) {
+                                    drawCircle(accent, boxSizePx / 2f, centre)
+                                    translate(
+                                        left = centre.x - checkSize.width / 2f,
+                                        top = centre.y - checkSize.height / 2f,
+                                    ) {
+                                        with(check) {
+                                            draw(
+                                                checkSize,
+                                                colorFilter = ColorFilter.tint(Color.White),
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    drawCircle(palette.checkboxFill, boxSizePx / 2f, centre)
+                                    drawCircle(
+                                        color = palette.checkboxStroke,
+                                        radius = boxSizePx / 2f - 0.5f,
+                                        center = centre,
+                                        style = Stroke(1f),
+                                    )
+                                }
+                            }
+                        }
+                        // Dua hal yang harus dicegat sebelum kolom teks
+                        // sempat menanganinya sendiri.
+                        //
+                        // FR-1.8: mengetuk kotak centang membalik statusnya
+                        // tanpa masuk mode edit.
+                        //
+                        // Dan mengetuk ruang kosong di kanan sebuah baris harus
+                        // menaruh kursor di ujung baris itu. Pemisah baris di
+                        // teks tampil adalah karakter selebar nol yang ikut
+                        // menjadi bagian barisnya, jadi kolom teks menganggap
+                        // ketukan setelahnya sebagai awal baris berikutnya —
+                        // kursor mendarat satu baris di bawah jari.
+                        .pointerInput(markdownView) {
                             awaitEachGesture {
                                 val down = awaitFirstDown(
                                     requireUnconsumed = false,
                                     pass = PointerEventPass.Initial,
                                 )
+                                if (markdownView) return@awaitEachGesture
+                                val render = markdown.last ?: return@awaitEachGesture
                                 val lr = layout ?: return@awaitEachGesture
-                                val hit = checkboxAt(text, lr.getOffsetForPosition(down.position))
-                                    ?: return@awaitEachGesture
+                                if (lr.layoutInput.text.length != render.annotated.length) {
+                                    return@awaitEachGesture
+                                }
+
+                                val line = lr.getLineForVerticalPosition(down.position.y)
+                                val box = if (down.position.x <= boxHitPx) {
+                                    render.boxes.firstOrNull {
+                                        lr.getLineForOffset(it.transformed) == line
+                                    }
+                                } else {
+                                    null
+                                }
+                                val pastEnd = box == null &&
+                                    down.position.x > lr.getLineRight(line)
+                                if (box == null && !pastEnd) return@awaitEachGesture
 
                                 down.consume()
 
@@ -780,12 +985,34 @@ private fun NotesPane(
                                         break
                                     }
                                 }
+                                if (!released) return@awaitEachGesture
 
-                                if (released) {
-                                    val toggled = toggleCheckbox(text, hit)
-                                    field = field.copy(text = toggled)
+                                if (box != null) {
+                                    val toggled = toggleBox(field.text, box)
+                                    field = TextFieldValue(
+                                        text = toggled,
+                                        selection = TextRange(
+                                            field.selection.start.coerceAtMost(toggled.length),
+                                        ),
+                                    )
                                     vm.onBodyChanged(slot, toggled)
+                                    return@awaitEachGesture
                                 }
+
+                                var end = lr.getLineEnd(line, visibleEnd = false)
+                                // Hanya baris sumber yang berakhir pada pemisah;
+                                // baris yang patah karena lebar tidak, dan
+                                // ujungnya memang sudah tepat.
+                                if (render.annotated.text.getOrNull(end - 1) == LINE_BREAK_CHAR) {
+                                    end--
+                                }
+                                field = field.copy(
+                                    selection = TextRange(
+                                        render.mapping.transformedToOriginal(end),
+                                    ),
+                                )
+                                bodyFocus.requestFocus()
+                                keyboard?.show()
                             }
                         },
                     decorationBox = { inner ->

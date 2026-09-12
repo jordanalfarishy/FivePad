@@ -18,22 +18,22 @@
 
     <!-- Format teks -->
     <string name="format_title">Teks</string>
-    <string name="format_view_plain">Lihat sebagai teks biasa</string>
     <string name="format_view_markdown">Lihat sebagai Markdown</string>
+    <string name="format_view_normal">Lihat sebagai teks biasa</string>
+    <string name="format_sub_header">Subjudul</string>
+    <string name="format_link">Tautan</string>
+    <string name="link_label">Teks</string>
+    <string name="link_url">Alamat</string>
     <string name="format_todo">Tugas</string>
     <string name="format_header">Judul</string>
     <string name="format_bold">Tebal</string>
     <string name="format_italic">Miring</string>
-    <string name="format_bold_italic">Tebal Miring</string>
-    <string name="format_mark">Sorot</string>
     <string name="format_strike">Coret</string>
     <string name="format_quote">Kutipan</string>
     <string name="format_list">Daftar</string>
     <string name="format_ordered_list">Daftar Bernomor</string>
     <string name="format_code">Kode</string>
     <string name="format_code_block">Blok Kode</string>
-    <string name="format_shift_right">Geser Kanan</string>
-    <string name="format_shift_left">Geser Kiri</string>
     <string name="note_format">Opsi teks</string>
 
     <!-- Tugas -->

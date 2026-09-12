@@ -43,6 +43,17 @@ class FivePadColors(
      * di tema gelap, tema terang butuh 0,65 untuk kelegapan yang sama.
      */
     val mutedAlpha: Float,
+    /**
+     * Isian blok kode pada tampilan biasa — node Figma 18:493.
+     *
+     * Hitam pekat di tema gelap, putih bersih di tema terang. Bukan warna
+     * permukaan yang sudah ada: blok kode justru harus terbaca sebagai bahan
+     * yang berbeda dari halaman di sekitarnya, dan satu-satunya cara
+     * melakukannya di kedua tema adalah pergi ke ujung skala, bukan mendekat.
+     */
+    val codeFill: Color,
+    /** Teks tautan. Nilainya dari Figma; keduanya lolos AA di temanya sendiri. */
+    val link: Color,
 ) {
     /**
      * Garis pemisah chrome dari isi.
@@ -91,6 +102,8 @@ val DarkColors = FivePadColors(
     ),
     accent = Color(0xFFFF5242),
     mutedAlpha = 0.47f,
+    codeFill = Color(0xFF000000),
+    link = Color(0xFF39A6FF),
 )
 
 val LightColors = FivePadColors(
@@ -122,6 +135,8 @@ val LightColors = FivePadColors(
     ),
     accent = Color(0xFFC71C0D),
     mutedAlpha = 0.65f,
+    codeFill = Color(0xFFFFFFFF),
+    link = Color(0xFF3415FF),
 )
 
 /** Tepi kotak centang yang tercentang — selalu lebih terang dari isiannya. */
@@ -152,3 +167,12 @@ const val DOT_INACTIVE_ALPHA = 0.40f
 
 /** Latar pil navigasi yang aktif: warna tab itu sendiri, 16%. */
 const val PILL_ALPHA = 0.16f
+
+/**
+ * Opasitas isian kutipan pada tampilan biasa.
+ *
+ * Aksen slot 12% di atas latar halaman — nilai yang diukur langsung dari
+ * bingkai Figma, dan sama di kedua tema. Dipakai sebagai alpha saat menggambar,
+ * bukan sebagai warna jadi, karena aksennya berganti tiap slot.
+ */
+const val QUOTE_FILL_ALPHA = 0.12f

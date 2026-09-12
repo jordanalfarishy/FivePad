@@ -3,18 +3,19 @@ package com.fivepad.app.ui
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -24,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -36,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -45,6 +48,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.ui.markdown.MarkdownAction
@@ -253,44 +258,30 @@ fun TextPromptSheet(
 }
 
 /**
- * Menu penyuntingan teks catatan — ikon `titlecase` di bilah atas.
+ * Menu penyuntingan teks catatan — ikon `match_case` di bilah atas.
  *
- * Barisnya tidak berikon, dan itu disengaja. Empat belas tindakan format
- * menuntut empat belas ikon yang tidak ada di berkas desain, dan ikon tebak-
- * tebakan untuk "Bold Italic" atau "Mark" justru lebih sulit dibaca daripada
- * katanya sendiri. Yang ditaruh di kanan adalah penanda Markdown yang akan
- * ditulis tindakan itu — sama berfungsinya seperti pintasan papan tik di menu
- * FiveNotes, dan sekaligus mengajarkan sintaks yang memang tersimpan di catatan.
+ * Petak, bukan daftar. Dua belas tindakan sebagai baris bertumpuk menghasilkan
+ * lembar setinggi hampir satu layar, dan lembar setinggi itu menutupi justru
+ * catatan yang sedang diformat — hasil tiap ketukan baru terlihat setelah
+ * lembarnya disingkirkan. Sebagai petak empat kolom semuanya muat tanpa
+ * digulung, dan dua pertiga layar tetap terlihat di atasnya.
+ *
+ * Tiap petak memuat penanda Markdown yang akan ditulis tindakan itu. Itu bukan
+ * hiasan: sakelar di baris paling atas bisa memperlihatkan teks mentahnya kapan
+ * saja, jadi cepat atau lambat penandanya akan terlihat. Lebih baik ia dikenali
+ * di tempat ia dipakai.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextFormatSheet(
-    plainText: Boolean,
+    markdownView: Boolean,
     onToggleView: () -> Unit,
     onAction: (MarkdownAction) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val colors = LocalFivePadColors.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    // Kelompoknya mengikuti menu FiveNotes: penanda blok, penekanan, daftar,
-    // kode, lalu indentasi.
-    val groups = listOf(
-        listOf(MarkdownAction.TODO),
-        listOf(
-            MarkdownAction.HEADER,
-            MarkdownAction.BOLD,
-            MarkdownAction.ITALIC,
-            MarkdownAction.BOLD_ITALIC,
-            MarkdownAction.MARK,
-            MarkdownAction.STRIKE,
-            MarkdownAction.QUOTE,
-        ),
-        listOf(MarkdownAction.LIST, MarkdownAction.ORDERED_LIST),
-        listOf(MarkdownAction.CODE, MarkdownAction.CODE_BLOCK),
-        listOf(MarkdownAction.SHIFT_RIGHT, MarkdownAction.SHIFT_LEFT),
-    )
+    val sheetState = rememberModalBottomSheetState()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -301,17 +292,18 @@ fun TextFormatSheet(
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
                 .padding(bottom = Tokens.space4),
         ) {
             SheetTitle(stringResource(R.string.format_title))
 
+            // Sakelar tampilan berdiri sendiri sebagai baris penuh: ia mengubah
+            // cara seluruh catatan dibaca, bukan memformat sepotong teks.
             SheetRow(
                 label = stringResource(
-                    if (plainText) R.string.format_view_markdown else R.string.format_view_plain,
+                    if (markdownView) R.string.format_view_normal else R.string.format_view_markdown,
                 ),
                 icon = painterResource(
-                    if (plainText) R.drawable.ic_titlecase else R.drawable.ic_code,
+                    if (markdownView) R.drawable.ic_match_case else R.drawable.ic_code,
                 ),
                 tint = scheme.onSurface,
                 onClick = {
@@ -320,71 +312,95 @@ fun TextFormatSheet(
                 },
             )
 
-            groups.forEach { group ->
-                HorizontalDivider(color = colors.hairline)
-                group.forEach { action ->
-                    // Menutup setelah satu tindakan. Lembar yang tetap terbuka
-                    // menutupi teks yang barusan diubahnya, jadi hasil setiap
-                    // ketukan baru terlihat setelah lembarnya disingkirkan —
-                    // dan menilai format tanpa melihatnya mustahil.
-                    FormatRow(
-                        action = action,
-                        onClick = {
-                            onAction(action)
-                            onDismiss()
-                        },
-                    )
+            HorizontalDivider(color = colors.hairline)
+
+            Column(
+                Modifier.padding(horizontal = Tokens.space3, vertical = Tokens.space3),
+                verticalArrangement = Arrangement.spacedBy(Tokens.space2),
+            ) {
+                MarkdownAction.entries.chunked(FORMAT_COLUMNS).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
+                        row.forEach { action ->
+                            FormatTile(
+                                action = action,
+                                modifier = Modifier.weight(1f),
+                                // Menutup setelah satu tindakan. Lembar yang
+                                // tetap terbuka menutupi teks yang barusan
+                                // diubahnya, dan menilai format tanpa melihatnya
+                                // mustahil.
+                                onClick = {
+                                    onAction(action)
+                                    onDismiss()
+                                },
+                            )
+                        }
+                        // Baris terakhir yang tidak penuh tetap sejajar dengan
+                        // baris di atasnya, bukan melebar mengisi sisanya.
+                        repeat(FORMAT_COLUMNS - row.size) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
                 }
             }
         }
     }
 }
 
+/** Empat kolom: dua belas tindakan jatuh tepat menjadi tiga baris penuh. */
+private const val FORMAT_COLUMNS = 4
+
 @Composable
-private fun FormatRow(action: MarkdownAction, onClick: () -> Unit) {
+private fun FormatTile(action: MarkdownAction, modifier: Modifier, onClick: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
     val colors = LocalFivePadColors.current
 
-    Row(
-        Modifier
-            .fillMaxWidth()
+    Column(
+        modifier
+            .clip(RoundedCornerShape(Tokens.space2))
+            .background(colors.ink.copy(alpha = 0.06f))
             .clickable(onClick = onClick)
-            .padding(horizontal = Tokens.space5, vertical = Tokens.space3),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = Tokens.space2, horizontal = Tokens.space1),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            stringResource(action.labelRes),
-            style = MaterialTheme.typography.bodyLarge,
+            action.syntax,
+            fontFamily = FontFamily.Monospace,
+            fontSize = Tokens.bodyTextSize,
+            lineHeight = Tokens.bodyLineHeight,
             color = scheme.onSurface,
-            modifier = Modifier.padding(vertical = Tokens.space1),
+            maxLines = 1,
         )
         Text(
-            action.syntax,
-            style = MaterialTheme.typography.bodyMedium,
-            fontFamily = FontFamily.Monospace,
+            stringResource(action.labelRes),
+            fontSize = Tokens.captionTextSize,
+            lineHeight = 14.sp,
             color = colors.muted,
+            textAlign = TextAlign.Center,
+            // Dua baris tetap, supaya label sependek "Kode" dan sepanjang
+            // "Daftar Bernomor" menghasilkan petak setinggi sama.
+            minLines = 2,
+            maxLines = 2,
         )
     }
 }
 
 private val MarkdownAction.labelRes: Int
     get() = when (this) {
-        MarkdownAction.TODO -> R.string.format_todo
         MarkdownAction.HEADER -> R.string.format_header
+        MarkdownAction.SUB_HEADER -> R.string.format_sub_header
         MarkdownAction.BOLD -> R.string.format_bold
         MarkdownAction.ITALIC -> R.string.format_italic
-        MarkdownAction.BOLD_ITALIC -> R.string.format_bold_italic
-        MarkdownAction.MARK -> R.string.format_mark
         MarkdownAction.STRIKE -> R.string.format_strike
-        MarkdownAction.QUOTE -> R.string.format_quote
         MarkdownAction.LIST -> R.string.format_list
         MarkdownAction.ORDERED_LIST -> R.string.format_ordered_list
+        MarkdownAction.TODO -> R.string.format_todo
+        MarkdownAction.QUOTE -> R.string.format_quote
         MarkdownAction.CODE -> R.string.format_code
         MarkdownAction.CODE_BLOCK -> R.string.format_code_block
-        MarkdownAction.SHIFT_RIGHT -> R.string.format_shift_right
-        MarkdownAction.SHIFT_LEFT -> R.string.format_shift_left
+        MarkdownAction.LINK -> R.string.format_link
     }
+
 
 /**
  * Lembar tunggal untuk membuat maupun menyunting satu tugas.
@@ -565,3 +581,109 @@ fun TaskEditorSheet(
         ) { DatePicker(state = pickerState) }
     }
 }
+
+/**
+ * Lembar alamat tautan.
+ *
+ * Ada karena tampilan biasa menyembunyikan `](alamat)` begitu polanya lengkap:
+ * tautan yang disisipkan langsung ke catatan akan lenyap dari layar pada detik
+ * yang sama alamatnya harus diketik. Jadi alamatnya ditanyakan lebih dulu, dan
+ * yang masuk ke catatan sudah jadi.
+ *
+ * Label terisi dari teks yang sedang terseleksi — itu hampir selalu label yang
+ * dimaksud — dan fokus mendarat di kolom alamat, satu-satunya yang belum bisa
+ * ditebak dari apa pun.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LinkSheet(
+    initialLabel: String,
+    accent: Color,
+    onConfirm: (label: String, url: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val sheetState = rememberModalBottomSheetState()
+    // Warna slot, bukan aksen aplikasi. Aksen aplikasi merah, dan kolom isian
+    // bergaris merah dengan label merah adalah tampilan kolom yang salah isi —
+    // padahal kolomnya baru saja terbuka dan belum diisi apa pun.
+    val fieldColors = OutlinedTextFieldDefaults.colors(
+        focusedBorderColor = accent,
+        focusedLabelColor = accent,
+        cursorColor = accent,
+    )
+    var label by remember { mutableStateOf(initialLabel) }
+    var url by remember { mutableStateOf("") }
+    val focus = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) { focus.requestFocus() }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = scheme.surfaceContainer,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .navigationBarsPadding()
+                .padding(horizontal = Tokens.space5)
+                .padding(bottom = Tokens.space4),
+            verticalArrangement = Arrangement.spacedBy(Tokens.space2),
+        ) {
+            SheetTitle(stringResource(R.string.format_link))
+
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = { Text(stringResource(R.string.link_label)) },
+                singleLine = true,
+                colors = fieldColors,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text(stringResource(R.string.link_url)) },
+                placeholder = { Text(LINK_HINT) },
+                singleLine = true,
+                colors = fieldColors,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (url.isNotBlank()) {
+                            onConfirm(label, url.trim())
+                            onDismiss()
+                        }
+                    },
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focus),
+            )
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.dialog_cancel), color = scheme.onSurfaceVariant)
+                }
+                TextButton(
+                    onClick = {
+                        onConfirm(label, url.trim())
+                        onDismiss()
+                    },
+                    // Label boleh kosong — Markdown mengizinkannya, dan
+                    // alamatnya sendiri lalu yang tampil. Alamat kosong tidak:
+                    // itu tautan yang tidak menuju ke mana pun.
+                    enabled = url.isNotBlank(),
+                ) { Text(stringResource(R.string.dialog_save)) }
+            }
+        }
+    }
+}
+
+/** Contoh alamat. Bukan nilai awal — kolom yang sudah terisi cenderung dikirim apa adanya. */
+private const val LINK_HINT = "https://"

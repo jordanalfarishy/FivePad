@@ -1,5 +1,6 @@
 package com.fivepad.app.ui.markdown
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ParagraphStyle
@@ -12,115 +13,259 @@ import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 
 /**
- * Menata teks Markdown **tanpa mengubah jumlah karakternya**.
+ * Warna yang dipakai tampilan biasa. Sebagian ikut slot yang sedang aktif, jadi
+ * paletnya dirakit ulang tiap kali slot berpindah.
+ */
+@Immutable
+class MarkdownPalette(
+    val ink: Color,
+    /** Aksen slot: pita kiri kutipan dan blok kode. */
+    val accent: Color,
+    /** Isian kutipan — aksen 12% di atas latar, persis seperti di Figma. */
+    val quoteFill: Color,
+    /** Isian blok kode: hitam di tema gelap, putih di tema terang. */
+    val codeFill: Color,
+    val link: Color,
+    val checkboxFill: Color,
+    val checkboxStroke: Color,
+    /** Teks tugas yang sudah dicentang, dan alamat yang disembunyikan. */
+    val muted: Color,
+    val baseSize: TextUnit,
+)
+
+/** Blok berlatar penuh selebar kolom teks — kutipan atau kode. */
+@Immutable
+class MarkdownBlock(
+    /** Rentang di teks **tampil**, bukan teks sumber. */
+    val start: Int,
+    val end: Int,
+    val code: Boolean,
+)
+
+/** Kotak centang yang digambar di awal baris tugas. */
+@Immutable
+class MarkdownBox(
+    /** Awal isi baris di teks **tampil** — dipakai mencari barisnya di tata letak. */
+    val transformed: Int,
+    /** Rentang penanda `- [ ]` di teks **sumber**. */
+    val markerStart: Int,
+    val markerEnd: Int,
+    /** Indentasi dan tanda poin yang harus dipertahankan saat status dibalik. */
+    val lead: String,
+    val checked: Boolean,
+)
+
+/** Hasil satu kali penataan: teks tampil, pemetaan offset, dan apa yang harus digambar. */
+class MarkdownRender(
+    val annotated: AnnotatedString,
+    val mapping: OffsetMapping,
+    val blocks: List<MarkdownBlock>,
+    val boxes: List<MarkdownBox>,
+)
+
+/**
+ * Menata Markdown untuk tampilan biasa: **penandanya disembunyikan**, bukan
+ * sekadar diredupkan.
  *
- * Penanda seperti `**` tetap terlihat, hanya diredupkan. Pilihan ini disengaja:
- * menyembunyikan penanda akan memaksa pemetaan offset antara teks mentah dan
- * teks tampil, dan pemetaan itulah sumber klasik bug kursor meloncat, seleksi
- * meleset, dan penghapusan yang memakan karakter salah. Dengan panjang yang
- * tetap sama, pemetaannya identitas dan seluruh kelas bug itu tidak pernah ada.
+ * Menyembunyikan penanda berarti teks tampil tidak lagi sepanjang teks sumber,
+ * dan setiap posisi kursor harus diterjemahkan antara keduanya. Terjemahan
+ * itulah sumber klasik bug kursor meloncat, jadi pemetaannya dibangun sekali
+ * sebagai tabel penuh — satu entri per karakter, ke dua arah — bukan dihitung
+ * ulang dengan aritmetika offset di setiap panggilan.
+ *
+ * Yang tidak bisa dinyatakan sebagai gaya teks — latar penuh kutipan, pita
+ * aksen, dan kotak centang bundar — tidak dipalsukan dengan karakter Unicode.
+ * Semua itu digambar terpisah di belakang teks, dan [last] adalah yang
+ * memberitahu penggambarnya di mana.
  */
 class MarkdownVisualTransformation(
-    private val ink: Color,
-    private val baseSize: TextUnit,
+    private val palette: MarkdownPalette,
 ) : VisualTransformation {
 
-    // filter() dipanggil pada setiap recomposition, termasuk saat hanya kursor
-    // yang bergerak. Menyimpan hasil terakhir menghindari pemindaian ulang teks
-    // yang sama berkali-kali.
+    /**
+     * Hasil penataan terakhir.
+     *
+     * Bukan state Compose: nilainya hanya dibaca pada fase menggambar, yang
+     * selalu berjalan setelah [filter] pada frame yang sama. Menjadikannya
+     * state justru akan menulis state dari dalam fase tata letak.
+     */
+    var last: MarkdownRender? = null
+        private set
+
     private var cachedSource: String? = null
-    private var cachedResult: AnnotatedString? = null
 
     override fun filter(text: AnnotatedString): TransformedText {
-        val source = text.text
-        val styled = if (source == cachedSource) {
-            cachedResult!!
-        } else {
-            buildMarkdownAnnotated(source, ink, baseSize).also {
-                cachedSource = source
-                cachedResult = it
-            }
+        // filter() dipanggil pada setiap recomposition, termasuk saat hanya
+        // kursor yang bergerak.
+        if (text.text != cachedSource || last == null) {
+            last = renderMarkdown(text.text, palette)
+            cachedSource = text.text
         }
-        return TransformedText(styled, OffsetMapping.Identity)
+        val render = last!!
+        return TransformedText(render.annotated, render.mapping)
     }
 }
 
-private val HEADING = Regex("""^(#{1,3})\s+""")
-private val CHECKBOX = Regex("""^(\s*[-*+]\s+\[([ xX])]\s+)""")
-private val BULLET = Regex("""^(\s*[-*+]\s+)""")
-private val ORDERED = Regex("""^(\s*\d+\.\s+)""")
-private val QUOTE = Regex("""^(\s*>\s?)""")
+private val HEADING = Regex("""^(#{1,6})\s+""")
+private val CHECKBOX = Regex("""^(\s*)([-*+])\s+\[([ xX]?)]\s*""")
+private val BULLET = Regex("""^(\s*)([-*+])\s+""")
+private val ORDERED = Regex("""^(\s*)\d+\.\s+""")
+private val QUOTE = Regex("""^\s*>\s?""")
 private val FENCE = Regex("""^\s*```""")
+private val FENCE_INLINE = Regex("""^(\s*```\s*)(.*?)(\s*```\s*)$""")
 
 private val BOLD = Regex("""\*\*([^*\n]+)\*\*""")
 private val ITALIC_STAR = Regex("""(?<!\*)\*([^*\n]+)\*(?!\*)""")
 private val ITALIC_UNDER = Regex("""(?<![\w_])_([^_\n]+)_(?![\w_])""")
+private val STRIKE_DOUBLE = Regex("""~~([^~\n]+)~~""")
+private val STRIKE_SINGLE = Regex("""(?<!~)~([^~\n]+)~(?!~)""")
 private val CODE = Regex("""`([^`\n]+)`""")
-private val LINK = Regex("""\[([^\]\n]+)]\(([^)\n]+)\)""")
+private val LINK = Regex("""\[([^\]\n]*)]\(([^)\n]*)\)""")
 
-fun buildMarkdownAnnotated(
-    raw: String,
-    ink: Color,
-    baseSize: TextUnit = 16.sp,
-): AnnotatedString = buildAnnotatedString {
-    append(raw)
+/** Sisipan atau penghapusan pada teks sumber. Rentangnya tidak boleh tumpang tindih. */
+private class Edit(val start: Int, val end: Int, val replacement: String = "")
 
-    val faint = ink.copy(alpha = 0.4f)
-    val muted = ink.copy(alpha = 0.72f)
+private class SpanAt(val style: SpanStyle, val start: Int, val end: Int)
+private class ParaAt(val style: ParagraphStyle, val start: Int, val end: Int)
+private class PendingBox(
+    val contentStart: Int,
+    val markerStart: Int,
+    val markerEnd: Int,
+    val lead: String,
+    val checked: Boolean,
+)
+
+/**
+ * Pengganti karakter baris baru di teks tampil.
+ *
+ * Setiap baris jadi satu paragraf tersendiri — hanya lewat paragraf-lah tinggi
+ * baris judul dan indentasi kutipan bisa diatur per baris — dan paragraf sudah
+ * memutus barisnya sendiri. Karakter "\n" yang tertinggal di dalamnya akan
+ * menghasilkan satu baris kosong tambahan di bawah setiap baris, jadi ia
+ * ditukar dengan karakter selebar nol.
+ *
+ * Ditukar, bukan dihapus: kalau dihapus, akhir satu baris dan awal baris
+ * berikutnya menempati offset tampil yang sama, dan kursor tidak akan pernah
+ * bisa berdiri di ujung baris — termasuk untuk menghapus pemisah barisnya.
+ */
+private const val LINE_BREAK = "​"
+
+fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
+    val edits = ArrayList<Edit>()
+    val spans = ArrayList<SpanAt>()
+    val paras = ArrayList<ParaAt>()
+    val quoteRuns = ArrayList<IntRange>()
+    val codeRuns = ArrayList<IntRange>()
+    val pending = ArrayList<PendingBox>()
+
+    val mono = SpanStyle(fontFamily = FontFamily.Monospace)
+    val base = palette.baseSize.value
+    val lines = raw.split("\n")
 
     var offset = 0
     var inFence = false
+    var fenceContentStart = -1
+    var quoteStart = -1
+    var quoteEnd = -1
 
-    for (line in raw.split("\n")) {
+    fun closeQuoteRun() {
+        if (quoteStart >= 0 && quoteEnd > quoteStart) quoteRuns += quoteStart until quoteEnd
+        quoteStart = -1
+    }
+
+    /** Membuang baris beserta pemisah barisnya, supaya tidak ada baris kosong tertinggal. */
+    fun dropLine(start: Int, end: Int) {
+        edits += Edit(start, (end + 1).coerceAtMost(raw.length))
+    }
+
+    for ((index, line) in lines.withIndex()) {
         val start = offset
         val end = start + line.length
+        offset = end + 1
+        val last = index == lines.size - 1
+        // Rentang paragraf mencakup pemisah barisnya sendiri: di sanalah kursor
+        // berdiri saat berada di ujung baris.
+        val paraEnd = if (last) end else end + 1
 
-        if (FENCE.containsMatchIn(line)) {
-            inFence = !inFence
-            addStyle(SpanStyle(color = faint, fontFamily = FontFamily.Monospace), start, end)
-            offset = end + 1
-            continue
-        }
+        if (!last) edits += Edit(end, end + 1, LINE_BREAK)
 
         if (inFence) {
-            addStyle(SpanStyle(color = muted, fontFamily = FontFamily.Monospace), start, end)
-            offset = end + 1
+            if (FENCE.containsMatchIn(line)) {
+                if (start > fenceContentStart) codeRuns += fenceContentStart until (start - 1)
+                dropLine(start, end)
+                inFence = false
+            } else {
+                spans += SpanAt(mono, start, end)
+                paras += ParaAt(blockStyle(palette), start, paraEnd)
+            }
             continue
         }
 
-        var contentStart = start
+        // Bentuk satu baris — ``` isi ``` — bukan Markdown baku, tapi itulah
+        // yang digambar di berkas desain.
+        val inlineFence = FENCE_INLINE.find(line)?.takeIf { it.groupValues[2].isNotEmpty() }
+        if (inlineFence != null) {
+            closeQuoteRun()
+            val open = start + inlineFence.groupValues[1].length
+            val close = open + inlineFence.groupValues[2].length
+            edits += Edit(start, open)
+            edits += Edit(close, end)
+            spans += SpanAt(mono, open, close)
+            paras += ParaAt(blockStyle(palette), start, paraEnd)
+            codeRuns += open until close
+            continue
+        }
 
-        val heading = HEADING.find(line)
-        val checkbox = CHECKBOX.find(line)
+        if (FENCE.containsMatchIn(line)) {
+            closeQuoteRun()
+            dropLine(start, end)
+            fenceContentStart = (end + 1).coerceAtMost(raw.length)
+            inFence = true
+            continue
+        }
+
+        // Kutipan dikupas lebih dulu dan terpisah dari yang lain, karena isi
+        // kutipan boleh punya strukturnya sendiri: `> ## Judul` adalah subjudul
+        // **di dalam** kutipan, bukan salah satu di antara keduanya.
+        var contentStart = start
+        var indent = 0f
+        var lineHeight = base * LINE_FACTOR
         val quote = QUOTE.find(line)
+        if (quote != null) {
+            contentStart = start + quote.value.length
+            edits += Edit(start, contentStart)
+            indent += BLOCK_INDENT_DP
+            if (quoteStart < 0) quoteStart = contentStart
+            quoteEnd = end
+        } else {
+            closeQuoteRun()
+        }
+
+        val rest = line.substring(contentStart - start)
+        val heading = HEADING.find(rest)
+        val checkbox = if (heading == null) CHECKBOX.find(rest) else null
+        var hangingIndent = indent
 
         when {
             heading != null -> {
-                val markerEnd = start + heading.value.length
-                // Ukuran dan tinggi baris judul dari Figma: H1 26/1,2 dan
-                // H2 20/1,32 terhadap isi 16/24.
-                val (scale, leading) = when (heading.groupValues[1].length) {
-                    1 -> 26f / 16f to 1.2f
-                    2 -> 20f / 16f to 1.32f
-                    else -> 18f / 16f to 1.4f
+                val markerEnd = contentStart + heading.value.length
+                edits += Edit(contentStart, markerEnd)
+                // Ukuran dan tinggi baris judul dari Figma: H1 26/31 dan
+                // H2 20/26 terhadap isi 16/24.
+                val (size, height) = when (heading.groupValues[1].length) {
+                    1 -> 26f to 31f
+                    2 -> 20f to 26f
+                    else -> 18f to 24f
                 }
-                // Tinggi baris hanya bisa diatur lewat ParagraphStyle, dan tanpa
-                // itu judul 26 sp akan bertumpuk di dalam baris 24 sp. Rentangnya
-                // persis satu baris, jadi tidak ada ParagraphStyle yang tumpang
-                // tindih — syarat yang ditegakkan Compose saat runtime.
-                addStyle(
-                    ParagraphStyle(lineHeight = (baseSize.value * scale * leading).sp),
-                    start,
-                    end,
-                )
-                addStyle(SpanStyle(color = faint), start, markerEnd)
-                addStyle(
-                    SpanStyle(fontSize = scale.em, fontWeight = FontWeight.Bold),
+                lineHeight = height
+                spans += SpanAt(
+                    SpanStyle(fontSize = (size / base).em, fontWeight = FontWeight.Bold),
                     markerEnd,
                     end,
                 )
@@ -128,116 +273,255 @@ fun buildMarkdownAnnotated(
             }
 
             checkbox != null -> {
-                val markerEnd = start + checkbox.groupValues[1].length
-                val checked = checkbox.groupValues[2].lowercase() == "x"
-                addStyle(SpanStyle(color = faint), start, markerEnd)
+                val markerEnd = contentStart + checkbox.value.length
+                edits += Edit(contentStart, markerEnd)
+                val checked = checkbox.groupValues[3].lowercase() == "x"
+                // Ruang kotak centang disediakan lewat indentasi paragraf, bukan
+                // lewat karakter pengganti: 24 dp kotak + 8 dp jeda, persis
+                // seperti baris tugas di Figma, dan lebarnya tidak ikut berubah
+                // bersama hurufnya.
+                indent += BOX_INDENT_DP
+                hangingIndent = indent
                 if (checked) {
-                    addStyle(
-                        SpanStyle(color = muted, textDecoration = TextDecoration.LineThrough),
+                    spans += SpanAt(
+                        SpanStyle(
+                            color = palette.muted,
+                            textDecoration = TextDecoration.LineThrough,
+                        ),
                         markerEnd,
                         end,
                     )
                 }
-                contentStart = markerEnd
-            }
-
-            quote != null -> {
-                // Hanya penandanya yang diredupkan. Figma menampilkan isi kutipan
-                // dengan warna dan gaya yang sama seperti teks biasa.
-                val markerEnd = start + quote.value.length
-                addStyle(SpanStyle(color = faint), start, markerEnd)
+                pending += PendingBox(
+                    contentStart = markerEnd,
+                    markerStart = contentStart,
+                    markerEnd = markerEnd,
+                    lead = checkbox.groupValues[1] + checkbox.groupValues[2],
+                    checked = checked,
+                )
                 contentStart = markerEnd
             }
 
             else -> {
-                // Daftar berpoin diperiksa setelah kotak centang, karena
-                // "- [ ] " juga cocok dengan pola poin biasa.
-                val bullet = BULLET.find(line) ?: ORDERED.find(line)
+                val bullet = BULLET.find(rest)
+                val ordered = if (bullet == null) ORDERED.find(rest) else null
                 if (bullet != null) {
-                    val markerEnd = start + bullet.value.length
-                    addStyle(SpanStyle(color = faint), start, markerEnd)
+                    val markerEnd = contentStart + bullet.value.length
+                    // Tanda hubung diganti bulatan, bukan disembunyikan: poinnya
+                    // memang harus terlihat.
+                    edits += Edit(contentStart, markerEnd, bullet.groupValues[1] + "• ")
+                    indent += BULLET_INDENT_DP
+                    hangingIndent = indent + BULLET_HANG_DP
                     contentStart = markerEnd
+                } else if (ordered != null) {
+                    // Nomornya tetap apa adanya — Figma menampilkannya, dan
+                    // nomor yang ditulis pengguna adalah nomor yang ia maksud.
+                    indent += ORDERED_INDENT_DP
+                    hangingIndent = indent + ORDERED_HANG_DP
+                    contentStart += ordered.value.length
                 }
             }
         }
 
-        styleInline(line, start, contentStart, faint)
-        offset = end + 1
-    }
-}
+        paras += ParaAt(
+            ParagraphStyle(
+                lineHeight = lineHeight.sp,
+                textIndent = TextIndent(indent.sp, hangingIndent.sp),
+            ),
+            start,
+            paraEnd,
+        )
 
-/**
- * Penataan sebaris. Tebal diproses lebih dulu agar `**` tidak lebih dulu
- * tertangkap sebagai penanda miring.
- */
-private fun AnnotatedString.Builder.styleInline(
-    line: String,
-    lineStart: Int,
-    contentStart: Int,
-    faint: Color,
-) {
-    fun emphasise(regex: Regex, markerLen: Int, style: SpanStyle) {
-        for (m in regex.findAll(line)) {
-            val s = lineStart + m.range.first
-            val e = lineStart + m.range.last + 1
-            if (s < contentStart) continue
-            addStyle(SpanStyle(color = faint), s, s + markerLen)
-            addStyle(style, s + markerLen, e - markerLen)
-            addStyle(SpanStyle(color = faint), e - markerLen, e)
+        styleInline(line, start, contentStart, palette, edits, spans)
+    }
+
+    closeQuoteRun()
+    // Pagar yang belum ditutup tetap dianggap blok kode sampai akhir catatan:
+    // itu keadaan normal sepersekian detik setelah pagar pembuka diketik.
+    if (inFence && fenceContentStart in 0 until raw.length) {
+        codeRuns += fenceContentStart until raw.length
+    }
+
+    val (transformed, mapping) = applyEdits(raw, edits)
+
+    val annotated = buildAnnotatedString {
+        append(transformed)
+        if (transformed.isNotEmpty()) {
+            addStyle(SpanStyle(color = palette.ink), 0, transformed.length)
+        }
+        for (p in paras) {
+            val s = mapping.originalToTransformed(p.start)
+            val e = mapping.originalToTransformed(p.end)
+            if (e > s) addStyle(p.style, s, e)
+        }
+        for (sp in spans) {
+            val s = mapping.originalToTransformed(sp.start)
+            val e = mapping.originalToTransformed(sp.end)
+            if (e > s) addStyle(sp.style, s, e)
         }
     }
 
-    emphasise(BOLD, 2, SpanStyle(fontWeight = FontWeight.Bold))
-    emphasise(ITALIC_STAR, 1, SpanStyle(fontStyle = FontStyle.Italic))
-    emphasise(ITALIC_UNDER, 1, SpanStyle(fontStyle = FontStyle.Italic))
-    emphasise(CODE, 1, SpanStyle(fontFamily = FontFamily.Monospace))
-
-    for (m in LINK.findAll(line)) {
-        val s = lineStart + m.range.first
-        val e = lineStart + m.range.last + 1
-        if (s < contentStart) continue
-        val textLen = m.groupValues[1].length
-        addStyle(SpanStyle(color = faint), s, s + 1)
-        addStyle(SpanStyle(textDecoration = TextDecoration.Underline), s + 1, s + 1 + textLen)
-        addStyle(SpanStyle(color = faint), s + 1 + textLen, e)
+    fun blocksOf(runs: List<IntRange>, code: Boolean) = runs.mapNotNull { run ->
+        val s = mapping.originalToTransformed(run.first.coerceIn(0, raw.length))
+        val e = mapping.originalToTransformed((run.last + 1).coerceIn(0, raw.length))
+        if (e > s) MarkdownBlock(s, e, code) else null
     }
-}
 
-/** Kotak centang Markdown yang terkena ketukan. */
-data class CheckboxHit(
-    /** Indeks karakter di antara kurung siku — ' ' atau 'x'. */
-    val stateIndex: Int,
-    val checked: Boolean,
-)
-
-private val CHECKBOX_MARKER = Regex("""^(\s*[-*+]\s+\[)([ xX])(])""")
-
-/**
- * Mencari penanda kotak centang pada baris yang memuat [offset].
- *
- * Seluruh awalan `- [ ]` dianggap sasaran, bukan hanya karakter di dalam kurung —
- * satu karakter jauh di bawah ukuran sasaran sentuh yang wajar.
- */
-fun checkboxAt(text: String, offset: Int): CheckboxHit? {
-    if (offset < 0 || offset > text.length) return null
-
-    val lineStart = text.lastIndexOf('\n', (offset - 1).coerceAtLeast(0))
-        .let { if (it < 0) 0 else it + 1 }
-    val lineEnd = text.indexOf('\n', offset).let { if (it < 0) text.length else it }
-    if (lineStart > lineEnd) return null
-
-    val m = CHECKBOX_MARKER.find(text.substring(lineStart, lineEnd)) ?: return null
-    val markerEnd = lineStart + m.value.length
-    if (offset > markerEnd) return null
-
-    return CheckboxHit(
-        stateIndex = lineStart + m.groupValues[1].length,
-        checked = m.groupValues[2].lowercase() == "x",
+    return MarkdownRender(
+        annotated = annotated,
+        mapping = mapping,
+        blocks = blocksOf(quoteRuns, code = false) + blocksOf(codeRuns, code = true),
+        boxes = pending.map {
+            MarkdownBox(
+                transformed = mapping.originalToTransformed(it.contentStart),
+                markerStart = it.markerStart,
+                markerEnd = it.markerEnd,
+                lead = it.lead,
+                checked = it.checked,
+            )
+        },
     )
 }
 
+private fun blockStyle(palette: MarkdownPalette) = ParagraphStyle(
+    lineHeight = (palette.baseSize.value * LINE_FACTOR).sp,
+    textIndent = TextIndent(BLOCK_INDENT_DP.sp, BLOCK_INDENT_DP.sp),
+)
+
+/** Isi 16 sp pada baris 24 sp — node Figma 3:474. */
+private const val LINE_FACTOR = 24f / 16f
+
+/** Jeda sebelum isi kutipan dan blok kode — 12 dp, node Figma 17:485. */
+private const val BLOCK_INDENT_DP = 12f
+
+/** Kotak centang 24 dp ditambah jeda 8 dp, sama seperti baris tugas — node 17:467. */
+private const val BOX_INDENT_DP = 32f
+
+/** Bulatan poin menggantung di kiri; sambungan barisnya lurus di bawah teks. */
+private const val BULLET_INDENT_DP = 8f
+private const val BULLET_HANG_DP = 16f
+private const val ORDERED_INDENT_DP = 6f
+private const val ORDERED_HANG_DP = 18f
+
+/**
+ * Penataan sebaris.
+ *
+ * Setiap kecocokan menandai rentangnya sebagai sudah terpakai, dan pola
+ * berikutnya melewati rentang yang sudah ditandai. Tanpa itu, `**` akan
+ * tertangkap dua kali — sekali sebagai tebal, sekali sebagai miring — dan
+ * penandanya akan dihapus dua kali dari teks yang sama.
+ */
+private fun styleInline(
+    line: String,
+    lineStart: Int,
+    contentStart: Int,
+    palette: MarkdownPalette,
+    edits: MutableList<Edit>,
+    spans: MutableList<SpanAt>,
+) {
+    if (line.isEmpty()) return
+    val claimed = BooleanArray(line.length)
+    val from = contentStart - lineStart
+
+    fun claim(range: IntRange): Boolean {
+        if (range.first < from) return false
+        for (i in range) if (claimed[i]) return false
+        for (i in range) claimed[i] = true
+        return true
+    }
+
+    fun emphasise(regex: Regex, markerLen: Int, style: SpanStyle) {
+        for (m in regex.findAll(line)) {
+            if (!claim(m.range)) continue
+            val s = lineStart + m.range.first
+            val e = lineStart + m.range.last + 1
+            edits += Edit(s, s + markerLen)
+            edits += Edit(e - markerLen, e)
+            spans += SpanAt(style, s + markerLen, e - markerLen)
+        }
+    }
+
+    // Tautan lebih dulu: label di dalamnya tidak boleh ikut ditafsirkan, dan
+    // alamatnya kerap memuat garis bawah dan tanda bintang.
+    for (m in LINK.findAll(line)) {
+        if (!claim(m.range)) continue
+        val s = lineStart + m.range.first
+        val e = lineStart + m.range.last + 1
+        val labelLen = m.groupValues[1].length
+        edits += Edit(s, s + 1)
+        edits += Edit(s + 1 + labelLen, e)
+        spans += SpanAt(
+            SpanStyle(color = palette.link, textDecoration = TextDecoration.Underline),
+            s + 1,
+            s + 1 + labelLen,
+        )
+    }
+
+    emphasise(CODE, 1, SpanStyle(fontFamily = FontFamily.Monospace))
+    emphasise(BOLD, 2, SpanStyle(fontWeight = FontWeight.Bold))
+    emphasise(STRIKE_DOUBLE, 2, SpanStyle(textDecoration = TextDecoration.LineThrough))
+    emphasise(ITALIC_STAR, 1, SpanStyle(fontStyle = FontStyle.Italic))
+    emphasise(ITALIC_UNDER, 1, SpanStyle(fontStyle = FontStyle.Italic))
+    emphasise(STRIKE_SINGLE, 1, SpanStyle(textDecoration = TextDecoration.LineThrough))
+}
+
+/**
+ * Menjalankan [edits] atas [source], sekaligus membangun pemetaan offsetnya.
+ *
+ * Pemetaannya dua tabel penuh. Untuk catatan sepanjang puluhan ribu karakter
+ * itu dua larik bilangan bulat — murah, dan hanya dibangun ulang saat teksnya
+ * benar-benar berubah.
+ */
+private fun applyEdits(source: String, edits: List<Edit>): Pair<String, OffsetMapping> {
+    val sorted = edits.filter { it.start in 0..it.end && it.end <= source.length }
+        .sortedBy { it.start }
+    val sb = StringBuilder(source.length)
+    val forward = IntArray(source.length + 1)
+    val back = ArrayList<Int>(source.length + 1)
+    var cursor = 0
+
+    for (edit in sorted) {
+        // Rentang yang tumpang tindih dilewati, bukan dipaksakan: menerapkannya
+        // setengah akan merusak pemetaannya, dan pemetaan yang rusak berarti
+        // kursor meleset di seluruh sisa catatan.
+        if (edit.start < cursor) continue
+        while (cursor < edit.start) {
+            forward[cursor] = sb.length
+            back += cursor
+            sb.append(source[cursor])
+            cursor++
+        }
+        val tStart = sb.length
+        for (c in edit.replacement) {
+            back += edit.start
+            sb.append(c)
+        }
+        for (k in edit.start until edit.end) forward[k] = tStart
+        cursor = edit.end
+    }
+    while (cursor < source.length) {
+        forward[cursor] = sb.length
+        back += cursor
+        sb.append(source[cursor])
+        cursor++
+    }
+    forward[source.length] = sb.length
+    back += source.length
+
+    val transformed = sb.toString()
+    val mapping = object : OffsetMapping {
+        override fun originalToTransformed(offset: Int): Int =
+            forward[offset.coerceIn(0, source.length)]
+
+        override fun transformedToOriginal(offset: Int): Int =
+            back[offset.coerceIn(0, transformed.length)]
+    }
+    return transformed to mapping
+}
+
 /** Mengembalikan teks dengan satu kotak centang dibalik statusnya. */
-fun toggleCheckbox(text: String, hit: CheckboxHit): String =
-    text.substring(0, hit.stateIndex) +
-        (if (hit.checked) " " else "x") +
-        text.substring(hit.stateIndex + 1)
+fun toggleBox(text: String, box: MarkdownBox): String {
+    if (box.markerEnd > text.length) return text
+    val marker = "${box.lead} [${if (box.checked) " " else "x"}] "
+    return text.substring(0, box.markerStart) + marker + text.substring(box.markerEnd)
+}

@@ -21,22 +21,22 @@
 
     <!-- Text formatting -->
     <string name="format_title">Text</string>
-    <string name="format_view_plain">View as plain text</string>
     <string name="format_view_markdown">View as Markdown</string>
+    <string name="format_view_normal">View as normal text</string>
+    <string name="format_sub_header">Sub header</string>
+    <string name="format_link">Link</string>
+    <string name="link_label">Text</string>
+    <string name="link_url">Address</string>
     <string name="format_todo">To do</string>
     <string name="format_header">Header</string>
     <string name="format_bold">Bold</string>
     <string name="format_italic">Italic</string>
-    <string name="format_bold_italic">Bold Italic</string>
-    <string name="format_mark">Mark</string>
     <string name="format_strike">Strike</string>
     <string name="format_quote">Quote</string>
     <string name="format_list">List</string>
     <string name="format_ordered_list">Ordered List</string>
     <string name="format_code">Code</string>
     <string name="format_code_block">Code Block</string>
-    <string name="format_shift_right">Shift Right</string>
-    <string name="format_shift_left">Shift Left</string>
     <string name="note_format">Text options</string>
 
     <!-- Tasks -->

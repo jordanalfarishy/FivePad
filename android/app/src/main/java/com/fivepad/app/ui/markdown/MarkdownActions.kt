@@ -4,59 +4,72 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 
 /**
- * Tindakan penyuntingan teks, mengikuti menu FiveNotes.
+ * Tindakan penyuntingan teks pada catatan.
+ *
+ * Daftarnya persis yang ada di menu FiveNotes dan di berkas desain — tidak
+ * lebih. Tindakan yang tidak terlihat di sana (huruf tebal-miring sekaligus,
+ * penyorot, geser indentasi) sengaja tidak ada: setiap baris tambahan di menu
+ * ini menambah tinggi lembar yang harus dibuka di atas catatan yang sedang
+ * disunting.
  *
  * [syntax] adalah penanda Markdown yang ditulis tindakan itu, dan ikut tampil
- * di sisi kanan barisnya dalam lembar format. Itu bukan hiasan: aplikasi ini
- * menyimpan Markdown mentah, jadi cepat atau lambat pengguna akan melihat
- * penandanya. Lebih baik ia belajar namanya di tempat ia memakainya.
+ * di petaknya. Itu bukan hiasan: aplikasi ini menyimpan Markdown mentah, dan
+ * tampilan mentahnya bisa dibuka kapan saja lewat sakelar di lembar yang sama.
+ * Lebih baik penandanya dikenali di tempat ia dipakai.
  */
 enum class MarkdownAction(val syntax: String) {
-    TODO("- [ ]"),
     HEADER("#"),
+    SUB_HEADER("##"),
     BOLD("**"),
     ITALIC("*"),
-    BOLD_ITALIC("***"),
-    MARK("=="),
     STRIKE("~~"),
-    QUOTE(">"),
     LIST("-"),
     ORDERED_LIST("1."),
+    TODO("- [ ]"),
+    QUOTE(">"),
     CODE("`"),
     CODE_BLOCK("```"),
-    SHIFT_RIGHT("  →"),
-    SHIFT_LEFT("← "),
+    LINK("[ ]( )"),
 }
-
-/** Sebesar apa satu tingkat indentasi. Dua spasi, bukan tab — tab tidak punya lebar yang disepakati. */
-private const val INDENT = "  "
 
 /**
  * Menerapkan [action] pada [value], menghormati seleksi yang sedang aktif.
  *
  * Semua tindakan bersifat **membalik**: menerapkannya pada teks yang sudah
  * memakainya justru mencabutnya kembali. Tanpa itu, satu ketukan tak sengaja
- * hanya bisa dibatalkan dengan menghapus penanda secara manual — dan penanda
- * itu berada di dua tempat terpisah yang mudah luput satu.
+ * hanya bisa dibatalkan dengan menghapus penanda secara manual — dan sejak
+ * tampilan biasa menyembunyikan penandanya, penanda itu bahkan tidak terlihat
+ * untuk dihapus.
  */
 fun applyMarkdown(value: TextFieldValue, action: MarkdownAction): TextFieldValue = when (action) {
     MarkdownAction.BOLD,
     MarkdownAction.ITALIC,
-    MarkdownAction.BOLD_ITALIC,
-    MarkdownAction.MARK,
     MarkdownAction.STRIKE,
     MarkdownAction.CODE,
     -> wrap(value, action.syntax)
 
-    MarkdownAction.TODO -> prefixLines(value, "- [ ] ", alternates = listOf("- [x] "))
-    MarkdownAction.HEADER -> prefixLines(value, "# ")
+    MarkdownAction.HEADER -> heading(value, 1)
+    MarkdownAction.SUB_HEADER -> heading(value, 2)
     MarkdownAction.QUOTE -> prefixLines(value, "> ")
     MarkdownAction.LIST -> prefixLines(value, "- ", alternates = listOf("* ", "+ "))
     MarkdownAction.ORDERED_LIST -> numberLines(value)
+    MarkdownAction.TODO -> prefixLines(value, "- [ ] ", alternates = listOf("- [x] ", "- [] "))
     MarkdownAction.CODE_BLOCK -> fence(value)
-    MarkdownAction.SHIFT_RIGHT -> shift(value, right = true)
-    MarkdownAction.SHIFT_LEFT -> shift(value, right = false)
+    // Tautan tidak pernah sampai ke sini: alamatnya ditanyakan lebih dulu.
+    MarkdownAction.LINK -> value
 }
+
+/**
+ * Awalan kutipan pada satu baris.
+ *
+ * Tindakan baris lain menyisipkan penandanya **setelah** awalan ini, bukan
+ * sebelum: `> ## Judul` adalah subjudul di dalam kutipan, sedangkan `## > Judul`
+ * bukan apa-apa. Ini yang membuat kutipan bisa memuat subjudul, daftar, dan
+ * tugas seperti baris biasa.
+ */
+private val QUOTE_LEAD = Regex("""^\s*>\s?""")
+
+private fun leadOf(line: String): String = QUOTE_LEAD.find(line)?.value.orEmpty()
 
 /**
  * Membungkus seleksi dengan [marker], atau mencabutnya bila sudah terbungkus.
@@ -109,6 +122,31 @@ private fun lineSpan(text: String, selection: TextRange): IntRange {
     return start..end
 }
 
+private val ANY_HEADING = Regex("""^#{1,6}\s+""")
+
+/**
+ * Menjadikan baris terpilih judul bertingkat [level].
+ *
+ * Tingkat yang sudah sama dicabut; tingkat yang berbeda **diganti**, bukan
+ * ditumpuk. "Subjudul" pada baris yang sudah berupa judul besar berarti
+ * menurunkan tingkatnya — bukan membuat `###`, yang tidak ada di menu ini dan
+ * tidak akan pernah bisa dibatalkan dari sana.
+ */
+private fun heading(value: TextFieldValue, level: Int): TextFieldValue {
+    val prefix = "#".repeat(level) + " "
+    val text = value.text
+    val span = lineSpan(text, value.selection)
+    val lines = text.substring(span.first, span.last).split("\n")
+
+    val hasAll = lines.all { it.drop(leadOf(it).length).startsWith(prefix) }
+    val updated = lines.map { line ->
+        val lead = leadOf(line)
+        val rest = line.drop(lead.length).replaceFirst(ANY_HEADING, "")
+        if (hasAll) lead + rest else lead + prefix + rest
+    }
+    return replaceSpan(value, span, updated.joinToString("\n"))
+}
+
 /**
  * Menambahkan [prefix] ke setiap baris terpilih, atau mencabutnya bila **semua**
  * baris sudah memilikinya.
@@ -127,14 +165,14 @@ private fun prefixLines(
     val lines = text.substring(span.first, span.last).split("\n")
     val all = listOf(prefix) + alternates
 
-    val hasAll = lines.all { line -> all.any { line.trimStart().startsWith(it) } }
+    val hasAll = lines.all { line -> all.any { line.drop(leadOf(line).length).startsWith(it) } }
     val updated = lines.map { line ->
-        val indent = line.takeWhile { it == ' ' }
-        val rest = line.drop(indent.length)
+        val lead = leadOf(line)
+        val rest = line.drop(lead.length)
         if (hasAll) {
-            indent + (all.firstOrNull { rest.startsWith(it) }?.let { rest.drop(it.length) } ?: rest)
+            lead + (all.firstOrNull { rest.startsWith(it) }?.let { rest.drop(it.length) } ?: rest)
         } else {
-            indent + prefix + rest
+            lead + prefix + rest
         }
     }
     return replaceSpan(value, span, updated.joinToString("\n"))
@@ -145,16 +183,15 @@ private fun numberLines(value: TextFieldValue): TextFieldValue {
     val text = value.text
     val span = lineSpan(text, value.selection)
     val lines = text.substring(span.first, span.last).split("\n")
-    val numbered = Regex("""^\d+\.\s""")
 
-    val hasAll = lines.all { numbered.containsMatchIn(it.trimStart()) }
+    val hasAll = lines.all { NUMBER_PREFIX.containsMatchIn(it.drop(leadOf(it).length)) }
     val updated = lines.mapIndexed { index, line ->
-        val indent = line.takeWhile { it == ' ' }
-        val rest = line.drop(indent.length)
+        val lead = leadOf(line)
+        val rest = line.drop(lead.length)
         if (hasAll) {
-            indent + rest.replaceFirst(numbered, "")
+            lead + rest.replaceFirst(NUMBER_PREFIX, "")
         } else {
-            "$indent${index + 1}. $rest"
+            "$lead${index + 1}. $rest"
         }
     }
     return replaceSpan(value, span, updated.joinToString("\n"))
@@ -176,32 +213,121 @@ private fun fence(value: TextFieldValue): TextFieldValue {
     return replaceSpan(value, span, updated.joinToString("\n"))
 }
 
-/** Menggeser baris terpilih masuk atau keluar satu tingkat. */
-private fun shift(value: TextFieldValue, right: Boolean): TextFieldValue {
-    val text = value.text
-    val span = lineSpan(text, value.selection)
-    val updated = text.substring(span.first, span.last).split("\n").map { line ->
-        if (right) {
-            INDENT + line
-        } else {
-            // Menghapus sampai satu tingkat, tapi tidak lebih dari yang ada —
-            // baris yang sudah mentok di kiri tidak boleh kehilangan isinya.
-            val removable = line.takeWhile { it == ' ' }.length.coerceAtMost(INDENT.length)
-            line.drop(removable)
-        }
-    }
-    return replaceSpan(value, span, updated.joinToString("\n"))
+private val WHOLE_LINK = Regex("""^\[([^\]\n]*)]\(([^)\n]*)\)$""")
+
+/**
+ * Tautan yang sedang terseleksi, sebagai pasangan label dan alamat.
+ *
+ * Dipakai untuk dua hal: memberitahu bahwa menekan "Tautan" kali ini berarti
+ * **membongkar** tautan yang sudah ada, dan mengisi lebih dulu kolom pada
+ * lembar alamat saat yang terseleksi ternyata sebuah tautan utuh.
+ */
+fun selectedLink(value: TextFieldValue): Pair<String, String>? {
+    val selected = value.text.substring(value.selection.min, value.selection.max)
+    val m = WHOLE_LINK.find(selected) ?: return null
+    return m.groupValues[1] to m.groupValues[2]
+}
+
+/** Membongkar tautan yang terseleksi kembali menjadi labelnya saja. */
+fun unlink(value: TextFieldValue): TextFieldValue {
+    val label = selectedLink(value)?.first ?: return value
+    return TextFieldValue(
+        text = value.text.replaceRange(value.selection.min, value.selection.max, label),
+        selection = TextRange(value.selection.min, value.selection.min + label.length),
+    )
+}
+
+/**
+ * Menyisipkan tautan dengan label dan alamat yang sudah ditentukan.
+ *
+ * Alamatnya ditanyakan lebih dulu lewat lembar tersendiri, tidak ditulis
+ * langsung ke catatan untuk disunting di tempat. Di tampilan biasa, `](alamat)`
+ * disembunyikan begitu polanya lengkap — jadi alamat yang disisipkan sebagai
+ * teks contoh akan lenyap dari layar pada saat yang sama ia harus diketik.
+ */
+fun insertLink(value: TextFieldValue, label: String, url: String): TextFieldValue {
+    val inserted = "[$label]($url)"
+    val start = value.selection.min
+    return TextFieldValue(
+        text = value.text.replaceRange(start, value.selection.max, inserted),
+        selection = TextRange(start + inserted.length),
+    )
 }
 
 /**
  * Mengganti satu rentang baris, lalu menyeleksi seluruh hasilnya.
  *
  * Menyeleksi ulang, bukan menaruh kursor di ujung: tindakan baris sering
- * dipakai beruntun — geser masuk lalu jadikan daftar — dan seleksi yang hilang
- * setelah tindakan pertama memaksa memilih ulang untuk tindakan kedua.
+ * dipakai beruntun — jadikan daftar lalu jadikan kutipan — dan seleksi yang
+ * hilang setelah tindakan pertama memaksa memilih ulang untuk tindakan kedua.
  */
 private fun replaceSpan(value: TextFieldValue, span: IntRange, replacement: String): TextFieldValue =
     TextFieldValue(
         text = value.text.replaceRange(span.first, span.last, replacement),
         selection = TextRange(span.first, span.first + replacement.length),
     )
+
+// --- Melanjutkan daftar saat Enter ------------------------------------------
+
+private val NUMBER_PREFIX = Regex("""^\d+\.\s""")
+private val TODO_LINE = Regex("""^(\s*)([-*+])\s+\[[ xX]?]\s*(.*)$""")
+private val ORDERED_LINE = Regex("""^(\s*)(\d+)\.\s+(.*)$""")
+private val BULLET_LINE = Regex("""^(\s*)([-*+])\s+(.*)$""")
+
+/**
+ * Melanjutkan daftar, daftar bernomor, atau daftar tugas ke baris berikutnya.
+ *
+ * Dipanggil dari `onValueChange` dengan nilai sebelum dan sesudah perubahan;
+ * mengembalikan `null` bila perubahannya bukan penekanan Enter, sehingga
+ * pemanggilnya cukup memakai nilai aslinya.
+ *
+ * Menekan Enter pada butir yang masih kosong **mencabut** penandanya alih-alih
+ * membuat butir kosong berikutnya. Itulah cara orang mengakhiri daftar; tanpa
+ * itu, satu-satunya jalan keluar adalah menghapus penanda yang — di tampilan
+ * biasa — bahkan tidak terlihat.
+ */
+fun continueListOnNewline(before: TextFieldValue, after: TextFieldValue): TextFieldValue? {
+    val caret = after.selection.start
+    val removed = before.selection.max - before.selection.min
+
+    // Perubahannya harus benar-benar satu baris baru yang diketik di titik
+    // sisip, bukan tempelan, bukan penghapusan, bukan penulisan ulang oleh IME.
+    if (!after.selection.collapsed) return null
+    if (caret != before.selection.min + 1) return null
+    if (after.text.length != before.text.length - removed + 1) return null
+    if (caret < 1 || after.text[caret - 1] != '\n') return null
+
+    val lineStart = after.text.lastIndexOf('\n', caret - 2).let { if (it < 0) 0 else it + 1 }
+    if (lineStart > caret - 1) return null
+    val line = after.text.substring(lineStart, caret - 1)
+
+    val todo = TODO_LINE.find(line)
+    val ordered = if (todo == null) ORDERED_LINE.find(line) else null
+    val bullet = if (todo == null && ordered == null) BULLET_LINE.find(line) else null
+
+    val (prefix, content) = when {
+        // Butir tugas baru selalu lahir belum tercentang, apa pun status butir
+        // di atasnya.
+        todo != null -> todo.groupValues[1] + todo.groupValues[2] + " [ ] " to todo.groupValues[3]
+        ordered != null ->
+            ordered.groupValues[1] + (ordered.groupValues[2].toIntOrNull()?.plus(1) ?: 1) + ". " to
+                ordered.groupValues[3]
+        bullet != null -> bullet.groupValues[1] + bullet.groupValues[2] + " " to bullet.groupValues[3]
+        else -> return null
+    }
+
+    if (content.isBlank()) {
+        // Penandanya dicabut bersama baris baru yang barusan dibuat, jadi kursor
+        // tinggal di baris yang sama — sekarang kosong dan bukan lagi bagian
+        // dari daftar.
+        return TextFieldValue(
+            text = after.text.removeRange(lineStart, caret),
+            selection = TextRange(lineStart),
+        )
+    }
+
+    return TextFieldValue(
+        text = after.text.substring(0, caret) + prefix + after.text.substring(caret),
+        selection = TextRange(caret + prefix.length),
+    )
+}
