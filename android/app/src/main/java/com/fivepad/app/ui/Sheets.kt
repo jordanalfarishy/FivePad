@@ -1,8 +1,10 @@
 package com.fivepad.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,7 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,6 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -259,19 +265,24 @@ fun TextPromptSheet(
  *
  * Petak, bukan daftar. Dua belas tindakan sebagai baris bertumpuk menghasilkan
  * lembar setinggi hampir satu layar, dan lembar setinggi itu menutupi justru
- * catatan yang sedang diformat — hasil tiap ketukan baru terlihat setelah
- * lembarnya disingkirkan. Sebagai petak empat kolom semuanya muat tanpa
- * digulung, dan dua pertiga layar tetap terlihat di atasnya.
+ * catatan yang sedang diformat.
  *
- * Tiap petak memuat penanda Markdown yang akan ditulis tindakan itu. Itu bukan
- * hiasan: sakelar di baris paling atas bisa memperlihatkan teks mentahnya kapan
- * saja, jadi cepat atau lambat penandanya akan terlihat. Lebih baik ia dikenali
- * di tempat ia dipakai.
+ * Barisnya dikelompokkan menurut **apa yang tersentuh**, bukan menurut nama:
+ * baris pertama dan ketiga dan keempat mengubah satu baris penuh, baris kedua
+ * hanya mengubah potongan yang dipilih. Kelompoknya tidak berlabel — jaraknya
+ * sudah mengatakan hal yang sama tanpa memakan tinggi lembar. Kelompok yang
+ * melebihi empat petak digulung ke samping, bukan dibungkus ke bawah, supaya
+ * tinggi lembarnya tidak ikut tumbuh saat tindakan bertambah.
+ *
+ * Sakelar tampilan duduk sebaris dengan judulnya: ia mengubah cara seluruh
+ * catatan dibaca, bukan memformat sepotong teks, jadi ia bukan salah satu dari
+ * petak-petak itu.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TextFormatSheet(
     markdownView: Boolean,
+    accent: Color,
     onToggleView: () -> Unit,
     onAction: (MarkdownAction) -> Unit,
     onDismiss: () -> Unit,
@@ -291,50 +302,58 @@ fun TextFormatSheet(
                 .navigationBarsPadding()
                 .padding(bottom = Tokens.space4),
         ) {
-            SheetTitle(stringResource(R.string.format_title))
-
-            // Sakelar tampilan berdiri sendiri sebagai baris penuh: ia mengubah
-            // cara seluruh catatan dibaca, bukan memformat sepotong teks.
-            SheetRow(
-                label = stringResource(
-                    if (markdownView) R.string.format_view_normal else R.string.format_view_markdown,
-                ),
-                icon = painterResource(
-                    if (markdownView) R.drawable.ic_match_case else R.drawable.ic_code,
-                ),
-                tint = scheme.onSurface,
-                onClick = {
-                    onToggleView()
-                    onDismiss()
-                },
-            )
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = Tokens.space5, vertical = Tokens.space2),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.format_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = colors.muted,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    stringResource(R.string.format_view_markdown_short),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = scheme.onSurface,
+                    modifier = Modifier.padding(end = Tokens.space2),
+                )
+                Switch(
+                    checked = markdownView,
+                    onCheckedChange = { onToggleView() },
+                    colors = SwitchDefaults.colors(checkedTrackColor = accent),
+                )
+            }
 
             HorizontalDivider(color = colors.hairline)
 
-            Column(
-                Modifier.padding(horizontal = Tokens.space3, vertical = Tokens.space3),
-                verticalArrangement = Arrangement.spacedBy(Tokens.space2),
-            ) {
-                MarkdownAction.entries.chunked(FORMAT_COLUMNS).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
-                        row.forEach { action ->
-                            FormatTile(
-                                action = action,
-                                modifier = Modifier.weight(1f),
-                                // Menutup setelah satu tindakan. Lembar yang
-                                // tetap terbuka menutupi teks yang barusan
-                                // diubahnya, dan menilai format tanpa melihatnya
-                                // mustahil.
-                                onClick = {
-                                    onAction(action)
-                                    onDismiss()
-                                },
-                            )
-                        }
-                        // Baris terakhir yang tidak penuh tetap sejajar dengan
-                        // baris di atasnya, bukan melebar mengisi sisanya.
-                        repeat(FORMAT_COLUMNS - row.size) {
-                            Spacer(Modifier.weight(1f))
+            BoxWithConstraints(Modifier.padding(Tokens.space3)) {
+                // Lebar petak dipatok supaya empat muat pas; yang kelima
+                // mengintip di tepi, dan itulah yang memberitahu bahwa barisnya
+                // bisa digulung.
+                val tile = (maxWidth - Tokens.space2 * (FORMAT_COLUMNS - 1)) / FORMAT_COLUMNS
+                Column(verticalArrangement = Arrangement.spacedBy(Tokens.space3)) {
+                    FORMAT_GROUPS.forEach { group ->
+                        Row(
+                            Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+                        ) {
+                            group.forEach { action ->
+                                FormatTile(
+                                    action = action,
+                                    modifier = Modifier.width(tile),
+                                    // Menutup setelah satu tindakan. Lembar yang
+                                    // tetap terbuka menutupi teks yang barusan
+                                    // diubahnya, dan menilai format tanpa
+                                    // melihatnya mustahil.
+                                    onClick = {
+                                        onAction(action)
+                                        onDismiss()
+                                    },
+                                )
+                            }
                         }
                     }
                 }
@@ -343,8 +362,26 @@ fun TextFormatSheet(
     }
 }
 
-/** Empat kolom: dua belas tindakan jatuh tepat menjadi tiga baris penuh. */
+/** Empat petak muat dalam satu baris; sisanya digulung ke samping. */
 private const val FORMAT_COLUMNS = 4
+
+/**
+ * Kelompok tindakan menurut apa yang tersentuh.
+ *
+ * Satu baris penuh: judul, lalu daftar, lalu blok. Sepotong teks: penekanan.
+ */
+private val FORMAT_GROUPS = listOf(
+    listOf(MarkdownAction.HEADER, MarkdownAction.SUB_HEADER),
+    listOf(
+        MarkdownAction.BOLD,
+        MarkdownAction.ITALIC,
+        MarkdownAction.STRIKE,
+        MarkdownAction.LINK,
+        MarkdownAction.CODE,
+    ),
+    listOf(MarkdownAction.LIST, MarkdownAction.ORDERED_LIST, MarkdownAction.TODO),
+    listOf(MarkdownAction.QUOTE, MarkdownAction.CODE_BLOCK),
+)
 
 @Composable
 private fun FormatTile(action: MarkdownAction, modifier: Modifier, onClick: () -> Unit) {

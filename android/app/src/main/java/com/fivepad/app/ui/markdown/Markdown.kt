@@ -138,7 +138,23 @@ private val CODE = Regex("""`([^`\n]+)`""")
 private val LINK = Regex("""\[([^\]\n]*)]\(([^)\n]*)\)""")
 
 /** Sisipan atau penghapusan pada teks sumber. Rentangnya tidak boleh tumpang tindih. */
-private class Edit(val start: Int, val end: Int, val replacement: String = "")
+private class Edit(
+    val start: Int,
+    val end: Int,
+    val replacement: String = "",
+    /**
+     * Petakan offset tampil **tepat setelah** pengganti ini kembali ke [start],
+     * bukan ke karakter sumber berikutnya.
+     *
+     * Dipakai pemisah baris. Pemisah itu karakter terakhir pada barisnya, jadi
+     * ketukan di ruang kosong sebelah kanan baris menghasilkan offset sesudahnya
+     * — dan tanpa pengalihan ini, offset itu berarti awal baris berikutnya:
+     * kursor mendarat satu baris di bawah jari. Yang dikorbankan adalah ketukan
+     * tepat di tepi paling kiri baris berikutnya, yang kini berarti ujung baris
+     * di atasnya. Itu jauh lebih jarang, dan jaraknya satu baris juga.
+     */
+    val tieToStart: Boolean = false,
+)
 
 private class SpanAt(val style: SpanStyle, val start: Int, val end: Int)
 private class ParaAt(val style: ParagraphStyle, val start: Int, val end: Int)
@@ -205,7 +221,7 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
         // berdiri saat berada di ujung baris.
         val paraEnd = if (last) end else end + 1
 
-        if (!last) edits += Edit(end, end + 1, LINE_BREAK)
+        if (!last) edits += Edit(end, end + 1, LINE_BREAK, tieToStart = true)
 
         if (inFence) {
             if (FENCE.containsMatchIn(line)) {
@@ -496,6 +512,7 @@ private fun applyEdits(source: String, edits: List<Edit>): Pair<String, OffsetMa
     val sb = StringBuilder(source.length)
     val forward = IntArray(source.length + 1)
     val back = ArrayList<Int>(source.length + 1)
+    val ties = ArrayList<IntArray>()
     var cursor = 0
 
     for (edit in sorted) {
@@ -514,6 +531,7 @@ private fun applyEdits(source: String, edits: List<Edit>): Pair<String, OffsetMa
             back += edit.start
             sb.append(c)
         }
+        if (edit.tieToStart) ties += intArrayOf(sb.length, edit.start)
         for (k in edit.start until edit.end) forward[k] = tStart
         cursor = edit.end
     }
@@ -525,6 +543,7 @@ private fun applyEdits(source: String, edits: List<Edit>): Pair<String, OffsetMa
     }
     forward[source.length] = sb.length
     back += source.length
+    for (tie in ties) if (tie[0] < back.size) back[tie[0]] = tie[1]
 
     val transformed = sb.toString()
     val mapping = object : OffsetMapping {

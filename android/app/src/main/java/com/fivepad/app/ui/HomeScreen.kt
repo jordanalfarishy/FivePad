@@ -255,11 +255,7 @@ private fun MainScreen(
             .fillMaxSize()
             .background(background),
     ) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .imePadding(),
-        ) {
+        Column(Modifier.fillMaxSize()) {
             Spacer(
                 Modifier
                     .fillMaxWidth()
@@ -279,7 +275,15 @@ private fun MainScreen(
                 onOpenFormat = { formatSheet = true },
             )
 
-            Box(Modifier.weight(1f)) {
+            // Papan ketik menutupi bilah tab, tidak mendorongnya ke atas.
+            // Mendorongnya berarti memakan tinggi layar dua kali: sekali oleh
+            // papan ketiknya, sekali lagi oleh bilah yang ikut naik — padahal
+            // yang sedang dibutuhkan justru ruang menulis.
+            Box(
+                Modifier
+                    .weight(1f)
+                    .imePadding(),
+            ) {
                 if (notesActive) {
                     NotesPane(
                         state = state,
@@ -336,6 +340,7 @@ private fun MainScreen(
     if (formatSheet) {
         TextFormatSheet(
             markdownView = markdownView,
+            accent = colors.slotAccents[pager.currentPage],
             onToggleView = { markdownView = !markdownView },
             onAction = { pendingFormat = it },
             onDismiss = { formatSheet = false },
@@ -679,6 +684,9 @@ private fun openLink(context: android.content.Context, url: String) {
     }
 }
 
+/** Napas di atas atau di bawah kursor saat layar menyusulnya. */
+private const val CARET_MARGIN_PX = 48f
+
 /** Pemisah baris di teks tampil, sama seperti yang dipakai penata Markdown. */
 private const val LINE_BREAK_CHAR = '\u200B'
 
@@ -743,15 +751,32 @@ private fun NotesPane(
         val markdown = remember(palette) { MarkdownVisualTransformation(palette) }
 
         // Editor memegang TextFieldValue, bukan String, karena tindakan format
-        // butuh tahu apa yang sedang terseleksi. Sumber kebenarannya tetap draft
-        // di ViewModel; blok di bawah menyatukan keduanya saat teks berubah dari
-        // luar — pengosongan slot, atau pengurungannya.
+        // butuh tahu apa yang sedang terseleksi.
         var field by remember(slot) { mutableStateOf(TextFieldValue(text)) }
-        if (field.text != text) {
+
+        // Teks yang terakhir dikirim keluar dari editor ini.
+        //
+        // Draft di ViewModel selalu tertinggal: ia sampai lewat StateFlow, dan
+        // StateFlow mengantarnya di bingkai berikutnya. Tanpa penanda ini,
+        // gema draft itu dianggap perubahan dari luar dan menimpa apa yang
+        // sudah diketik sesudahnya — huruf hilang saat mengetik cepat, dan
+        // pada papan ketik yang menulis sekata sekaligus, hilangnya bisa
+        // sekata penuh. Yang dibandingkan hanyalah "apakah ini benar-benar
+        // datang dari luar", bukan "apakah keduanya sama".
+        var echoed by remember(slot) { mutableStateOf(text) }
+        if (text != echoed) {
             field = TextFieldValue(
                 text = text,
                 selection = TextRange(field.selection.start.coerceAtMost(text.length)),
             )
+            echoed = text
+        }
+
+        // Satu-satunya jalan keluar perubahan dari editor ini.
+        fun push(value: TextFieldValue) {
+            field = value
+            echoed = value.text
+            vm.onBodyChanged(slot, value.text)
         }
 
         // Alamat tautan ditanyakan lebih dulu; sampai dijawab, catatannya belum
@@ -767,18 +792,14 @@ private fun NotesPane(
                     // Menekan "Tautan" di atas tautan yang sudah ada berarti
                     // membongkarnya — sama seperti tindakan format lainnya, yang
                     // semuanya membalik.
-                    val next = unlink(field)
-                    field = next
-                    vm.onBodyChanged(slot, next.text)
+                    push(unlink(field))
                     bodyFocus.requestFocus()
                 } else {
                     linkLabel = field.text.substring(field.selection.min, field.selection.max)
                 }
                 return@LaunchedEffect
             }
-            val next = applyMarkdown(field, action)
-            field = next
-            vm.onBodyChanged(slot, next.text)
+            push(applyMarkdown(field, action))
             onFormatHandled()
             // Papan ketik dibiarkan terbuka: satu tindakan format hampir tidak
             // pernah berdiri sendiri, dan menutup papan ketik tiap kali membuat
@@ -797,11 +818,7 @@ private fun NotesPane(
             LinkSheet(
                 initialLabel = initial,
                 accent = accent,
-                onConfirm = { label, url ->
-                    val next = insertLink(field, label, url)
-                    field = next
-                    vm.onBodyChanged(slot, next.text)
-                },
+                onConfirm = { label, url -> push(insertLink(field, label, url)) },
                 onDismiss = { linkLabel = null },
             )
         }
@@ -816,6 +833,41 @@ private fun NotesPane(
             val boxHitPx = with(density) { NOTE_BOX_HIT_WIDTH.toPx() }
             val checkSize = with(density) {
                 Size(NOTE_CHECK_WIDTH.toPx(), NOTE_CHECK_HEIGHT.toPx())
+            }
+
+            // FR-1.19: layar mengikuti kursor, bukan sebaliknya.
+            //
+            // Kolom teksnya tidak menggulung sendiri — yang menggulung adalah
+            // kolom di luarnya, bersama baris judul — jadi tidak ada yang
+            // membawa kursor kembali ke pandangan setelah digulung jauh. Ini
+            // yang membawanya.
+            val viewportPx = with(density) { maxHeight.toPx() }
+            val aboveBodyPx = with(density) {
+                (Tokens.titleRowHeight + Tokens.stripeHeight + Tokens.screenPadding).toPx()
+            }
+            LaunchedEffect(field.selection, layout, viewportPx) {
+                val lr = layout ?: return@LaunchedEffect
+                val at = field.selection.start
+                val render = markdown.last.takeIf { !markdownView }
+                val offset = if (render != null &&
+                    lr.layoutInput.text.length == render.annotated.length
+                ) {
+                    render.mapping.originalToTransformed(at)
+                } else {
+                    at.coerceAtMost(lr.layoutInput.text.length)
+                }
+                val cursor = runCatching { lr.getCursorRect(offset) }.getOrNull()
+                    ?: return@LaunchedEffect
+                val top = aboveBodyPx + cursor.top
+                val bottom = aboveBodyPx + cursor.bottom
+                val target = when {
+                    top < scroll.value -> top - CARET_MARGIN_PX
+                    bottom > scroll.value + viewportPx -> bottom - viewportPx + CARET_MARGIN_PX
+                    else -> return@LaunchedEffect
+                }
+                scroll.animateScrollTo(
+                    target.toInt().coerceIn(0, scroll.maxValue),
+                )
             }
 
             Column(Modifier.verticalScroll(scroll)) {
@@ -843,9 +895,7 @@ private fun NotesPane(
                         // ada bersamaan, dan tanpa nilai sebelumnya tidak ada
                         // cara membedakan Enter dari tempelan yang memuat
                         // baris baru.
-                        val next = continueListOnNewline(field, changed) ?: changed
-                        field = next
-                        vm.onBodyChanged(slot, next.text)
+                        push(continueListOnNewline(field, changed) ?: changed)
                     },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         color = ink,
@@ -952,20 +1002,11 @@ private fun NotesPane(
                                 }
                             }
                         }
-                        // Tiga hal yang harus dicegat sebelum kolom teks
-                        // sempat menanganinya sendiri.
-                        //
-                        // FR-1.8: mengetuk kotak centang membalik statusnya
-                        // tanpa masuk mode edit.
-                        //
-                        // FR-1.18: mengetuk tautan membukanya di peramban.
-                        //
-                        // Dan mengetuk ruang kosong di kanan sebuah baris harus
-                        // menaruh kursor di ujung baris itu. Pemisah baris di
-                        // teks tampil adalah karakter selebar nol yang ikut
-                        // menjadi bagian barisnya, jadi kolom teks menganggap
-                        // ketukan setelahnya sebagai awal baris berikutnya —
-                        // kursor mendarat satu baris di bawah jari.
+                        // Dua hal yang harus dicegat sebelum kolom teks sempat
+                        // menanganinya sendiri: ketukan kotak centang (FR-1.8)
+                        // dan ketukan tautan (FR-1.18). Keduanya sasaran kecil
+                        // dan tidak menyentuh fokus maupun papan ketik —
+                        // ketukan lain dibiarkan lewat apa adanya.
                         //
                         // Yang dikonsumsi hanya angkat-jarinya, bukan
                         // turun-jarinya: gestur yang ternyata sebuah gulungan
@@ -993,17 +1034,15 @@ private fun NotesPane(
                                 } else {
                                     null
                                 }
-                                val onLine = down.position.x <= lr.getLineRight(line)
-                                val link = if (box == null && onLine) {
+                                val link = if (box == null &&
+                                    down.position.x <= lr.getLineRight(line)
+                                ) {
                                     val at = lr.getOffsetForPosition(down.position)
                                     render.links.firstOrNull { at >= it.start && at < it.end }
                                 } else {
                                     null
                                 }
-                                val pastEnd = box == null && link == null && !onLine
-                                if (box == null && link == null && !pastEnd) {
-                                    return@awaitEachGesture
-                                }
+                                if (box == null && link == null) return@awaitEachGesture
 
                                 var released = false
                                 while (true) {
@@ -1025,35 +1064,17 @@ private fun NotesPane(
 
                                 if (box != null) {
                                     val toggled = toggleBox(field.text, box)
-                                    field = TextFieldValue(
-                                        text = toggled,
-                                        selection = TextRange(
-                                            field.selection.start.coerceAtMost(toggled.length),
+                                    push(
+                                        TextFieldValue(
+                                            text = toggled,
+                                            selection = TextRange(
+                                                field.selection.start.coerceAtMost(toggled.length),
+                                            ),
                                         ),
                                     )
-                                    vm.onBodyChanged(slot, toggled)
-                                    return@awaitEachGesture
-                                }
-
-                                if (link != null) {
+                                } else if (link != null) {
                                     openLink(context, link.url)
-                                    return@awaitEachGesture
                                 }
-
-                                var end = lr.getLineEnd(line, visibleEnd = false)
-                                // Hanya baris sumber yang berakhir pada pemisah;
-                                // baris yang patah karena lebar tidak, dan
-                                // ujungnya memang sudah tepat.
-                                if (render.annotated.text.getOrNull(end - 1) == LINE_BREAK_CHAR) {
-                                    end--
-                                }
-                                field = field.copy(
-                                    selection = TextRange(
-                                        render.mapping.transformedToOriginal(end),
-                                    ),
-                                )
-                                bodyFocus.requestFocus()
-                                keyboard?.show()
                             }
                         },
                     decorationBox = { inner ->

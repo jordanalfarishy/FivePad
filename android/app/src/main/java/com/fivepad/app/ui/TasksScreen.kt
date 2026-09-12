@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -682,16 +683,32 @@ private fun TaskRow(
             }
         },
     ) {
+        var rowCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
         Row(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(ROW_RADIUS))
                 .background(scheme.surfaceContainer)
-                // Tidak ada ketukan di sini. Ketukan pada baris hanya untuk
-                // kotak centang dan pegangan seret; menyuntingnya lewat geser
-                // ke kanan. Satu baris yang menerima ketukan di mana saja
-                // berarti setiap usaha mencentang yang meleset sedikit justru
-                // membuka lembar sunting.
+                .onGloballyPositioned { rowCoords = it }
+                // Seluruh baris adalah sasaran, bukan hanya kotak centang dan
+                // pegangannya. Keduanya tetap ada sebagai penanda — yang
+                // berubah hanya luas daerah yang menerima.
+                //
+                // Menyunting tetap lewat geser ke kanan. Ketukan di mana saja
+                // yang membuka lembar sunting berarti setiap usaha mencentang
+                // yang meleset sedikit justru membuka lembar.
+                .pointerInput(todo.id) {
+                    detectDragGesturesAfterLongPress(
+                        onDrag = { change, amount ->
+                            change.consume()
+                            rowCoords?.let { onDragMove(it, change.position, amount.y) }
+                        },
+                        onDragEnd = onDragEnd,
+                        onDragCancel = onDragEnd,
+                    )
+                }
+                .clickable { onToggle(!todo.done) }
                 .padding(ROW_PAD),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,

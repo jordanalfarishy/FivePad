@@ -22,6 +22,7 @@
     <!-- Text formatting -->
     <string name="format_title">Text</string>
     <string name="format_view_markdown">View as Markdown</string>
+    <string name="format_view_markdown_short">Markdown</string>
     <string name="format_view_normal">View as normal text</string>
     <string name="format_sub_header">Sub header</string>
     <string name="format_link">Link</string>

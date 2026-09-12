@@ -19,6 +19,7 @@
     <!-- Format teks -->
     <string name="format_title">Teks</string>
     <string name="format_view_markdown">Lihat sebagai Markdown</string>
+    <string name="format_view_markdown_short">Markdown</string>
     <string name="format_view_normal">Lihat sebagai teks biasa</string>
     <string name="format_sub_header">Subjudul</string>
     <string name="format_link">Tautan</string>
