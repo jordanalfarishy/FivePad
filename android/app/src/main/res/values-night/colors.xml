@@ -9,4 +9,12 @@
       adalah penyelesai sumber daya.
     -->
     <color name="splash_background">#19191B</color>
+
+    <!--
+      Latar plat ikon versi gelap — berkas "app icon - dark.svg".
+
+      Belum terlihat di peluncur mana pun yang diuji; lihat catatannya di
+      values/colors.xml.
+    -->
+    <color name="icon_background">#19191B</color>
 </resources>

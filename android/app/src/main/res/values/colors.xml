@@ -5,6 +5,23 @@
     <color name="brand_background_light">#EAEAE8</color>
 
     <!--
+      Latar plat ikon peluncur — berkas "app icon - light.svg".
+
+      Inilah plat yang benar-benar terlihat di layar utama. Diukur di perangkat:
+      peluncur menyelesaikan ikon aplikasi lain dengan konfigurasi tetap, jadi
+      nilai bertanda `-night` **tidak** ikut mode gelap perangkat — mengganti
+      mode gelap lalu memulai ulang peluncur tetap menghasilkan plat ini.
+      Pasangan gelapnya tetap disimpan di values-night/ sebagai satu-satunya
+      tempat yang benar untuknya, dan supaya kelak dipakai di tempat aplikasi
+      menggambar ikonnya sendiri (widget, halaman tentang).
+
+      Amber, bukan gelap: ikon duduk di atas wallpaper orang, dan #19191B lebur
+      ke wallpaper gelap — persis keadaan yang paling umum. Menukarnya cukup
+      satu baris di sini.
+    -->
+    <color name="icon_background">#FFA910</color>
+
+    <!--
       Latar layar pembuka versi terang — node Figma 6:2162. #F9F9F9, bukan
       #EAEAE8: bingkai pembukanya memakai warna chrome, bukan warna halaman.
       Pasangan gelapnya ada di values-night/.
