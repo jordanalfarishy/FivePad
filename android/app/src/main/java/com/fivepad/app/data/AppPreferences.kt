@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 enum class ThemeMode { DARK, LIGHT }
 
 /**
- * Pilihan pengguna yang bukan data: sejauh ini hanya tema.
+ * Pilihan tampilan lokal: tema, slot terakhir, dan tampilan Markdown.
  *
  * Memakai SharedPreferences, bukan DataStore, justru karena ia sinkron. Tema
  * harus sudah diketahui pada bingkai pertama — kalau dibaca secara asinkron,
@@ -21,6 +21,14 @@ class AppPreferences(context: Context) {
 
     private val _theme = MutableStateFlow(readTheme())
     val theme: StateFlow<ThemeMode> = _theme
+
+    var lastSlot: Int
+        get() = prefs.getInt("lastSlot", 1).coerceIn(1, Note.SLOT_COUNT)
+        set(value) { prefs.edit().putInt("lastSlot", value.coerceIn(1, Note.SLOT_COUNT)).apply() }
+
+    var markdownView: Boolean
+        get() = prefs.getBoolean("markdownView", false)
+        set(value) { prefs.edit().putBoolean("markdownView", value).apply() }
 
     fun setTheme(mode: ThemeMode) {
         prefs.edit().putString(KEY_THEME, mode.name).apply()

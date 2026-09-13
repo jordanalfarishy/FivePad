@@ -72,7 +72,10 @@ class MainActivity : ComponentActivity() {
             FivePadTheme(theme) {
                 HomeScreen(
                     request = request.value,
-                    onRequestHandled = { request.value = LaunchRequest() },
+                    onRequestHandled = {
+                        request.value = LaunchRequest()
+                        setIntent(Intent(this, MainActivity::class.java).setAction(Intent.ACTION_MAIN))
+                    },
                 )
             }
         }

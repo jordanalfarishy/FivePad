@@ -20,11 +20,11 @@ abstract class FivePadDatabase : RoomDatabase() {
     abstract fun noteRevisions(): NoteRevisionDao
 
     companion object {
-        fun build(context: Context): FivePadDatabase =
+        fun build(context: Context, name: String = "fivepad.db"): FivePadDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
                 FivePadDatabase::class.java,
-                "fivepad.db",
+                name,
             )
                 .addCallback(SeedFiveSlots)
                 .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)

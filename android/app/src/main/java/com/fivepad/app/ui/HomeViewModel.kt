@@ -10,13 +10,12 @@ import com.fivepad.app.FivePadApplication
 import com.fivepad.app.data.AppPreferences
 import com.fivepad.app.data.FivePadRepository
 import com.fivepad.app.data.Note
+import com.fivepad.app.data.NoteRevision
 import com.fivepad.app.data.Todo
 import com.fivepad.app.data.Recurrence
 import com.fivepad.app.data.ThemeMode
 import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.reminder.Reminders
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +25,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** Slot yang baru dikosongkan, beserta revisi yang bisa mengembalikannya. */
-data class ClearedSlot(val slot: Int, val revisionId: String)
+data class ClearedSlot(val slot: Int, val revisionId: String, val body: String)
 
 /** Satu bagian daftar tugas. [group] null berarti kumpulan tugas tanpa grup. */
 data class TaskSection(
@@ -97,42 +96,60 @@ class HomeViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    private var autosaveJob: Job? = null
+    private val application = app as FivePadApplication
+    private val writes get() = application.noteWrites
+    val saveErrors get() = application.noteErrors
+    val lastSlot get() = preferences.lastSlot
+    fun selectSlot(slot: Int) { preferences.lastSlot = slot }
+    var markdownView: Boolean
+        get() = preferences.markdownView
+        set(value) { preferences.markdownView = value }
 
-    /**
-     * FR-1.4: simpan 400 ms setelah pengguna berhenti mengetik. Job sebelumnya
-     * dibatalkan setiap ketikan, jadi mengetik terus-menerus tidak menulis ke disk.
-     */
+    // Queue every edit immediately; one slot can never cancel another slot's save.
     fun onBodyChanged(slot: Int, body: String) {
         val clipped = body.take(Note.MAX_BODY_LENGTH)
         drafts.update { it + (slot to clipped) }
-        autosaveJob?.cancel()
-        autosaveJob = viewModelScope.launch {
-            delay(AUTOSAVE_DELAY_MS)
-            repo.saveBody(slot, clipped)
-        }
+        writes.submit { repo.saveBody(slot, clipped) }
     }
 
-    /**
-     * Nama slot melewati draft lebih dulu, sama seperti isi catatan.
-     *
-     * Dikirim langsung ke basis data, gemanya kembali beberapa bingkai
-     * kemudian — dan beberapa nilai lama sempat beredar di jalan. Kolom teks
-     * yang menerima nilai-nilai itu sebagai "perubahan dari luar" akan
-     * memindahkan kursornya di tengah orang mengetik: "judul" keluar sebagai
-     * "udulj". Draft di sini diperbarui seketika, jadi gemanya hanya satu dan
-     * selalu sama dengan yang baru saja dikirim.
-     */
     fun onLabelChanged(slot: Int, label: String) {
-        labelDrafts.update { it + (slot to label) }
-        labelSaveJob?.cancel()
-        labelSaveJob = viewModelScope.launch {
-            delay(AUTOSAVE_DELAY_MS)
-            repo.saveLabel(slot, label)
-        }
+        val clipped = label.take(Note.MAX_LABEL_LENGTH)
+        labelDrafts.update { it + (slot to clipped) }
+        writes.submit { repo.saveLabel(slot, clipped) }
     }
 
-    private var labelSaveJob: Job? = null
+    fun history(slot: Int) = repo.observeHistory(slot)
+    fun deleteHistory(slot: Int) { writes.submit { repo.deleteHistory(slot) } }
+
+    fun restoreNote(revision: NoteRevision) {
+        drafts.update { it + (revision.slot to revision.body) }
+        writes.submit { repo.restoreBody(revision.slot, revision.body) }
+    }
+
+    fun importNotes(notes: List<Note>) {
+        require(notes.map { it.slot }.sorted() == (1..Note.SLOT_COUNT).toList())
+        require(notes.all { it.body.length <= Note.MAX_BODY_LENGTH && it.label.length <= Note.MAX_LABEL_LENGTH })
+        // Update immediately so an ON_STOP flush cannot enqueue pre-import text after the import.
+        drafts.update { it + notes.associate { note -> note.slot to note.body } }
+        labelDrafts.update { it + notes.associate { note -> note.slot to note.label } }
+        writes.submit { repo.replaceNotes(notes) }
+    }
+
+    fun appendText(slot: Int, text: String): Boolean {
+        val body = drafts.value[slot] ?: uiState.value.draftFor(slot)
+        val appended = if (body.isEmpty()) text else "$body\n\n$text"
+        if (appended.length > Note.MAX_BODY_LENGTH) return false
+        onBodyChanged(slot, appended)
+        return true
+    }
+
+    suspend fun exportNotes(): List<Note> {
+        writes.awaitIdle()
+        // Include the current drafts even if an earlier disk write failed.
+        return repo.allNotes().map { note ->
+            note.copy(body = drafts.value[note.slot] ?: note.body, label = labelDrafts.value[note.slot] ?: note.label)
+        }
+    }
 
     /**
      * Revisi hasil pengosongan slot yang masih bisa diurungkan, atau null.
@@ -145,34 +162,32 @@ class HomeViewModel(
     private val _clearedSlot = MutableStateFlow<ClearedSlot?>(null)
     val clearedSlot: StateFlow<ClearedSlot?> = _clearedSlot
 
-    /** FR-1.11. Mengosongkan slot setelah isinya disimpan sebagai revisi. */
-    fun clearSlot(slot: Int) = viewModelScope.launch {
-        autosaveJob?.cancel()
-        // Draft di memori harus ikut dikosongkan. Tanpa ini editor masih
-        // memegang teks lama, dan autosave berikutnya akan menuliskannya
-        // kembali ke basis data — pengosongan yang membatalkan dirinya sendiri.
-        val id = repo.clearSlot(slot) ?: return@launch
+    /** The queue persists preceding keystrokes before creating the clear revision. */
+    fun clearSlot(slot: Int) {
         drafts.update { it + (slot to "") }
-        _clearedSlot.value = ClearedSlot(slot, id)
+        writes.submit {
+            val id = repo.clearSlot(slot) ?: return@submit
+            val revision = repo.findRevision(id) ?: return@submit
+            _clearedSlot.value = ClearedSlot(slot, id, revision.body)
+        }
     }
 
-    fun undoClearSlot() = viewModelScope.launch {
-        val cleared = _clearedSlot.value ?: return@launch
+    fun undoClearSlot() {
+        val cleared = _clearedSlot.value ?: return
         _clearedSlot.value = null
-        val note = repo.restoreRevision(cleared.revisionId) ?: return@launch
-        drafts.update { it + (note.slot to note.body) }
+        drafts.update { it + (cleared.slot to cleared.body) }
+        writes.submit { repo.restoreBody(cleared.slot, cleared.body) }
     }
 
-    fun dismissClearedSlot() {
-        _clearedSlot.value = null
-    }
+    fun dismissClearedSlot() { _clearedSlot.value = null }
 
-    /** Dipanggil dari ON_STOP, supaya proses yang dimatikan sistem tidak membawa ketikan. */
+    /** Retry the current body AND label drafts when leaving the screen. */
     fun flushPendingSaves() {
-        autosaveJob?.cancel()
-        val snapshot = drafts.value
-        viewModelScope.launch {
-            snapshot.forEach { (slot, body) -> repo.saveBody(slot, body) }
+        val bodies = drafts.value
+        val labels = labelDrafts.value
+        writes.submit {
+            bodies.forEach { (slot, body) -> repo.saveBody(slot, body) }
+            labels.forEach { (slot, label) -> repo.saveLabel(slot, label) }
         }
     }
 
@@ -278,8 +293,6 @@ class HomeViewModel(
     fun deleteGroup(id: String) = viewModelScope.launch { repo.deleteGroup(id) }
 
     companion object {
-        const val AUTOSAVE_DELAY_MS = 400L
-
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as FivePadApplication

@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.Flow
 interface NoteDao {
 
     @Query("SELECT * FROM notes ORDER BY slot")
+    suspend fun all(): List<Note>
+
+    @Query("SELECT * FROM notes ORDER BY slot")
     fun observeAll(): Flow<List<Note>>
 
     @Query("SELECT * FROM notes WHERE slot = :slot")
@@ -101,6 +104,15 @@ interface TodoGroupDao {
 
 @Dao
 interface NoteRevisionDao {
+
+    @Query("SELECT * FROM note_revisions WHERE slot = :slot AND createdAt >= :since ORDER BY createdAt DESC, id DESC")
+    fun observe(slot: Int, since: Long): Flow<List<NoteRevision>>
+
+    @Query("SELECT * FROM note_revisions WHERE slot = :slot ORDER BY createdAt DESC, id DESC LIMIT 1")
+    suspend fun latest(slot: Int): NoteRevision?
+
+    @Query("DELETE FROM note_revisions WHERE slot = :slot")
+    suspend fun deleteForSlot(slot: Int)
 
     @Insert
     suspend fun insert(revision: NoteRevision)

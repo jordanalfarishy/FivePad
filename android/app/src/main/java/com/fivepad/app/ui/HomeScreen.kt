@@ -142,6 +142,28 @@ fun HomeScreen(
     onRequestHandled: () -> Unit = {},
 ) {
     var showSettings by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+    val saveError by vm.saveErrors.collectAsStateWithLifecycle()
+    LaunchedEffect(saveError) {
+        if (saveError) {
+            Toast.makeText(context, R.string.notes_save_failed, Toast.LENGTH_LONG).show()
+            vm.saveErrors.value = false
+        }
+    }
+    LaunchedEffect(request) {
+        if (request.slot != null || request.sharedText != null) showSettings = false
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) vm.flushPendingSaves()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            vm.flushPendingSaves()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Pengaturan masuk dari tepi kanan dan keluar ke arah yang sama. Arah itu
     // yang memberi tahu di mana layar sebelumnya berada: ia tidak hilang, ia
@@ -195,9 +217,11 @@ private fun MainScreen(
     val clearedSlot by vm.clearedSlot.collectAsStateWithLifecycle()
     val clearedTodos by vm.clearedTodos.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(TAB_NOTES) }
-    val pager = rememberPagerState(pageCount = { Note.SLOT_COUNT })
+    val pager = rememberPagerState(initialPage = vm.lastSlot - 1, pageCount = { Note.SLOT_COUNT })
     val scope = rememberCoroutineScope()
     var slotOptions by remember { mutableStateOf<Int?>(null) }
+    val selectedTexts = remember { mutableMapOf<Int, String>() }
+    var shareSelection by remember { mutableStateOf("") }
     var confirmClear by remember { mutableStateOf<Int?>(null) }
     var focusSlot by remember { mutableStateOf<Int?>(null) }
     var formatSheet by remember { mutableStateOf(false) }
@@ -207,10 +231,55 @@ private fun MainScreen(
     // akan terasa seperti aplikasi yang lupa apa yang barusan dipilih.
     // Tampilan Markdown adalah pilihan membaca, bukan isi catatan — satu
     // sakelar untuk kelima slot, dan bertahan melewati rotasi layar.
-    var markdownView by rememberSaveable { mutableStateOf(false) }
+    var markdownView by rememberSaveable { mutableStateOf(vm.markdownView) }
     val clipboard = LocalClipboard.current
     val context = LocalContext.current
     val copiedMessage = stringResource(R.string.slot_copied)
+    var historySlot by remember { mutableStateOf<Int?>(null) }
+    var exportSlot by rememberSaveable { mutableStateOf<Int?>(null) }
+    val exportNote = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("text/markdown"),
+    ) { uri ->
+        val slot = exportSlot
+        if (uri != null && slot != null) {
+            val body = state.draftFor(slot)
+            scope.launch {
+                try {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        checkNotNull(context.contentResolver.openOutputStream(uri, "wt"))
+                            .bufferedWriter().use { it.write(body) }
+                    }
+                    Toast.makeText(context, R.string.notes_exported, Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {
+                    Toast.makeText(context, R.string.notes_file_failed, Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }.collect { vm.selectSlot(it + 1) }
+    }
+    historySlot?.let { slot -> NoteHistorySheet(slot, vm) { historySlot = null } }
+    request.sharedText?.let { shared ->
+        if (state.notes.size == Note.SLOT_COUNT) {
+            OptionsSheet(
+                title = stringResource(R.string.notes_share_to),
+                actions = (1..Note.SLOT_COUNT).map { slot ->
+                    SheetAction(
+                        label = state.labelFor(slot).ifEmpty { stringResource(R.string.slot_description, slot) },
+                        description = state.draftFor(slot).take(80),
+                        onClick = {
+                            if (vm.appendText(slot, shared)) {
+                                tab = TAB_NOTES
+                                scope.launch { pager.scrollToPage(slot - 1) }
+                            } else Toast.makeText(context, R.string.notes_too_long, Toast.LENGTH_LONG).show()
+                        },
+                    )
+                },
+                onDismiss = onRequestHandled,
+            )
+        }
+    }
 
     // FR-6.2. Dibuka dari peluncur, niatnya kosong dan blok ini tidak berbuat
     // apa-apa; dibuka dari widget atau tautan, slotnya dipilih dan papan ketik
@@ -242,15 +311,6 @@ private fun MainScreen(
         }
     }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) vm.flushPendingSaves()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
     val notesActive = tab == TAB_NOTES
 
     // Kedua tab memakai permukaan yang sama persis. Warna slot tidak lagi
@@ -280,12 +340,17 @@ private fun MainScreen(
             TopBar(
                 notesActive = notesActive,
                 activeSlot = pager.currentPage + 1,
-                onOpenSettings = onOpenSettings,
+                onOpenSettings = { vm.selectSlot(pager.currentPage + 1); vm.flushPendingSaves(); onOpenSettings() },
                 onSelectSlot = { slot ->
                     tab = TAB_NOTES
                     scope.launch { pager.animateScrollToPage(slot - 1) }
                 },
-                onSlotOptions = { slot -> slotOptions = slot },
+                onSlotOptions = { slot ->
+                    if (state.notes.size == Note.SLOT_COUNT) {
+                        shareSelection = selectedTexts[slot].orEmpty()
+                        slotOptions = slot
+                    }
+                },
                 onOpenFormat = { formatSheet = true },
             )
 
@@ -307,7 +372,11 @@ private fun MainScreen(
                     .weight(1f)
                     .padding(bottom = contentInset),
             ) {
-                if (notesActive) {
+                if (notesActive && state.notes.size != Note.SLOT_COUNT) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.CircularProgressIndicator()
+                    }
+                } else if (notesActive) {
                     NotesPane(
                         state = state,
                         vm = vm,
@@ -317,6 +386,7 @@ private fun MainScreen(
                         markdownView = markdownView,
                         pendingFormat = pendingFormat,
                         onFormatHandled = { pendingFormat = null },
+                        onSelectionChanged = { slot, text -> selectedTexts[slot] = text },
                     )
                 } else {
                     TasksScreen(
@@ -364,7 +434,7 @@ private fun MainScreen(
         TextFormatSheet(
             markdownView = markdownView,
             accent = colors.slotAccents[pager.currentPage],
-            onToggleView = { markdownView = !markdownView },
+            onToggleView = { markdownView = !markdownView; vm.markdownView = markdownView },
             onAction = { pendingFormat = it },
             onDismiss = { formatSheet = false },
         )
@@ -404,12 +474,67 @@ private fun MainScreen(
                     },
                 ),
                 SheetAction(
+                    label = stringResource(R.string.slot_paste),
+                    icon = painterResource(R.drawable.ic_paste),
+                    description = stringResource(R.string.slot_paste_description),
+                    onClick = {
+                        scope.launch {
+                            val clip = clipboard.getClipEntry()?.clipData
+                            val pasted = if (clip != null && clip.itemCount > 0)
+                                clip.getItemAt(0).text?.toString() else null
+                            when {
+                                pasted.isNullOrEmpty() -> Toast.makeText(context, R.string.notes_clipboard_empty, Toast.LENGTH_SHORT).show()
+                                !vm.appendText(slot, pasted) -> Toast.makeText(context, R.string.notes_too_long, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    },
+                ),
+                SheetAction(
+                    label = stringResource(R.string.slot_share),
+                    icon = painterResource(R.drawable.ic_share),
+                    onClick = {
+                        try {
+                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, state.draftFor(slot))
+                            }, null))
+                        } catch (_: ActivityNotFoundException) {
+                            Toast.makeText(context, R.string.notes_share_failed, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                ),
+                SheetAction(
+                    label = stringResource(R.string.slot_export),
+                    icon = painterResource(R.drawable.ic_export),
+                    onClick = { exportSlot = slot; exportNote.launch("FivePad-slot-$slot.md") },
+                ),
+                SheetAction(
+                    label = stringResource(R.string.slot_history),
+                    icon = painterResource(R.drawable.ic_history),
+                    onClick = { historySlot = slot },
+                ),
+                SheetAction(
                     label = stringResource(R.string.slot_clear),
                     icon = painterResource(R.drawable.ic_delete),
                     destructive = true,
                     onClick = { confirmClear = slot },
                 ),
-            ),
+            ) + if (shareSelection.isNotEmpty()) listOf(
+                SheetAction(
+                    label = stringResource(R.string.slot_share_selection),
+                    icon = painterResource(R.drawable.ic_share),
+                    onClick = {
+                        try {
+                            context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, shareSelection)
+                            }, null))
+                        } catch (_: ActivityNotFoundException) {
+                            Toast.makeText(context, R.string.notes_share_failed, Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                ),
+            ) else emptyList(),
             onDismiss = { slotOptions = null },
         )
     }
@@ -752,6 +877,7 @@ private fun NotesPane(
     markdownView: Boolean,
     pendingFormat: MarkdownAction?,
     onFormatHandled: () -> Unit,
+    onSelectionChanged: (Int, String) -> Unit,
 ) {
     val colors = LocalFivePadColors.current
     val ink = colors.ink
@@ -815,6 +941,10 @@ private fun NotesPane(
                 selection = TextRange(field.selection.start.coerceAtMost(text.length)),
             )
             echoed = text
+        }
+
+        LaunchedEffect(field.text, field.selection) {
+            onSelectionChanged(slot, field.text.substring(field.selection.min, field.selection.max))
         }
 
         // Satu-satunya jalan keluar perubahan dari editor ini.

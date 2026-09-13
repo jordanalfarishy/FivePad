@@ -7,13 +7,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/**
- * Pilihan cepat jatuh tempo.
- *
- * Jamnya sengaja tidak ditanyakan pada pilihan cepat: menuntut jam untuk
- * "besok" mengubah tindakan dua ketukan jadi enam. Yang butuh jam spesifik
- * memakai pemilih tanggal.
- */
+/** Converts calendar dates and clock times to local reminder timestamps. */
 object DueDates {
 
     private val zone: ZoneId get() = ZoneId.systemDefault()
@@ -21,14 +15,8 @@ object DueDates {
     private fun at(date: LocalDate, time: LocalTime): Long =
         date.atTime(time).atZone(zone).toInstant().toEpochMilli()
 
-    fun todayEvening(): Long = at(LocalDate.now(), LocalTime.of(18, 0))
-
-    fun tomorrowMorning(): Long = at(LocalDate.now().plusDays(1), LocalTime.of(9, 0))
-
-    fun nextWeek(): Long = at(LocalDate.now().plusWeeks(1), LocalTime.of(9, 0))
-
     /** Material dates are UTC midnight; interpret the chosen clock time locally. */
-    fun fromPickedDate(utcMillis: Long, hour: Int = 9, minute: Int = 0): Long {
+    fun fromPickedDate(utcMillis: Long, hour: Int, minute: Int): Long {
         val date = Instant.ofEpochMilli(utcMillis).atZone(ZoneId.of("UTC")).toLocalDate()
         return at(date, LocalTime.of(hour, minute))
     }

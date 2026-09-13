@@ -16,11 +16,50 @@ class FivePadRepository(private val db: FivePadDatabase) {
 
     fun observeGroups(): Flow<List<TodoGroup>> = groups.observeActive()
 
-    suspend fun saveBody(slot: Int, body: String) =
-        notes.updateBody(slot, body.take(Note.MAX_BODY_LENGTH), now())
+    suspend fun allNotes(): List<Note> = notes.all()
 
-    suspend fun saveLabel(slot: Int, label: String) =
-        notes.updateLabel(slot, label.take(Note.MAX_LABEL_LENGTH), now())
+    fun observeHistory(slot: Int) = revisions.observe(slot, now() - NoteRevision.RETENTION_MS)
+
+    suspend fun findRevision(id: String) = revisions.find(id)
+
+    suspend fun deleteHistory(slot: Int) = revisions.deleteForSlot(slot)
+
+    suspend fun saveBody(slot: Int, body: String) = db.withTransaction {
+        val old = notes.find(slot) ?: return@withTransaction
+        val clipped = body.take(Note.MAX_BODY_LENGTH)
+        if (old.body == clipped) return@withTransaction
+        val latest = revisions.latest(slot)
+        val removedText = clipped.isEmpty() || old.body.length - clipped.length >= 128
+        if (old.body.isNotEmpty() && (removedText || latest == null || now() - latest.createdAt >= 5 * 60_000L)) {
+            snapshot(slot, old.body)
+        }
+        notes.updateBody(slot, clipped, now())
+    }
+
+    suspend fun saveLabel(slot: Int, label: String) = db.withTransaction {
+        val clipped = label.take(Note.MAX_LABEL_LENGTH)
+        if (notes.find(slot)?.label != clipped) notes.updateLabel(slot, clipped, now())
+    }
+
+    private suspend fun snapshot(slot: Int, body: String): String {
+        val revision = NoteRevision(slot = slot, body = body)
+        revisions.insert(revision)
+        revisions.trim(slot, NoteRevision.KEEP_PER_SLOT)
+        revisions.purgeOlderThan(now() - NoteRevision.RETENTION_MS)
+        return revision.id
+    }
+
+    /** Validate the whole import before changing any of the five existing slots. */
+    suspend fun replaceNotes(imported: List<Note>) = db.withTransaction {
+        require(imported.map { it.slot }.sorted() == (1..Note.SLOT_COUNT).toList())
+        require(imported.all { it.body.length <= Note.MAX_BODY_LENGTH && it.label.length <= Note.MAX_LABEL_LENGTH })
+        imported.forEach { note ->
+            val old = notes.find(note.slot) ?: error("Missing slot")
+            if (old.body != note.body) snapshot(note.slot, old.body)
+            notes.updateBody(note.slot, note.body, now())
+            notes.updateLabel(note.slot, note.label, now())
+        }
+    }
 
     /**
      * Tugas baru selalu mendarat di akhir grupnya. Jarak [POSITION_GAP] menyisakan
@@ -59,20 +98,23 @@ class FivePadRepository(private val db: FivePadDatabase) {
         val body = notes.find(slot)?.body.orEmpty()
         if (body.isEmpty()) return@withTransaction null
 
-        val revision = NoteRevision(slot = slot, body = body)
-        revisions.insert(revision)
-        revisions.trim(slot, NoteRevision.KEEP_PER_SLOT)
-        revisions.purgeOlderThan(now() - NoteRevision.RETENTION_MS)
+        val revisionId = snapshot(slot, body)
         notes.updateBody(slot, "", now())
-        revision.id
+        revisionId
     }
 
-    /** Mengembalikan isi slot dari sebuah revisi, lalu membuang revisinya. */
+    /** Save the displaced text too, so restoring history is itself reversible. */
     suspend fun restoreRevision(id: String): Note? = db.withTransaction {
         val revision = revisions.find(id) ?: return@withTransaction null
-        notes.updateBody(revision.slot, revision.body, now())
-        revisions.delete(id)
-        notes.find(revision.slot)
+        restoreBody(revision.slot, revision.body)
+    }
+
+    suspend fun restoreBody(slot: Int, body: String): Note? = db.withTransaction {
+        require(body.length <= Note.MAX_BODY_LENGTH)
+        val current = notes.find(slot) ?: return@withTransaction null
+        if (current.body != body) snapshot(slot, current.body)
+        notes.updateBody(slot, body, now())
+        notes.find(slot)
     }
 
     suspend fun setTodoDone(id: String, done: Boolean) = db.withTransaction {

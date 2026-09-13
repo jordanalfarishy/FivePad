@@ -12,13 +12,13 @@ import com.fivepad.app.data.Note
  * dari tebakan — `ACTION_MAIN` tidak membawa data maupun extra, jadi peluncur
  * otomatis jatuh ke perilaku "hanya tampil" tanpa perlu diperiksa khusus.
  *
- * Produsen niat ini — widget (FR-6.3) dan ubin (FR-6.5) — baru datang di M4.
- * Penanganannya dibuat lebih dulu supaya keduanya tinggal mengirim niat, dan
- * jalur ini sudah bisa diuji hari ini lewat tautan `fivepad://slot/3`.
+ * Widget dan ubin Pengaturan Cepat memakai tautan `fivepad://slot/3`.
+ * ACTION_SEND membawa teks ke pemilih slot tanpa menimpa catatan secara otomatis.
  */
 data class LaunchRequest(
     val slot: Int? = null,
     val focusEditor: Boolean = false,
+    val sharedText: String? = null,
 ) {
     companion object {
         const val EXTRA_SLOT = "com.fivepad.app.extra.SLOT"
@@ -29,6 +29,9 @@ data class LaunchRequest(
 
         fun from(intent: Intent?): LaunchRequest {
             if (intent == null) return LaunchRequest()
+            if (intent.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+                return LaunchRequest(sharedText = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString())
+            }
 
             val data = intent.data
             if (data != null && data.scheme == SCHEME && data.host == HOST_SLOT) {

@@ -79,8 +79,14 @@ fun SettingsScreen(
 ) {
     val colors = LocalFivePadColors.current
     val context = LocalContext.current
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val termsUrl = stringResource(R.string.url_terms)
+    val privacyUrl = stringResource(R.string.url_privacy)
+    val loginPending = stringResource(R.string.settings_login_pending)
     val theme by vm.theme.collectAsStateWithLifecycle()
     var themePicker by remember { mutableStateOf(false) }
+    var backups by remember { mutableStateOf(false) }
+    if (backups) NoteBackupsSheet(vm) { backups = false }
 
     fun open(url: String) {
         // Situsnya belum ada. Bila tidak ada peramban sama sekali, niatnya
@@ -158,12 +164,16 @@ fun SettingsScreen(
                 )
                 ValueRow(
                     label = stringResource(R.string.settings_language),
-                    value = Locale.getDefault().getDisplayLanguage(Locale.getDefault())
+                    value = locale.getDisplayLanguage(locale)
                         .replaceFirstChar { it.uppercase() },
                     onClick = { openLanguageSettings(context) },
                 )
             }
 
+            Separator()
+            Section(stringResource(R.string.notes_backups)) {
+                LinkRow(label = stringResource(R.string.notes_manage_backups), onClick = { backups = true })
+            }
             Separator()
 
             Section(stringResource(R.string.settings_section_version, versionName(context))) {
@@ -173,11 +183,11 @@ fun SettingsScreen(
                 )
                 LinkRow(
                     label = stringResource(R.string.settings_terms),
-                    onClick = { open(context.getString(R.string.url_terms)) },
+                    onClick = { open(termsUrl) },
                 )
                 LinkRow(
                     label = stringResource(R.string.settings_privacy),
-                    onClick = { open(context.getString(R.string.url_privacy)) },
+                    onClick = { open(privacyUrl) },
                 )
             }
 
@@ -185,7 +195,7 @@ fun SettingsScreen(
                 onLogin = {
                     Toast.makeText(
                         context,
-                        context.getString(R.string.settings_login_pending),
+                        loginPending,
                         Toast.LENGTH_LONG,
                     ).show()
                 },

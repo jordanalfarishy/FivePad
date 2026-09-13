@@ -50,7 +50,7 @@ fun applyMarkdown(value: TextFieldValue, action: MarkdownAction): TextFieldValue
 
     MarkdownAction.HEADER -> heading(value, 1)
     MarkdownAction.SUB_HEADER -> heading(value, 2)
-    MarkdownAction.QUOTE -> prefixLines(value, "> ")
+    MarkdownAction.QUOTE -> quoteLines(value)
     MarkdownAction.LIST -> prefixLines(value, "- ", alternates = listOf("* ", "+ "))
     MarkdownAction.ORDERED_LIST -> numberLines(value)
     MarkdownAction.TODO -> prefixLines(value, "- [ ] ", alternates = listOf("- [x] ", "- [] "))
@@ -125,6 +125,18 @@ private fun lineSpan(text: String, selection: TextRange): IntRange {
         .let { if (it < 0 || selection.min == 0) 0 else it + 1 }
     val end = text.indexOf('\n', selection.max).let { if (it < 0) text.length else it }
     return start..end
+}
+
+/** Quote is the outer prefix: do not skip it when deciding whether to remove it. */
+private fun quoteLines(value: TextFieldValue): TextFieldValue {
+    val span = lineSpan(value.text, value.selection)
+    val lines = value.text.substring(span.first, span.last).split("\n")
+    val allQuoted = lines.all { QUOTE_LEAD.containsMatchIn(it) }
+    val updated = lines.map { line ->
+        if (allQuoted) line.replaceFirst(QUOTE_LEAD, "")
+        else if (QUOTE_LEAD.containsMatchIn(line)) line else "> $line"
+    }
+    return replaceSpan(value, span, updated.joinToString("\n"))
 }
 
 private val ANY_HEADING = Regex("""^#{1,6}\s+""")

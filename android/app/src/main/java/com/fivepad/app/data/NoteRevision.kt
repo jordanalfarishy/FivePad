@@ -5,17 +5,9 @@ import androidx.room.PrimaryKey
 import java.util.UUID
 
 /**
- * Salinan isi sebuah slot sebelum isinya dibuang.
- *
- * Tabel ini sudah ada di §9 PRD sebagai `note_revisions`, dan dipakai FR-1.11:
- * "Kosongkan slot" menyimpan isi lama lebih dulu, baru menghapusnya. Tanpa itu,
- * satu ketukan pada tindakan yang tidak bisa diurungkan akan memusnahkan
- * catatan sepanjang apa pun — dan konfirmasi saja tidak menolong orang yang
- * menekan "ya" karena kebiasaan.
- *
- * Revisi hanya dibuat oleh tindakan yang merusak, bukan oleh setiap autosave.
- * Menyimpan setiap ketikan akan mengubah tabel ini jadi log tak berujung yang
- * ikut disinkronkan di M2, demi riwayat yang tidak pernah diminta siapa pun.
+ * Local recovery text: before clear/restore/import and periodically during editing.
+ * Normal edits checkpoint at most once every five minutes; clearing text also
+ * checkpoints immediately. Retention is bounded to ten versions and thirty days.
  */
 @Entity(tableName = "note_revisions")
 data class NoteRevision(

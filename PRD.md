@@ -12,6 +12,9 @@ Lima slot catatan, satu daftar tugas, tersinkron antara macOS dan Android — da
 
 > Versi web dokumen ini (dengan filter platform pada §8): https://claude.ai/code/artifact/ba54b8fd-ac3e-40fe-aad4-823538eac8c0
 
+> **Pembaruan implementasi Android Notes — 14 September 2026:** audit perbandingan FiveNotes Mobile dan rincian implementasi terbaru tersedia di [Mobile Notes feature audit](docs/mobile-notes-feature-audit.md). Penyimpanan catatan kini langsung masuk antrean berurutan, menggantikan debounce 400 ms; slot terakhir dan mode Markdown tersimpan. Aksi tempel/bagikan/ekspor, riwayat pemulihan, cadangan catatan lokal, impor dengan pratinjau, penerimaan teks berbagi, widget catatan, dan ubin Pengaturan Cepat telah ditambahkan. Sinkronisasi serta ekspor/impor tugas tetap fase berikutnya.
+
+
 ---
 
 ## Daftar isi
