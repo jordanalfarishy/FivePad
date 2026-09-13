@@ -1,5 +1,14 @@
 package com.fivepad.app.ui
 
+import android.text.format.DateFormat
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TimeInput
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import com.fivepad.app.data.Recurrence
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
@@ -48,6 +57,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -455,22 +466,29 @@ fun TaskEditorSheet(
     title: String,
     initialText: String,
     initialDue: Long?,
+    initialRecurrence: Recurrence = Recurrence.NONE,
     confirmLabel: String,
     /** Enter menyimpan lalu mengosongkan kolom, bukan menutup lembar — FR-2.2. */
     repeatable: Boolean = false,
     onDismiss: () -> Unit,
-    onConfirm: (String, Long?) -> Unit,
+    onConfirm: (String, Long?, Recurrence) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val sheetState = rememberModalBottomSheetState()
-    var text by remember { mutableStateOf(initialText) }
-    var due by remember { mutableStateOf(initialDue) }
-    var dueOpen by remember { mutableStateOf(false) }
-    var picking by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var text by rememberSaveable { mutableStateOf(initialText) }
+    var due by rememberSaveable { mutableStateOf(initialDue) }
+    var recurrence by rememberSaveable { mutableStateOf(initialRecurrence) }
+    var dueOpen by rememberSaveable { mutableStateOf(false) }
+    var picking by rememberSaveable { mutableStateOf(false) }
+    var pickedDate by rememberSaveable { mutableStateOf<Long?>(null) }
+    var repeatOpen by rememberSaveable { mutableStateOf(false) }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val canSave = text.isNotBlank() && (recurrence == Recurrence.NONE || due != null)
     val focus = remember { FocusRequester() }
 
     fun setDue(value: Long?) {
         due = value
+        if (value == null) recurrence = Recurrence.NONE
         dueOpen = false
     }
 
@@ -484,6 +502,7 @@ fun TaskEditorSheet(
         Column(
             Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
                 .imePadding()
                 .padding(bottom = Tokens.space4),
@@ -501,14 +520,15 @@ fun TaskEditorSheet(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
-                    if (text.isBlank()) return@KeyboardActions
-                    onConfirm(text, due)
+                    if (!canSave) return@KeyboardActions
+                    onConfirm(text, due, recurrence)
                     if (repeatable) {
                         // Jatuh temponya ikut direset: tanggal tugas sebelumnya
                         // yang menempel diam-diam pada tugas berikutnya adalah
                         // pengingat yang tidak pernah diminta siapa pun.
                         text = ""
                         due = null
+                        recurrence = Recurrence.NONE
                         dueOpen = false
                     } else {
                         onDismiss()
@@ -525,7 +545,7 @@ fun TaskEditorSheet(
                     ?: stringResource(R.string.due_set),
                 icon = painterResource(R.drawable.ic_schedule),
                 tint = scheme.onSurface,
-                onClick = { dueOpen = !dueOpen },
+                onClick = { keyboard?.hide(); dueOpen = !dueOpen },
             )
 
             if (dueOpen) {
@@ -551,7 +571,7 @@ fun TaskEditorSheet(
                     label = stringResource(R.string.due_pick),
                     icon = painterResource(R.drawable.ic_calendar_month),
                     tint = scheme.onSurfaceVariant,
-                    onClick = { picking = true },
+                    onClick = { keyboard?.hide(); picking = true },
                 )
             }
 
@@ -561,6 +581,21 @@ fun TaskEditorSheet(
                     icon = painterResource(R.drawable.ic_close),
                     tint = scheme.onSurfaceVariant,
                     onClick = { setDue(null) },
+                )
+            }
+
+            SheetRow(
+                label = stringResource(R.string.task_repeat, stringResource(recurrence.labelRes())),
+                icon = painterResource(R.drawable.ic_repeat),
+                tint = scheme.onSurface,
+                onClick = { keyboard?.hide(); repeatOpen = true },
+            )
+            if (recurrence != Recurrence.NONE) {
+                Text(
+                    stringResource(if (due == null) R.string.repeat_needs_date else R.string.repeat_explainer),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (due == null) scheme.error else scheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = Tokens.space5),
                 )
             }
 
@@ -575,27 +610,29 @@ fun TaskEditorSheet(
                 }
                 TextButton(
                     onClick = {
-                        onConfirm(text, due)
+                        onConfirm(text, due, recurrence)
                         onDismiss()
                     },
-                    enabled = text.isNotBlank(),
+                    enabled = canSave,
                 ) { Text(confirmLabel) }
             }
         }
     }
 
     if (picking) {
-        val pickerState = rememberDatePickerState()
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = DueDates.toPickedDate(due ?: DueDates.tomorrowMorning()),
+        )
         DatePickerDialog(
             onDismissRequest = { picking = false },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        pickerState.selectedDateMillis?.let { setDue(DueDates.fromPickedDate(it)) }
+                        pickedDate = pickerState.selectedDateMillis
                         picking = false
                     },
                     enabled = pickerState.selectedDateMillis != null,
-                ) { Text(stringResource(R.string.dialog_save)) }
+                ) { Text(stringResource(R.string.dialog_next)) }
             },
             dismissButton = {
                 TextButton(onClick = { picking = false }) {
@@ -604,6 +641,61 @@ fun TaskEditorSheet(
             },
         ) { DatePicker(state = pickerState) }
     }
+
+    pickedDate?.let { date ->
+        val initialTime = DueDates.localTime(due ?: DueDates.tomorrowMorning())
+        val timeState = rememberTimePickerState(
+            initialHour = initialTime.hour,
+            initialMinute = initialTime.minute,
+            is24Hour = DateFormat.is24HourFormat(LocalContext.current),
+        )
+        AlertDialog(
+            onDismissRequest = { pickedDate = null },
+            title = { Text(stringResource(R.string.reminder_time)) },
+            text = { TimeInput(state = timeState) },
+            confirmButton = {
+                TextButton(onClick = {
+                    setDue(DueDates.fromPickedDate(date, timeState.hour, timeState.minute))
+                    pickedDate = null
+                }) { Text(stringResource(R.string.dialog_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickedDate = null }) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
+        )
+    }
+
+    if (repeatOpen) {
+        AlertDialog(
+            onDismissRequest = { repeatOpen = false },
+            title = { Text(stringResource(R.string.repeat_title)) },
+            text = {
+                Column {
+                    Recurrence.entries.forEach { option ->
+                        TextButton(
+                            onClick = { recurrence = option; repeatOpen = false },
+                            modifier = Modifier.fillMaxWidth().semantics { selected = option == recurrence },
+                        ) {
+                            if (option == recurrence) {
+                                Icon(painterResource(R.drawable.ic_check), contentDescription = null)
+                                Spacer(Modifier.width(Tokens.space2))
+                            }
+                            Text(stringResource(option.labelRes()))
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { repeatOpen = false }) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
+        )
+    }
+
 }
 
 /**

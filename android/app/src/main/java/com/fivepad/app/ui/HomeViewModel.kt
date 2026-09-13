@@ -11,6 +11,7 @@ import com.fivepad.app.data.AppPreferences
 import com.fivepad.app.data.FivePadRepository
 import com.fivepad.app.data.Note
 import com.fivepad.app.data.Todo
+import com.fivepad.app.data.Recurrence
 import com.fivepad.app.data.ThemeMode
 import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.reminder.Reminders
@@ -180,8 +181,8 @@ class HomeViewModel(
      * lembar tambah-tugas sudah menanyakannya sekalian, jadi pengingatnya harus
      * terpasang sejak tugas itu ada.
      */
-    fun addTodo(text: String, groupId: String?, dueAt: Long?) = viewModelScope.launch {
-        val todo = repo.addTodo(text, groupId, dueAt) ?: return@launch
+    fun addTodo(text: String, groupId: String?, dueAt: Long?, recurrence: Recurrence) = viewModelScope.launch {
+        val todo = repo.addTodo(text, groupId, dueAt, recurrence) ?: return@launch
         if (dueAt != null && dueAt > System.currentTimeMillis()) {
             Reminders.schedule(app, todo.id, todo.text, dueAt)
         }
@@ -195,34 +196,19 @@ class HomeViewModel(
      */
     fun setTodoDone(id: String, done: Boolean) = viewModelScope.launch {
         repo.setTodoDone(id, done)
-        if (done) {
-            Reminders.cancel(app, id)
-        } else {
-            val todo = repo.findTodo(id)
-            val due = todo?.dueAt
-            if (todo != null && due != null && due > System.currentTimeMillis()) {
-                Reminders.schedule(app, id, todo.text, due)
-            }
-        }
+        refreshReminder(id)
     }
 
-    fun setTodoDue(id: String, dueAt: Long?) = viewModelScope.launch {
-        repo.setTodoDue(id, dueAt)
-        val todo = repo.findTodo(id)
-        if (dueAt != null && todo != null && !todo.done) {
-            Reminders.schedule(app, id, todo.text, dueAt)
-        } else {
-            Reminders.cancel(app, id)
-        }
+    fun editTodo(id: String, text: String, dueAt: Long?, recurrence: Recurrence) = viewModelScope.launch {
+        repo.editTodo(id, text, dueAt, recurrence)
+        refreshReminder(id)
     }
 
-    fun setTodoText(id: String, text: String) = viewModelScope.launch {
-        repo.setTodoText(id, text)
-        // Teks tugas ikut terbawa ke dalam notifikasi, jadi alarm dijadwalkan
-        // ulang supaya isinya tidak basi saat berbunyi nanti.
-        val todo = repo.findTodo(id)
-        val due = todo?.dueAt
-        if (todo != null && due != null && !todo.done && due > System.currentTimeMillis()) {
+    private suspend fun refreshReminder(id: String) {
+        Reminders.cancel(app, id)
+        val todo = repo.findTodo(id) ?: return
+        val due = todo.dueAt ?: return
+        if (!todo.done && todo.deletedAt == null && due > System.currentTimeMillis()) {
             Reminders.schedule(app, id, todo.text, due)
         }
     }

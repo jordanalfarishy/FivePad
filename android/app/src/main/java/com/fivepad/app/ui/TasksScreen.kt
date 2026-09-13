@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
+import com.fivepad.app.data.Recurrence
 import com.fivepad.app.data.TodoGroup
 import com.fivepad.app.ui.theme.CheckedStroke
 import com.fivepad.app.ui.theme.FilledAccent
@@ -102,15 +103,14 @@ private val EMPTY_BUTTON_RADIUS = 35.dp
 @Composable
 fun TasksScreen(
     state: HomeUiState,
-    onAddTask: (String, String?, Long?) -> Unit,
+    onAddTask: (String, String?, Long?, Recurrence) -> Unit,
     onToggle: (String, Boolean) -> Unit,
-    onEditTask: (String, String) -> Unit,
+    onEditTask: (String, String, Long?, Recurrence) -> Unit,
     onDeleteTask: (String) -> Unit,
     onRestoreTask: (String) -> Unit,
     onAddGroup: (String) -> Unit,
     onRenameGroup: (String, String) -> Unit,
     onDeleteGroup: (String) -> Unit,
-    onSetDue: (String, Long?) -> Unit,
     onMoveTaskToSection: (String, String?, Double?, Double?) -> Unit,
     onMoveGroup: (Int, Int) -> Unit,
     onClearCompleted: () -> Unit,
@@ -298,8 +298,8 @@ fun TasksScreen(
             // lembarnya, sehingga beberapa tugas bisa diketik beruntun.
             repeatable = true,
             onDismiss = { composing = null },
-            onConfirm = { text, due ->
-                onAddTask(text, sectionKey.takeIf { it != UNGROUPED_KEY }, due)
+            onConfirm = { text, due, recurrence ->
+                onAddTask(text, sectionKey.takeIf { it != UNGROUPED_KEY }, due, recurrence)
                 if (due != null) askForReminders()
             },
         )
@@ -310,12 +310,12 @@ fun TasksScreen(
             title = stringResource(R.string.task_edit),
             initialText = todo.text,
             initialDue = todo.dueAt,
+            initialRecurrence = todo.recurrence,
             confirmLabel = stringResource(R.string.dialog_save),
             repeatable = false,
             onDismiss = { editing = null },
-            onConfirm = { text, due ->
-                if (text != todo.text) onEditTask(todo.id, text)
-                if (due != todo.dueAt) onSetDue(todo.id, due)
+            onConfirm = { text, due, recurrence ->
+                onEditTask(todo.id, text, due, recurrence)
                 if (due != null && due != todo.dueAt) askForReminders()
             },
         )
@@ -739,7 +739,9 @@ private fun TaskRow(
                             "${stringResource(R.string.due_overdue)} · ${DueDates.format(due)}"
                         } else {
                             DueDates.format(due)
-                        },
+                        } + if (todo.recurrence != Recurrence.NONE) {
+                            " · ${stringResource(todo.recurrence.labelRes())}"
+                        } else "",
                         fontSize = 12.sp,
                         lineHeight = 16.sp,
                         fontWeight = if (overdue) FontWeight.SemiBold else FontWeight.Normal,

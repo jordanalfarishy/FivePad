@@ -93,14 +93,24 @@
     <string name="reminder_channel_name">Task reminders</string>
     <string name="reminder_channel_description">Notifies you when a task is due</string>
     <string name="reminder_title">Task due</string>
-    <string name="due_set">Set due date</string>
-    <string name="due_remove">Remove due date</string>
+    <string name="due_set">Set reminder</string>
+    <string name="due_remove">Remove reminder</string>
     <string name="due_today">Today, 6:00 PM</string>
     <string name="due_tomorrow">Tomorrow, 9:00 AM</string>
     <string name="due_next_week">Next week</string>
-    <string name="due_pick">Pick a date…</string>
+    <string name="due_pick">Pick date and time…</string>
     <string name="due_overdue">Overdue</string>
     <string name="permission_notifications_denied">Reminders need notification permission. You can grant it in system settings.</string>
     <string name="move_up">Move up</string>
     <string name="move_down">Move down</string>
+    <string name="dialog_next">Next</string>
+    <string name="reminder_time">Reminder time</string>
+    <string name="task_repeat">Repeat: %1$s</string>
+    <string name="repeat_title">Repeat task</string>
+    <string name="repeat_none">Never</string>
+    <string name="repeat_daily">Daily</string>
+    <string name="repeat_weekly">Weekly</string>
+    <string name="repeat_monthly">Monthly</string>
+    <string name="repeat_needs_date">Choose a reminder date and time for this recurring task.</string>
+    <string name="repeat_explainer">Completing this task moves it to the next scheduled date and sets a new reminder.</string>
 </resources>

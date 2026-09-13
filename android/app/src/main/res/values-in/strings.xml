@@ -83,14 +83,24 @@
     <string name="reminder_channel_name">Pengingat tugas</string>
     <string name="reminder_channel_description">Memberi tahu saat tugas jatuh tempo</string>
     <string name="reminder_title">Tugas jatuh tempo</string>
-    <string name="due_set">Atur jatuh tempo</string>
-    <string name="due_remove">Hapus jatuh tempo</string>
+    <string name="due_set">Atur pengingat</string>
+    <string name="due_remove">Hapus pengingat</string>
     <string name="due_today">Hari ini, 18.00</string>
     <string name="due_tomorrow">Besok, 09.00</string>
     <string name="due_next_week">Minggu depan</string>
-    <string name="due_pick">Pilih tanggal…</string>
+    <string name="due_pick">Pilih tanggal dan waktu…</string>
     <string name="due_overdue">Terlambat</string>
     <string name="permission_notifications_denied">Pengingat butuh izin notifikasi. Kamu bisa memberikannya di pengaturan sistem.</string>
     <string name="move_up">Naikkan</string>
     <string name="move_down">Turunkan</string>
+    <string name="dialog_next">Lanjut</string>
+    <string name="reminder_time">Waktu pengingat</string>
+    <string name="task_repeat">Ulangi: %1$s</string>
+    <string name="repeat_title">Ulangi tugas</string>
+    <string name="repeat_none">Tidak pernah</string>
+    <string name="repeat_daily">Setiap hari</string>
+    <string name="repeat_weekly">Setiap minggu</string>
+    <string name="repeat_monthly">Setiap bulan</string>
+    <string name="repeat_needs_date">Pilih tanggal dan waktu pengingat untuk tugas berulang ini.</string>
+    <string name="repeat_explainer">Menyelesaikan tugas ini memindahkannya ke jadwal berikutnya dan memasang pengingat baru.</string>
 </resources>

@@ -59,6 +59,7 @@ object Reminders {
     }
 
     fun cancel(context: Context, taskId: String) {
+        NotificationManagerCompat.from(context).cancel(taskId.hashCode())
         context.getSystemService<AlarmManager>()
             ?.cancel(pendingIntent(context, taskId, text = ""))
     }

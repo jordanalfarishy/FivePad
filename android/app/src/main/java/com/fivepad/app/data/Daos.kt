@@ -40,11 +40,8 @@ interface TodoDao {
     @Insert
     suspend fun insert(todo: Todo)
 
-    @Query("UPDATE todos SET done = :done, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
-    suspend fun setDone(id: String, done: Boolean, now: Long)
-
-    @Query("UPDATE todos SET text = :text, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
-    suspend fun setText(id: String, text: String, now: Long)
+    @androidx.room.Update
+    suspend fun update(todo: Todo)
 
     @Query("UPDATE todos SET deletedAt = :now, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun softDelete(id: String, now: Long)
@@ -54,9 +51,6 @@ interface TodoDao {
 
     @Query("UPDATE todos SET groupId = :groupId, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun setGroup(id: String, groupId: String?, now: Long)
-
-    @Query("UPDATE todos SET dueAt = :dueAt, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
-    suspend fun setDue(id: String, dueAt: Long?, now: Long)
 
     @Query("UPDATE todos SET position = :position, updatedAt = :now, clientUpdatedAt = :now WHERE id = :id")
     suspend fun setPosition(id: String, position: Double, now: Long)

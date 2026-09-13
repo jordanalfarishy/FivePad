@@ -1,5 +1,6 @@
 package com.fivepad.app.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -25,11 +26,27 @@ data class Todo(
     /** Null berarti tugas berada di luar grup mana pun. */
     val groupId: String? = null,
     val dueAt: Long? = null,
+    @ColumnInfo(defaultValue = "'NONE'")
+    val recurrence: Recurrence = Recurrence.NONE,
+    val recurrenceAnchorAt: Long? = null,
     val updatedAt: Long = System.currentTimeMillis(),
     val clientUpdatedAt: Long = System.currentTimeMillis(),
     val deviceId: String? = null,
     val deletedAt: Long? = null,
 ) {
+    /** Complete this occurrence, or keep the next occurrence active when repeating. */
+    fun withCompletion(done: Boolean, now: Long): Todo {
+        val next = if (done && !this.done && dueAt != null) {
+            recurrence.nextDue(recurrenceAnchorAt ?: dueAt, maxOf(now, dueAt))
+        } else null
+        return copy(
+            done = if (next != null) false else done,
+            dueAt = next ?: dueAt,
+            updatedAt = now,
+            clientUpdatedAt = now,
+        )
+    }
+
     companion object {
         const val MAX_TEXT_LENGTH = 500
     }

@@ -26,7 +26,12 @@ class FivePadRepository(private val db: FivePadDatabase) {
      * Tugas baru selalu mendarat di akhir grupnya. Jarak [POSITION_GAP] menyisakan
      * ruang di antara dua tugas untuk penyisipan nanti tanpa menyentuh baris lain.
      */
-    suspend fun addTodo(text: String, groupId: String? = null, dueAt: Long? = null): Todo? {
+    suspend fun addTodo(
+        text: String,
+        groupId: String? = null,
+        dueAt: Long? = null,
+        recurrence: Recurrence = Recurrence.NONE,
+    ): Todo? {
         val trimmed = text.trim().take(Todo.MAX_TEXT_LENGTH)
         if (trimmed.isEmpty()) return null
         val todo = Todo(
@@ -34,6 +39,8 @@ class FivePadRepository(private val db: FivePadDatabase) {
             position = todos.maxPosition() + POSITION_GAP,
             groupId = groupId,
             dueAt = dueAt,
+            recurrence = if (dueAt == null) Recurrence.NONE else recurrence,
+            recurrenceAnchorAt = dueAt.takeIf { recurrence != Recurrence.NONE },
         )
         todos.insert(todo)
         return todo
@@ -68,7 +75,25 @@ class FivePadRepository(private val db: FivePadDatabase) {
         notes.find(revision.slot)
     }
 
-    suspend fun setTodoDone(id: String, done: Boolean) = todos.setDone(id, done, now())
+    suspend fun setTodoDone(id: String, done: Boolean) = db.withTransaction {
+        val todo = todos.find(id)?.takeIf { it.deletedAt == null } ?: return@withTransaction
+        todos.update(todo.withCompletion(done, now()))
+    }
+
+    suspend fun editTodo(id: String, text: String, dueAt: Long?, recurrence: Recurrence) = db.withTransaction {
+        val todo = todos.find(id)?.takeIf { it.deletedAt == null } ?: return@withTransaction
+        val trimmed = text.trim().take(Todo.MAX_TEXT_LENGTH)
+        if (trimmed.isEmpty()) return@withTransaction
+        val repeat = if (dueAt == null) Recurrence.NONE else recurrence
+        val anchor = if (repeat == Recurrence.NONE) null
+            else if (dueAt == todo.dueAt && repeat == todo.recurrence) todo.recurrenceAnchorAt ?: dueAt
+            else dueAt
+        val stamp = now()
+        todos.update(todo.copy(
+            text = trimmed, dueAt = dueAt, recurrence = repeat, recurrenceAnchorAt = anchor,
+            updatedAt = stamp, clientUpdatedAt = stamp,
+        ))
+    }
 
     /**
      * FR-2.9: membuang seluruh tugas yang sudah selesai sekaligus.
@@ -89,12 +114,7 @@ class FivePadRepository(private val db: FivePadDatabase) {
         ids.forEach { todos.restore(it, stamp) }
     }
 
-    suspend fun setTodoText(id: String, text: String) =
-        todos.setText(id, text.trim().take(Todo.MAX_TEXT_LENGTH), now())
-
     suspend fun setTodoGroup(id: String, groupId: String?) = todos.setGroup(id, groupId, now())
-
-    suspend fun setTodoDue(id: String, dueAt: Long?) = todos.setDue(id, dueAt, now())
 
     suspend fun findTodo(id: String): Todo? = todos.find(id)
 

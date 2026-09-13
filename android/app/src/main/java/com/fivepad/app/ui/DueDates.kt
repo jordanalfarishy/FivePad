@@ -27,11 +27,16 @@ object DueDates {
 
     fun nextWeek(): Long = at(LocalDate.now().plusWeeks(1), LocalTime.of(9, 0))
 
-    /** Tanggal dari pemilih datang sebagai tengah malam UTC; jamnya diset 09.00 lokal. */
-    fun fromPickedDate(utcMillis: Long): Long {
+    /** Material dates are UTC midnight; interpret the chosen clock time locally. */
+    fun fromPickedDate(utcMillis: Long, hour: Int = 9, minute: Int = 0): Long {
         val date = Instant.ofEpochMilli(utcMillis).atZone(ZoneId.of("UTC")).toLocalDate()
-        return at(date, LocalTime.of(9, 0))
+        return at(date, LocalTime.of(hour, minute))
     }
+
+    fun toPickedDate(millis: Long): Long = Instant.ofEpochMilli(millis).atZone(zone)
+        .toLocalDate().atStartOfDay(ZoneId.of("UTC")).toInstant().toEpochMilli()
+
+    fun localTime(millis: Long): LocalTime = Instant.ofEpochMilli(millis).atZone(zone).toLocalTime()
 
     fun isOverdue(millis: Long): Boolean = millis < System.currentTimeMillis()
 
