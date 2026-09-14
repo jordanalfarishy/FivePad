@@ -313,7 +313,6 @@ private fun MainScreen(
     }
 
     val notesActive = tab == TAB_NOTES
-    BackHandler(enabled = !notesActive) { tab = TAB_NOTES }
 
     // Kedua tab memakai permukaan yang sama persis. Warna slot tidak lagi
     // mengisi layar; yang membawanya tinggal titik penanda dan nama catatan.
@@ -417,15 +416,13 @@ private fun MainScreen(
                 )
             }
 
-            if (notesActive) {
-                BottomNav(
-                    modifier = Modifier.onSizeChanged { barHeightPx = it.height },
-                    selected = tab,
-                    doneCount = state.doneCount,
-                    totalCount = state.totalCount,
-                    onSelect = { tab = it },
-                )
-            }
+            BottomNav(
+                modifier = Modifier.onSizeChanged { barHeightPx = it.height },
+                selected = tab,
+                doneCount = state.doneCount,
+                totalCount = state.totalCount,
+                onSelect = { tab = it },
+            )
         }
     }
 
@@ -664,9 +661,6 @@ private fun TopBar(
             }
         }
 
-        // Bilah atas catatan tidak bergaris — pemisahnya ada di bawah baris
-        // judul, yang ikut menggulung bersama isinya.
-        if (!notesActive) HorizontalDivider(color = colors.hairline)
     }
 }
 
