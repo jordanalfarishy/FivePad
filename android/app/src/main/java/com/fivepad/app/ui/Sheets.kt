@@ -56,6 +56,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextFieldColors
 import com.fivepad.app.R
 import com.fivepad.app.data.Todo
 import com.fivepad.app.ui.markdown.MarkdownAction
@@ -92,7 +95,7 @@ internal fun SheetRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .playfulClick(onClick = onClick)
             .padding(horizontal = Tokens.space5, vertical = Tokens.space3),
         horizontalArrangement = Arrangement.spacedBy(Tokens.space4),
         verticalAlignment = Alignment.CenterVertically,
@@ -122,9 +125,9 @@ internal fun SheetRow(
 private fun SheetTitle(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.titleSmall,
+        style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(
             start = Tokens.space5,
             end = Tokens.space5,
@@ -154,7 +157,8 @@ fun OptionsSheet(
     ModalBottomSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
-        containerColor = scheme.surfaceContainer,
+        containerColor = scheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         Column(
             Modifier
@@ -200,8 +204,8 @@ fun TextPromptSheet(
     onConfirm: (String) -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val sheetState = rememberModalBottomSheetState()
-    var value by remember { mutableStateOf(initial) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var value by rememberSaveable { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -209,25 +213,27 @@ fun TextPromptSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = scheme.surfaceContainer,
+        containerColor = scheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .imePadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = Tokens.space5)
                 .padding(bottom = Tokens.space4),
         ) {
             Text(
                 title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = scheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = Tokens.space3),
             )
 
-            OutlinedTextField(
+            SheetTextField(
                 value = value,
                 onValueChange = { if (it.length <= maxLength) value = it },
                 placeholder = { Text(hint) },
@@ -253,7 +259,7 @@ fun TextPromptSheet(
                 TextButton(onClick = onDismiss) {
                     Text(stringResource(R.string.dialog_cancel), color = scheme.onSurfaceVariant)
                 }
-                TextButton(
+                Button(
                     onClick = {
                         onConfirm(value)
                         onDismiss()
@@ -268,7 +274,7 @@ fun TextPromptSheet(
 /**
  * Menu penyuntingan teks catatan — ikon `match_case` di bilah atas.
  *
- * Petak, bukan daftar. Dua belas tindakan sebagai baris bertumpuk menghasilkan
+ * Petak, bukan daftar. Sebelas tindakan sebagai baris bertumpuk menghasilkan
  * lembar setinggi hampir satu layar, dan lembar setinggi itu menutupi justru
  * catatan yang sedang diformat.
  *
@@ -294,17 +300,19 @@ fun TextFormatSheet(
 ) {
     val scheme = MaterialTheme.colorScheme
     val colors = LocalFivePadColors.current
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = scheme.surfaceContainer,
+        containerColor = scheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = Tokens.space4),
         ) {
             Row(
@@ -315,7 +323,7 @@ fun TextFormatSheet(
             ) {
                 Text(
                     stringResource(R.string.format_title),
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.titleMedium,
                     color = colors.muted,
                     modifier = Modifier.weight(1f),
                 )
@@ -385,7 +393,7 @@ private val FORMAT_GROUPS = listOf(
         MarkdownAction.CODE,
     ),
     listOf(MarkdownAction.LIST, MarkdownAction.ORDERED_LIST, MarkdownAction.TODO),
-    listOf(MarkdownAction.QUOTE, MarkdownAction.CODE_BLOCK),
+    listOf(MarkdownAction.QUOTE),
 )
 
 @Composable
@@ -397,7 +405,7 @@ private fun FormatTile(action: MarkdownAction, modifier: Modifier, onClick: () -
         modifier
             .clip(RoundedCornerShape(Tokens.space2))
             .background(colors.ink.copy(alpha = 0.06f))
-            .clickable(onClick = onClick)
+            .playfulClick(onClick = onClick)
             .padding(vertical = Tokens.space2, horizontal = Tokens.space1),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -436,7 +444,6 @@ private val MarkdownAction.labelRes: Int
         MarkdownAction.TODO -> R.string.format_todo
         MarkdownAction.QUOTE -> R.string.format_quote
         MarkdownAction.CODE -> R.string.format_code
-        MarkdownAction.CODE_BLOCK -> R.string.format_code_block
         MarkdownAction.LINK -> R.string.format_link
     }
 
@@ -475,7 +482,8 @@ fun TaskEditorSheet(
             } else onDismiss()
         },
         sheetState = sheetState,
-        containerColor = scheme.surfaceContainer,
+        containerColor = scheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         if (reminderOpen) {
             ReminderEditor(
@@ -503,7 +511,7 @@ fun TaskEditorSheet(
                     .padding(bottom = Tokens.space4),
             ) {
                 SheetTitle(title)
-                OutlinedTextField(
+                SheetTextField(
                     value = text,
                     onValueChange = { if (it.length <= Todo.MAX_TEXT_LENGTH) text = it },
                     placeholder = { Text(stringResource(R.string.task_text_hint)) },
@@ -541,7 +549,7 @@ fun TaskEditorSheet(
                     TextButton(onClick = onDismiss) {
                         Text(stringResource(R.string.dialog_cancel), color = scheme.onSurfaceVariant)
                     }
-                    TextButton(
+                    Button(
                         onClick = {
                             onConfirm(text, due, recurrence)
                             onDismiss()
@@ -575,17 +583,13 @@ fun LinkSheet(
     onDismiss: () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val sheetState = rememberModalBottomSheetState()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     // Warna slot, bukan aksen aplikasi. Aksen aplikasi merah, dan kolom isian
     // bergaris merah dengan label merah adalah tampilan kolom yang salah isi —
     // padahal kolomnya baru saja terbuka dan belum diisi apa pun.
-    val fieldColors = OutlinedTextFieldDefaults.colors(
-        focusedBorderColor = accent,
-        focusedLabelColor = accent,
-        cursorColor = accent,
-    )
-    var label by remember { mutableStateOf(initialLabel) }
-    var url by remember { mutableStateOf("") }
+    val fieldColors = sheetFieldColors(accent)
+    var label by rememberSaveable { mutableStateOf(initialLabel) }
+    var url by rememberSaveable { mutableStateOf("") }
     val focus = remember { FocusRequester() }
 
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -593,20 +597,22 @@ fun LinkSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = scheme.surfaceContainer,
+        containerColor = scheme.surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
     ) {
         Column(
             Modifier
                 .fillMaxWidth()
                 .imePadding()
                 .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = Tokens.space5)
                 .padding(bottom = Tokens.space4),
             verticalArrangement = Arrangement.spacedBy(Tokens.space2),
         ) {
             SheetTitle(stringResource(R.string.format_link))
 
-            OutlinedTextField(
+            SheetTextField(
                 value = label,
                 onValueChange = { label = it },
                 label = { Text(stringResource(R.string.link_label)) },
@@ -614,7 +620,7 @@ fun LinkSheet(
                 colors = fieldColors,
                 modifier = Modifier.fillMaxWidth(),
             )
-            OutlinedTextField(
+            SheetTextField(
                 value = url,
                 onValueChange = { url = it },
                 label = { Text(stringResource(R.string.link_url)) },
@@ -642,7 +648,7 @@ fun LinkSheet(
                 TextButton(onClick = onDismiss) {
                     Text(stringResource(R.string.dialog_cancel), color = scheme.onSurfaceVariant)
                 }
-                TextButton(
+                Button(
                     onClick = {
                         onConfirm(label, url.trim())
                         onDismiss()
@@ -659,3 +665,38 @@ fun LinkSheet(
 
 /** Contoh alamat. Bukan nilai awal — kolom yang sudah terisi cenderung dikirim apa adanya. */
 private const val LINK_HINT = "https://"
+
+/** Consistent field surface and focus treatment across all sheet forms. */
+@Composable
+private fun sheetFieldColors(accent: Color = MaterialTheme.colorScheme.onSurfaceVariant): TextFieldColors {
+    val scheme = MaterialTheme.colorScheme
+    return OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = scheme.surfaceContainerLow,
+        unfocusedContainerColor = scheme.surfaceContainerLow,
+        focusedBorderColor = accent.copy(alpha = 0.65f),
+        unfocusedBorderColor = scheme.outlineVariant,
+        focusedLabelColor = scheme.onSurfaceVariant,
+        cursorColor = accent,
+    )
+}
+
+@Composable
+private fun SheetTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: (@Composable () -> Unit)? = null,
+    label: (@Composable () -> Unit)? = null,
+    singleLine: Boolean = true,
+    colors: TextFieldColors = sheetFieldColors(),
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
+    OutlinedTextField(
+        value = value, onValueChange = onValueChange, modifier = modifier,
+        placeholder = placeholder, label = label, singleLine = singleLine,
+        colors = colors, shape = RoundedCornerShape(12.dp),
+        textStyle = MaterialTheme.typography.bodyLarge,
+        keyboardOptions = keyboardOptions, keyboardActions = keyboardActions,
+    )
+}

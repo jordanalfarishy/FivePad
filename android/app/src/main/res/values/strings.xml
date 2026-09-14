@@ -37,7 +37,6 @@
     <string name="format_list">List</string>
     <string name="format_ordered_list">Ordered List</string>
     <string name="format_code">Code</string>
-    <string name="format_code_block">Code Block</string>
     <string name="note_format">Text options</string>
 
     <!-- Tasks -->

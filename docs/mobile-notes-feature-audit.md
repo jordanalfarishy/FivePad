@@ -58,9 +58,9 @@ Immediate writes remove the old 400 ms debounce loss window and preserve orderin
 3. **Platform expansions:** Wear OS and richer automation read/append APIs require separate product work.
 4. **Other PRD scope:** cross-slot search, task widgets, and full-app export/import including tasks are not completed by this Notes-focused change.
 
-The Tasks tab's existing grouping, reminders, recurrence, and ordering are outside this comparison. Concurrent task/date-picker changes in the shared workspace were preserved.
+The Tasks tab's existing grouping, reminders, recurrence, and ordering are outside this comparison. For subsequent interface changes, see [Android UI notes](android-ui.md).
 
-## Verification
+## Verification at the original audit (before the UI refresh)
 
 - Debug app and instrumentation APKs build successfully.
 - All **19 JVM unit tests** pass: 7 Notes save/Markdown tests and 12 existing task/date tests.

@@ -34,7 +34,6 @@
     <string name="format_list">Daftar</string>
     <string name="format_ordered_list">Daftar Bernomor</string>
     <string name="format_code">Kode</string>
-    <string name="format_code_block">Blok Kode</string>
     <string name="note_format">Opsi teks</string>
 
     <!-- Tugas -->

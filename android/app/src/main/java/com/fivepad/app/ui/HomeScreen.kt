@@ -602,7 +602,7 @@ private fun TopBar(
                 Modifier
                     .width(Tokens.topBarHeight)
                     .fillMaxHeight()
-                    .clickable(onClick = onOpenSettings),
+                    .playfulClick(onClick = onOpenSettings),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -648,7 +648,7 @@ private fun TopBar(
                     Modifier
                         .width(Tokens.topBarHeight)
                         .fillMaxHeight()
-                        .clickable(onClick = onOpenFormat),
+                        .playfulClick(onClick = onOpenFormat),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -798,7 +798,7 @@ private fun NavItem(
                 .height(Tokens.pillHeight)
                 .clip(RoundedCornerShape(Tokens.radiusPill))
                 .background(if (selected) accent.copy(alpha = PILL_ALPHA) else Color.Transparent)
-                .clickable(onClick = onClick)
+                .playfulClick(onClick = onClick)
                 // Ikon tanpa teks butuh label yang dibacakan pembaca layar,
                 // kalau tidak navigasinya kosong tak bernama bagi mereka.
                 .semantics {

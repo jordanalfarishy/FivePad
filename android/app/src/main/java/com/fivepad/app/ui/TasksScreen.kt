@@ -438,7 +438,7 @@ private fun SectionColumn(
             },
         verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
     ) {
-        SectionHeader(group = section.group, onOptions = onOptions)
+        SectionHeader(group = section.group, onOptions = onOptions, onAdd = onAdd)
 
         if (section.todos.isNotEmpty()) {
             // Sudut luar 12 dp memangkas baris pertama dan terakhir, sementara
@@ -478,11 +478,6 @@ private fun SectionColumn(
             }
         }
 
-        AddRow(
-            label = stringResource(R.string.task_new),
-            labelColor = MaterialTheme.colorScheme.onSurface,
-            onClick = onAdd,
-        )
     }
 }
 
@@ -548,7 +543,7 @@ private fun Separator() {
 }
 
 @Composable
-private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
+private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit, onAdd: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
 
     Row(
@@ -565,30 +560,13 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit) {
             color = LocalFivePadColors.current.muted,
             modifier = Modifier.weight(1f),
         )
-        // Kelompok tanpa grup bukan grup, jadi tidak bisa diubah nama atau dihapus.
+        androidx.compose.material3.IconButton(onClick = onAdd) {
+            Icon(painterResource(R.drawable.ic_add), stringResource(R.string.task_new), tint = scheme.primary)
+        }
         if (group != null) {
-            Box(Modifier.width(Tokens.space6), contentAlignment = Alignment.Center) {
-                // Kotak tata letak tetap 24 dp; area sentuh dilebarkan ke 48 dp
-                // lewat requiredSize, yang menembus batasan induk tanpa ikut
-                // menambah tinggi baris.
-                Box(
-                    Modifier
-                        .requiredSize(Tokens.touchTarget)
-                        .clip(CircleShape)
-                        .clickable(onClick = onOptions),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painterResource(R.drawable.ic_more_vert),
-                        contentDescription = stringResource(R.string.group_menu),
-                        // Figma menyisakan putih 60% di sini pada tema terang —
-                        // warna yang sepenuhnya tak terlihat di atas latar
-                        // terang, yang berarti menu grup tak bisa dibuka sama
-                        // sekali. Dipakai tinta redup, seperti label seksinya.
-                        tint = LocalFivePadColors.current.muted,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
+            androidx.compose.material3.IconButton(onClick = onOptions) {
+                Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.group_menu),
+                    tint = LocalFivePadColors.current.muted)
             }
         }
     }
@@ -607,7 +585,7 @@ private fun AddRow(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(ROW_RADIUS))
-            .clickable(onClick = onClick)
+            .playfulClick(onClick = onClick)
             .padding(horizontal = ROW_PAD, vertical = ADD_ROW_PAD_V),
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
         verticalAlignment = Alignment.CenterVertically,
@@ -708,7 +686,7 @@ private fun TaskRow(
                         onDragCancel = onDragEnd,
                     )
                 }
-                .clickable { onToggle(!todo.done) }
+                .playfulClick { onToggle(!todo.done) }
                 .padding(ROW_PAD),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
@@ -818,7 +796,7 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
         Modifier
             .size(Tokens.space6)
             .clip(CircleShape)
-            .clickable(onClick = onToggle),
+            .playfulClick(onClick = onToggle),
         contentAlignment = Alignment.Center,
     ) {
         if (done) {

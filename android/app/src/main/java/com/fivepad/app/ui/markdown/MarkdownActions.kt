@@ -28,7 +28,6 @@ enum class MarkdownAction(val syntax: String) {
     TODO("- [ ]"),
     QUOTE(">"),
     CODE("`"),
-    CODE_BLOCK("```"),
     LINK("[ ]( )"),
 }
 
@@ -54,7 +53,6 @@ fun applyMarkdown(value: TextFieldValue, action: MarkdownAction): TextFieldValue
     MarkdownAction.LIST -> prefixLines(value, "- ", alternates = listOf("* ", "+ "))
     MarkdownAction.ORDERED_LIST -> numberLines(value)
     MarkdownAction.TODO -> prefixLines(value, "- [ ] ", alternates = listOf("- [x] ", "- [] "))
-    MarkdownAction.CODE_BLOCK -> fence(value)
     // Tautan tidak pernah sampai ke sini: alamatnya ditanyakan lebih dulu.
     MarkdownAction.LINK -> value
 }
@@ -123,7 +121,8 @@ private fun wrap(value: TextFieldValue, marker: String): TextFieldValue {
 private fun lineSpan(text: String, selection: TextRange): IntRange {
     val start = text.lastIndexOf('\n', (selection.min - 1).coerceAtLeast(0))
         .let { if (it < 0 || selection.min == 0) 0 else it + 1 }
-    val end = text.indexOf('\n', selection.max).let { if (it < 0) text.length else it }
+    val lastSelected = if (selection.collapsed) selection.max else selection.max - 1
+    val end = text.indexOf('\n', lastSelected).let { if (it < 0) text.length else it }
     return start..end
 }
 
@@ -214,22 +213,6 @@ private fun numberLines(value: TextFieldValue): TextFieldValue {
     return replaceSpan(value, span, updated.joinToString("\n"))
 }
 
-/** Memagari baris terpilih dengan ``` di atas dan di bawah, atau melepas pagarnya. */
-private fun fence(value: TextFieldValue): TextFieldValue {
-    val text = value.text
-    val span = lineSpan(text, value.selection)
-    val lines = text.substring(span.first, span.last).split("\n")
-
-    val fenced = lines.size >= 2 && lines.first().trimStart().startsWith("```") &&
-        lines.last().trimStart().startsWith("```")
-    val updated = if (fenced) {
-        lines.subList(1, lines.size - 1)
-    } else {
-        listOf("```") + lines + listOf("```")
-    }
-    return replaceSpan(value, span, updated.joinToString("\n"))
-}
-
 private val WHOLE_LINK = Regex("""^\[([^\]\n]*)]\(([^)\n]*)\)$""")
 
 /**
@@ -271,18 +254,35 @@ fun insertLink(value: TextFieldValue, label: String, url: String): TextFieldValu
     )
 }
 
-/**
- * Mengganti satu rentang baris, lalu menyeleksi seluruh hasilnya.
- *
- * Menyeleksi ulang, bukan menaruh kursor di ujung: tindakan baris sering
- * dipakai beruntun — jadikan daftar lalu jadikan kutipan — dan seleksi yang
- * hilang setelah tindakan pertama memaksa memilih ulang untuk tindakan kedua.
- */
-private fun replaceSpan(value: TextFieldValue, span: IntRange, replacement: String): TextFieldValue =
-    TextFieldValue(
+/** Preserve the caret and selection direction when line prefixes change. */
+private fun replaceSpan(value: TextFieldValue, span: IntRange, replacement: String): TextFieldValue {
+    val original = value.text.substring(span.first, span.last)
+    val oldLines = original.split("\n")
+    val newLines = replacement.split("\n")
+    fun remap(position: Int): Int {
+        if (position < span.first) return position
+        if (position > span.last) return position + replacement.length - original.length
+        var oldStart = span.first
+        var newStart = span.first
+        oldLines.forEachIndexed { index, old ->
+            val new = newLines[index]
+            if (position <= oldStart + old.length) {
+                val shared = old.commonSuffixWith(new).length
+                val oldPrefix = old.length - shared
+                val newPrefix = new.length - shared
+                val column = position - oldStart
+                return newStart + if (column >= oldPrefix) column - oldPrefix + newPrefix else newPrefix
+            }
+            oldStart += old.length + 1
+            newStart += new.length + 1
+        }
+        return span.first + replacement.length
+    }
+    return TextFieldValue(
         text = value.text.replaceRange(span.first, span.last, replacement),
-        selection = TextRange(span.first, span.first + replacement.length),
+        selection = TextRange(remap(value.selection.start), remap(value.selection.end)),
     )
+}
 
 // --- Melanjutkan daftar saat Enter ------------------------------------------
 
@@ -318,6 +318,7 @@ fun continueListOnNewline(before: TextFieldValue, after: TextFieldValue): TextFi
     if (lineStart > caret - 1) return null
     val line = after.text.substring(lineStart, caret - 1)
 
+    val quote = QUOTE_LEAD.find(line)
     val todo = TODO_LINE.find(line)
     val ordered = if (todo == null) ORDERED_LINE.find(line) else null
     val bullet = if (todo == null && ordered == null) BULLET_LINE.find(line) else null
@@ -330,6 +331,7 @@ fun continueListOnNewline(before: TextFieldValue, after: TextFieldValue): TextFi
             ordered.groupValues[1] + (ordered.groupValues[2].toIntOrNull()?.plus(1) ?: 1) + ". " to
                 ordered.groupValues[3]
         bullet != null -> bullet.groupValues[1] + bullet.groupValues[2] + " " to bullet.groupValues[3]
+        quote != null -> quote.value to line.drop(quote.value.length)
         else -> return null
     }
 
