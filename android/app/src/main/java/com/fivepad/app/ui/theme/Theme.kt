@@ -31,11 +31,13 @@ private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
         onSurface = colors.ink,
         // Lembar dan kartu memakai permukaan baris yang sama seperti daftar
         // tugas, jadi keduanya membaca sebagai bahan yang sama.
+        surfaceContainerLow = colors.fieldSurface,
+        surfaceVariant = colors.row,
         surfaceContainer = colors.row,
         surfaceContainerHigh = colors.row,
         surfaceContainerHighest = colors.row,
         onSurfaceVariant = colors.muted,
-        outline = colors.hairline,
+        outline = colors.fieldBorder,
         outlineVariant = colors.hairline,
     )
 } else {
@@ -48,11 +50,13 @@ private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
         onBackground = colors.ink,
         surface = colors.background,
         onSurface = colors.ink,
+        surfaceContainerLow = colors.fieldSurface,
+        surfaceVariant = colors.row,
         surfaceContainer = colors.row,
         surfaceContainerHigh = colors.row,
         surfaceContainerHighest = colors.row,
         onSurfaceVariant = colors.muted,
-        outline = colors.hairline,
+        outline = colors.fieldBorder,
         outlineVariant = colors.hairline,
     )
 }

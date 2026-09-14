@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -80,15 +81,16 @@ import com.fivepad.app.ui.theme.Tokens
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 
-// Nilai diambil langsung dari Figma (node 3:377).
-private val SECTION_PAD_H = 8.dp
+// Shared task proportions; item and section gaps stay independent of row sizing.
+private val SECTION_PAD_H = 16.dp
 private val SECTION_PAD_V = 4.dp
 private val ITEM_GAP = 2.dp
 private val BLOCK_RADIUS = 12.dp
 private val ROW_RADIUS = 4.dp
 private val ROW_PAD = 12.dp
 private val ROW_GAP = 8.dp
-private val SEPARATOR_HEIGHT = 7.dp
+private val SECTION_GAP = 7.dp
+private val TASK_ROW_PAD_V = 16.dp
 private val HANDLE_SIZE = 20.dp
 
 /** `px-[12px] py-[14px]` dengan isi 20 dp — node 3:580. */
@@ -203,7 +205,7 @@ fun TasksScreen(
                         )
                     }
 
-                    item(key = "sep-${section.key()}") { Separator() }
+                    item(key = "gap-${section.key()}") { Spacer(Modifier.height(SECTION_GAP)) }
                 }
 
                 item(key = "new-group") {
@@ -533,30 +535,20 @@ private fun EmptyState(onAddTask: () -> Unit) {
 }
 
 @Composable
-private fun Separator() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(SEPARATOR_HEIGHT)
-            .background(LocalFivePadColors.current.separator),
-    )
-}
-
-@Composable
 private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit, onAdd: () -> Unit) {
     val scheme = MaterialTheme.colorScheme
 
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
+            .padding(horizontal = ROW_PAD),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            (group?.name ?: stringResource(R.string.group_none)).uppercase(),
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
-            fontWeight = FontWeight.Bold,
+            group?.name ?: stringResource(R.string.group_none),
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.SemiBold,
             color = LocalFivePadColors.current.muted,
             modifier = Modifier.weight(1f),
         )
@@ -687,7 +679,7 @@ private fun TaskRow(
                     )
                 }
                 .playfulClick { onToggle(!todo.done) }
-                .padding(ROW_PAD),
+                .padding(horizontal = ROW_PAD, vertical = TASK_ROW_PAD_V),
             horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
             verticalAlignment = Alignment.CenterVertically,
         ) {

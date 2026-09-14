@@ -12,6 +12,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.LineHeightStyle
+import com.fivepad.app.ui.theme.Tokens
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextIndent
 import androidx.compose.ui.unit.TextUnit
@@ -296,12 +298,11 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
             heading != null -> {
                 val markerEnd = contentStart + heading.value.length
                 edits += Edit(contentStart, markerEnd)
-                // Ukuran dan tinggi baris judul dari Figma: H1 26/31 dan
-                // H2 20/26 terhadap isi 16/24.
+                // Headings have proportional leading, with room above and below the glyphs.
                 val (size, height) = when (heading.groupValues[1].length) {
-                    1 -> 26f to 31f
-                    2 -> 20f to 26f
-                    else -> 18f to 24f
+                    1 -> 26f to 36f
+                    2 -> 20f to 32f
+                    else -> 18f to 30f
                 }
                 lineHeight = height
                 spans += SpanAt(
@@ -366,6 +367,7 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
         paras += ParaAt(
             ParagraphStyle(
                 lineHeight = lineHeight.sp,
+                lineHeightStyle = NOTE_LINE_HEIGHT_STYLE,
                 textIndent = TextIndent(indent.sp, hangingIndent.sp),
             ),
             start,
@@ -400,7 +402,7 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
         }
         if (tailBreak) {
             addStyle(
-                ParagraphStyle(lineHeight = (base * LINE_FACTOR).sp),
+                ParagraphStyle(lineHeight = (base * LINE_FACTOR).sp, lineHeightStyle = NOTE_LINE_HEIGHT_STYLE),
                 transformed.length - 1,
                 transformed.length,
             )
@@ -441,11 +443,16 @@ fun renderMarkdown(raw: String, palette: MarkdownPalette): MarkdownRender {
 
 private fun blockStyle(palette: MarkdownPalette) = ParagraphStyle(
     lineHeight = (palette.baseSize.value * LINE_FACTOR).sp,
+    lineHeightStyle = NOTE_LINE_HEIGHT_STYLE,
     textIndent = TextIndent(BLOCK_INDENT_DP.sp, BLOCK_INDENT_DP.sp),
 )
 
-/** Isi 16 sp pada baris 24 sp — node Figma 3:474. */
-private const val LINE_FACTOR = 24f / 16f
+/** Keep each separate Markdown paragraph as spacious as wrapped/source lines. */
+private val NOTE_LINE_HEIGHT_STYLE = LineHeightStyle(
+    alignment = LineHeightStyle.Alignment.Proportional,
+    trim = LineHeightStyle.Trim.None,
+)
+private val LINE_FACTOR = Tokens.bodyLineHeight.value / Tokens.bodyTextSize.value
 
 /** Jeda sebelum isi kutipan dan blok kode — 12 dp, node Figma 17:485. */
 private const val BLOCK_INDENT_DP = 12f

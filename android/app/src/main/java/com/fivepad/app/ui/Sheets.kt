@@ -668,14 +668,22 @@ private const val LINK_HINT = "https://"
 
 /** Consistent field surface and focus treatment across all sheet forms. */
 @Composable
-private fun sheetFieldColors(accent: Color = MaterialTheme.colorScheme.onSurfaceVariant): TextFieldColors {
+private fun sheetFieldColors(accent: Color = MaterialTheme.colorScheme.onSurface): TextFieldColors {
     val scheme = MaterialTheme.colorScheme
+    val colors = LocalFivePadColors.current
     return OutlinedTextFieldDefaults.colors(
-        focusedContainerColor = scheme.surfaceContainerLow,
-        unfocusedContainerColor = scheme.surfaceContainerLow,
-        focusedBorderColor = accent.copy(alpha = 0.65f),
-        unfocusedBorderColor = scheme.outlineVariant,
-        focusedLabelColor = scheme.onSurfaceVariant,
+        focusedTextColor = scheme.onSurface,
+        unfocusedTextColor = scheme.onSurface,
+        focusedContainerColor = colors.fieldSurface,
+        unfocusedContainerColor = colors.fieldSurface,
+        disabledContainerColor = colors.fieldSurface,
+        errorContainerColor = colors.fieldSurface,
+        focusedBorderColor = accent,
+        unfocusedBorderColor = colors.fieldBorder,
+        focusedLabelColor = colors.fieldSecondary,
+        unfocusedLabelColor = colors.fieldSecondary,
+        focusedPlaceholderColor = colors.fieldSecondary,
+        unfocusedPlaceholderColor = colors.fieldSecondary,
         cursorColor = accent,
     )
 }

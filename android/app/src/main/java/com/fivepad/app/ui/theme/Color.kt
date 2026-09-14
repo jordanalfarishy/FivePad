@@ -66,6 +66,11 @@ class FivePadColors(
      */
     val hairline: Color = if (isLight) ink.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.16f)
 
+    /** Opaque form colors keep hints and boundaries readable on either theme. */
+    val fieldSurface: Color = if (isLight) Color(0xFFC4C4CC) else Color(0xFF3A3A40)
+    val fieldSecondary: Color = if (isLight) Color(0xFF484852) else Color(0xFFC4C4CC)
+    val fieldBorder: Color = if (isLight) Color(0xFF64646F) else Color(0xFF92929C)
+
     /** Teks sekunder: label seksi, penanda Markdown, tugas selesai, placeholder. */
     val muted: Color = ink.copy(alpha = mutedAlpha)
 

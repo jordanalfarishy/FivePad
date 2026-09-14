@@ -59,7 +59,7 @@ object Tokens {
 
     val bodyTextSize = 16.sp
 
-    /** `leading-[24px]` pada isi catatan — node 3:132. */
-    val bodyLineHeight = 24.sp
+    /** Comfortable note leading shared by source and formatted views. */
+    val bodyLineHeight = 28.sp
     val captionTextSize = 12.sp
 }
