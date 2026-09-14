@@ -22,7 +22,7 @@ class FivePadColors(
     val bar: Color,
     /** Kartu baris: tugas, pengaturan, dan isi bottom sheet. */
     val row: Color,
-    /** Pita pemisah antar bagian. */
+    /** Permukaan tenang untuk jeda antarbagian. */
     val separator: Color,
     val ink: Color,
     val checkboxFill: Color,
@@ -30,17 +30,13 @@ class FivePadColors(
     /** Aksen per slot. Nilainya berbeda antar tema agar kontrasnya tetap ada. */
     val slotAccents: List<Color>,
     /**
-     * Aksen tindakan: tombol tambah, teks "New Group", kotak centang tercentang,
-     * dan pil tab Tugas. Berbeda per tema karena satu merah tidak bisa lolos
-     * 4,5:1 di atas latar gelap dan latar terang sekaligus — menaikkannya untuk
-     * yang satu menurunkannya untuk yang lain.
+     * Aksen tindakan tunggal: tombol tambah, pilihan aktif, tautan, dan kotak
+     * centang terisi. Birunya sengaja tidak dipakai sebagai permukaan konten.
      */
     val accent: Color,
     /**
-     * Opasitas teks sekunder. Nilai terendah yang mencapai 4,5:1 pada permukaan
-     * terlemah tema itu. Berbeda antar tema karena tinta gelap yang diencerkan
-     * kehilangan kontras jauh lebih cepat daripada tinta putih: 0,47 sudah cukup
-     * di tema gelap, tema terang butuh 0,65 untuk kelegapan yang sama.
+     * Opasitas teks sekunder. Dipadukan dengan tinta tiap tema untuk mendekati
+     * pasangan referensi #9A9AA2 (gelap) dan #66666E (terang).
      */
     val mutedAlpha: Float,
     /**
@@ -52,24 +48,21 @@ class FivePadColors(
      * melakukannya di kedua tema adalah pergi ke ujung skala, bukan mendekat.
      */
     val codeFill: Color,
-    /** Teks tautan. Nilainya dari Figma; keduanya lolos AA di temanya sendiri. */
+    /** Teks tautan memakai aksen tindakan yang sama di kedua tema. */
     val link: Color,
 ) {
     /**
      * Garis pemisah chrome dari isi.
      *
-     * Di tema gelap hitam 16%, di tema terang tinta 16% — keduanya garis gelap,
-     * bukan terang. Berkas Figma sempat memakai putih 16% pada bilah atas tema
-     * terang; itu menghasilkan garis yang tidak terlihat sama sekali, dan baris
-     * judul di bingkai yang sama memakai tinta 16%. Nilai yang terlihat itulah
-     * yang dipakai.
+     * Nilai eksplisit menjaga garis tetap terlihat di antara dua permukaan yang
+     * sengaja sangat berdekatan.
      */
-    val hairline: Color = if (isLight) ink.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.16f)
+    val hairline: Color = if (isLight) Color(0xFFE6E6EA) else Color(0xFF2A2A2E)
 
     /** Opaque form colors keep hints and boundaries readable on either theme. */
-    val fieldSurface: Color = if (isLight) Color(0xFFC4C4CC) else Color(0xFF3A3A40)
-    val fieldSecondary: Color = if (isLight) Color(0xFF484852) else Color(0xFFC4C4CC)
-    val fieldBorder: Color = if (isLight) Color(0xFF64646F) else Color(0xFF92929C)
+    val fieldSurface: Color = if (isLight) Color(0xFFF1F1F3) else Color(0xFF1E1E21)
+    val fieldSecondary: Color = if (isLight) Color(0xFF66666E) else Color(0xFF9A9AA2)
+    val fieldBorder: Color = if (isLight) Color(0xFFE6E6EA) else Color(0xFF2A2A2E)
 
     /** Teks sekunder: label seksi, penanda Markdown, tugas selesai, placeholder. */
     val muted: Color = ink.copy(alpha = mutedAlpha)
@@ -89,13 +82,13 @@ class FivePadColors(
 
 val DarkColors = FivePadColors(
     isLight = false,
-    background = Color(0xFF19191B),
-    bar = Color(0xFF232324),
-    row = Color(0xFF242525),
-    separator = Color(0xFF131314),
-    ink = Color(0xFFFFFFFF),
-    checkboxFill = Color(0xFF48484B),
-    checkboxStroke = Color(0xFF6B6B6B),
+    background = Color(0xFF0F0F10),
+    bar = Color(0xFF0F0F10),
+    row = Color(0xFF1E1E21),
+    separator = Color(0xFF161618),
+    ink = Color(0xFFECECEE),
+    checkboxFill = Color(0xFF26262A),
+    checkboxStroke = Color(0xFF66666E),
     // Kelimanya mencapai 5,2–7,3:1 di atas chrome, jadi nilai Figma dipakai apa
     // adanya — judul catatan yang memakainya sudah lolos AA.
     slotAccents = listOf(
@@ -105,21 +98,21 @@ val DarkColors = FivePadColors(
         Color(0xFF48BEDD),
         Color(0xFFA186D6),
     ),
-    accent = Color(0xFFFF5242),
-    mutedAlpha = 0.47f,
+    accent = Color(0xFF3A7BFD),
+    mutedAlpha = 0.64f,
     codeFill = Color(0xFF000000),
-    link = Color(0xFF39A6FF),
+    link = Color(0xFF3A7BFD),
 )
 
 val LightColors = FivePadColors(
     isLight = true,
-    background = Color(0xFFEAEAE8),
-    bar = Color(0xFFF9F9F9),
-    row = Color(0xFFFFFFFF),
-    separator = Color(0xFFDDDDDA),
-    ink = Color(0xFF25242C),
-    checkboxFill = Color(0xFFEFEFED),
-    checkboxStroke = Color(0xFFD7D7D7),
+    background = Color(0xFFFFFFFF),
+    bar = Color(0xFFFFFFFF),
+    row = Color(0xFFF1F1F3),
+    separator = Color(0xFFF4F4F6),
+    ink = Color(0xFF16161A),
+    checkboxFill = Color(0xFFF1F1F3),
+    checkboxStroke = Color(0xFF9A9AA6),
     /*
      * Bukan versi gelap dari warna yang sama: di atas latar terang, aksen tema
      * gelap jatuh di bawah 2:1. Kelimanya nilai tersendiri.
@@ -138,25 +131,17 @@ val LightColors = FivePadColors(
         Color(0xFF0E7D9B),
         Color(0xFF5320B7),
     ),
-    accent = Color(0xFFC71C0D),
-    mutedAlpha = 0.65f,
+    accent = Color(0xFF3A7BFD),
+    mutedAlpha = 0.64f,
     codeFill = Color(0xFFFFFFFF),
-    link = Color(0xFF3415FF),
+    link = Color(0xFF3A7BFD),
 )
 
-/** Tepi kotak centang yang tercentang — selalu lebih terang dari isiannya. */
-val CheckedStroke = Color(0xFFFF4332)
+/** Tepi kotak centang tercentang memakai keadaan tekan dari aksen biru. */
+val CheckedStroke = Color(0xFF2E63D6)
 
-/**
- * Isian tombol empty state — node 11:147, sama di kedua tema.
- *
- * Punya nilai sendiri, bukan [FivePadColors.accent]. Aksen dipakai sebagai
- * *teks dan ikon* di atas halaman, jadi nilainya harus berbeda per tema agar
- * kontras; di sini warnanya justru yang menjadi latar, dan yang harus kontras
- * adalah putih di atasnya. `#E6210F` memberi 4,58:1 dengan putih — lolos AA di
- * kedua tema dengan satu nilai, persis seperti yang digambar Figma.
- */
-val FilledAccent = Color(0xFFE6210F)
+/** Isian CTA utama, sama dengan aksen merek dan dipasangkan dengan teks putih. */
+val FilledAccent = Color(0xFF3A7BFD)
 
 /**
  * Opasitas titik slot yang tidak aktif.
@@ -169,9 +154,6 @@ val FilledAccent = Color(0xFFE6210F)
  * aksesibilitas yang semu.
  */
 const val DOT_INACTIVE_ALPHA = 0.40f
-
-/** Latar pil navigasi yang aktif: warna tab itu sendiri, 16%. */
-const val PILL_ALPHA = 0.16f
 
 /**
  * Opasitas isian kutipan pada tampilan biasa.

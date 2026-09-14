@@ -5,6 +5,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import com.fivepad.app.data.Recurrence
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -158,7 +159,7 @@ fun OptionsSheet(
         onDismissRequest = onClose,
         sheetState = sheetState,
         containerColor = scheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         Column(
             Modifier
@@ -214,7 +215,7 @@ fun TextPromptSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = scheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         Column(
             Modifier
@@ -306,7 +307,7 @@ fun TextFormatSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = scheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         Column(
             Modifier
@@ -403,8 +404,9 @@ private fun FormatTile(action: MarkdownAction, modifier: Modifier, onClick: () -
 
     Column(
         modifier
-            .clip(RoundedCornerShape(Tokens.space2))
-            .background(colors.ink.copy(alpha = 0.06f))
+            .clip(RoundedCornerShape(Tokens.radiusMd))
+            .background(colors.row)
+            .border(1.dp, colors.fieldBorder, RoundedCornerShape(Tokens.radiusMd))
             .playfulClick(onClick = onClick)
             .padding(vertical = Tokens.space2, horizontal = Tokens.space1),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -483,7 +485,7 @@ fun TaskEditorSheet(
         },
         sheetState = sheetState,
         containerColor = scheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         if (reminderOpen) {
             ReminderEditor(
@@ -598,7 +600,7 @@ fun LinkSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = scheme.surface,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     ) {
         Column(
             Modifier

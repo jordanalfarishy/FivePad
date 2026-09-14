@@ -8,7 +8,7 @@
       kode aplikasi pun berjalan, jadi satu-satunya yang bisa memilihkannya
       adalah penyelesai sumber daya.
     -->
-    <color name="splash_background">#19191B</color>
+    <color name="splash_background">#0F0F10</color>
 
     <!--
       Latar plat ikon versi gelap — berkas "app icon - dark.svg".
@@ -16,5 +16,5 @@
       Belum terlihat di peluncur mana pun yang diuji; lihat catatannya di
       values/colors.xml.
     -->
-    <color name="icon_background">#19191B</color>
+    <color name="icon_background">#0F0F10</color>
 </resources>

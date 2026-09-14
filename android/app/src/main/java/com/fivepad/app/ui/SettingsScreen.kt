@@ -7,6 +7,7 @@ import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,19 +58,18 @@ import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.Tokens
 import java.util.Locale
 
-// Nilai diambil langsung dari Figma (node 6:2425). Sama seperti daftar tugas,
-// kecuali padding bawah tiap bagian: 12 dp, bukan 4 dp.
-private val SECTION_PAD_H = 8.dp
-private val SECTION_PAD_TOP = 4.dp
+// Settings shares the same quiet card rhythm as the grouped task list.
+private val SECTION_PAD_H = 16.dp
+private val SECTION_PAD_TOP = 8.dp
 private val SECTION_PAD_BOTTOM = 12.dp
-private val ITEM_GAP = 2.dp
-private val BLOCK_RADIUS = 12.dp
-private val ROW_RADIUS = 4.dp
-private val ROW_PAD = 12.dp
-private val ROW_GAP = 8.dp
-private val SEPARATOR_HEIGHT = 7.dp
+private val ITEM_GAP = 8.dp
+private val BLOCK_RADIUS = 18.dp
+private val ROW_RADIUS = 16.dp
+private val ROW_PAD = 16.dp
+private val ROW_GAP = 10.dp
+private val SEPARATOR_HEIGHT = 8.dp
 
-/** Tombol Login — node 16:380. Lebih besar dari tingginya, jadi selalu bulat penuh. */
+/** Tombol Login lebih besar dari tingginya, jadi selalu bulat penuh. */
 private val LOGIN_BUTTON_RADIUS = 35.dp
 
 @Composable
@@ -138,9 +138,7 @@ fun SettingsScreen(
             // meleset ke kanan.
             Text(
                 stringResource(R.string.settings_title),
-                fontSize = 22.sp,
-                lineHeight = 29.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.headlineMedium,
                 color = colors.ink,
                 modifier = Modifier.weight(1f),
             )
@@ -259,7 +257,7 @@ private fun openLanguageSettings(context: android.content.Context) {
 }
 
 /**
- * Ajakan masuk akun — node 16:367.
+ * Ajakan masuk akun.
  *
  * Tombolnya hidup meski halaman masuk baru datang di M2. Tombol mati yang
  * tidak menjelaskan apa-apa membuat orang mengetuknya berulang kali dan
@@ -279,8 +277,7 @@ private fun LoginSection(onLogin: () -> Unit) {
     ) {
         Text(
             stringResource(R.string.settings_login_blurb),
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
+            style = MaterialTheme.typography.bodyLarge,
             color = colors.ink,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
@@ -295,9 +292,7 @@ private fun LoginSection(onLogin: () -> Unit) {
         ) {
             Text(
                 stringResource(R.string.settings_login),
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.labelLarge,
                 color = Color.White,
             )
         }
@@ -350,9 +345,7 @@ private fun Section(title: String, content: @Composable () -> Unit) {
         ) {
             Text(
                 title,
-                fontSize = 12.sp,
-                lineHeight = 18.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelMedium,
                 color = colors.muted,
             )
         }
@@ -371,7 +364,7 @@ private fun Separator() {
         Modifier
             .fillMaxWidth()
             .height(SEPARATOR_HEIGHT)
-            .background(LocalFivePadColors.current.separator),
+            .background(LocalFivePadColors.current.background),
     )
 }
 
@@ -382,16 +375,12 @@ private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(
                 label,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodySmall,
                 color = LocalFivePadColors.current.muted,
             )
             Text(
                 value,
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.bodyLarge,
                 color = LocalFivePadColors.current.ink,
             )
         }
@@ -404,9 +393,7 @@ private fun LinkRow(label: String, onClick: () -> Unit) {
     SettingRow(onClick = onClick) {
         Text(
             label,
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.bodyLarge,
             color = LocalFivePadColors.current.ink,
             modifier = Modifier.weight(1f),
         )
@@ -422,6 +409,7 @@ private fun SettingRow(onClick: () -> Unit, content: @Composable RowScope.() -> 
             .fillMaxWidth()
             .clip(RoundedCornerShape(ROW_RADIUS))
             .background(colors.row)
+            .border(1.dp, colors.fieldBorder, RoundedCornerShape(ROW_RADIUS))
             .clickable(onClick = onClick)
             .padding(ROW_PAD),
         horizontalArrangement = Arrangement.spacedBy(ROW_GAP),

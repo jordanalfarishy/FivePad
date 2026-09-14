@@ -1,12 +1,15 @@
 package com.fivepad.app.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import com.fivepad.app.data.ThemeMode
 
 /**
@@ -27,7 +30,7 @@ private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
         onPrimaryContainer = Color(0xFFFFFFFF),
         background = colors.background,
         onBackground = colors.ink,
-        surface = colors.background,
+        surface = colors.separator,
         onSurface = colors.ink,
         // Lembar dan kartu memakai permukaan baris yang sama seperti daftar
         // tugas, jadi keduanya membaca sebagai bahan yang sama.
@@ -39,6 +42,9 @@ private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
         onSurfaceVariant = colors.muted,
         outline = colors.fieldBorder,
         outlineVariant = colors.hairline,
+        error = Color(0xFFFF6B6B),
+        errorContainer = Color(0xFFFFE4E4),
+        onErrorContainer = Color(0xFF5F1010),
     )
 } else {
     darkColorScheme(
@@ -48,7 +54,7 @@ private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
         onPrimaryContainer = Color(0xFFFFFFFF),
         background = colors.background,
         onBackground = colors.ink,
-        surface = colors.background,
+        surface = colors.separator,
         onSurface = colors.ink,
         surfaceContainerLow = colors.fieldSurface,
         surfaceVariant = colors.row,
@@ -58,14 +64,30 @@ private fun schemeFor(colors: FivePadColors) = if (colors.isLight) {
         onSurfaceVariant = colors.muted,
         outline = colors.fieldBorder,
         outlineVariant = colors.hairline,
+        error = Color(0xFFFF6B6B),
+        errorContainer = Color(0xFF4A2022),
+        onErrorContainer = Color(0xFFFFDADA),
     )
 }
+
+private val FivePadShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
 
 @Composable
 fun FivePadTheme(theme: ThemeMode = ThemeMode.DARK, content: @Composable () -> Unit) {
     val colors = if (theme == ThemeMode.LIGHT) LightColors else DarkColors
 
     CompositionLocalProvider(LocalFivePadColors provides colors) {
-        MaterialTheme(colorScheme = schemeFor(colors), content = content)
+        MaterialTheme(
+            colorScheme = schemeFor(colors),
+            typography = FivePadTypography,
+            shapes = FivePadShapes,
+            content = content,
+        )
     }
 }

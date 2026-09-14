@@ -47,6 +47,8 @@
     <string name="task_delete">Delete</string>
     <string name="task_deleted">Task deleted</string>
     <string name="task_drag">Drag to reorder or move to another group</string>
+    <string name="task_expand">Expand task</string>
+    <string name="task_collapse">Collapse task</string>
     <string name="task_clear_done">Clear %1$d completed</string>
     <string name="task_cleared_done">%1$d completed tasks cleared</string>
     <string name="task_undo">Undo</string>

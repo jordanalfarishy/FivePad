@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,6 +45,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -67,6 +67,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -81,25 +82,22 @@ import com.fivepad.app.ui.theme.Tokens
 import kotlin.math.abs
 import kotlinx.coroutines.delay
 
-// Shared task proportions; item and section gaps stay independent of row sizing.
-private val SECTION_PAD_H = 16.dp
-private val SECTION_PAD_V = 4.dp
-private val ITEM_GAP = 2.dp
+// Measurements taken from the 375 dp task-screen reference.
+private val SECTION_PAD_H = 12.dp
 private val BLOCK_RADIUS = 12.dp
-private val ROW_RADIUS = 4.dp
-private val ROW_PAD = 12.dp
-private val ROW_GAP = 8.dp
-private val SECTION_GAP = 7.dp
-private val TASK_ROW_PAD_V = 16.dp
+private val ROW_PAD = 13.dp
+private val ROW_GAP = 10.dp
+private val SECTION_GAP = 16.dp
+private val TASK_ROW_PAD_V = 12.25.dp
 private val HANDLE_SIZE = 20.dp
-
-/** `px-[12px] py-[14px]` dengan isi 20 dp — node 3:580. */
-private val ADD_ROW_PAD_V = 14.dp
+private val SECTION_HEADER_HEIGHT = 42.dp
+private val EMPTY_SECTION_HEIGHT = 26.dp
+private val FOOTER_ACTION_HEIGHT = 50.dp
 
 /** Seberapa dekat ke tepi daftar sebelum daftarnya ikut bergulir saat menyeret. */
 private val AUTOSCROLL_EDGE = 72.dp
 
-/** Tombol empty state — node 11:147. Lebih besar dari tingginya, jadi selalu bulat penuh. */
+/** Tombol empty state. Lebih besar dari tingginya, jadi selalu bulat penuh. */
 private val EMPTY_BUTTON_RADIUS = 35.dp
 
 @Composable
@@ -119,7 +117,6 @@ fun TasksScreen(
     clearedCount: Int?,
     onUndoClearCompleted: () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme
     val colors = LocalFivePadColors.current
     val sections = state.sections
     val context = LocalContext.current
@@ -179,7 +176,7 @@ fun TasksScreen(
                     .fillMaxSize()
                     .onGloballyPositioned { drag.viewport = it.boundsInRoot() },
                 state = listState,
-                contentPadding = PaddingValues(bottom = Tokens.space6),
+                contentPadding = PaddingValues(bottom = Tokens.space4),
                 // Menyeret baris sudah memakai gestur vertikal; tanpa ini
                 // daftarnya ikut bergulir dan barisnya seperti lepas dari jari.
                 userScrollEnabled = drag.todo == null,
@@ -205,45 +202,34 @@ fun TasksScreen(
                         )
                     }
 
-                    item(key = "gap-${section.key()}") { Spacer(Modifier.height(SECTION_GAP)) }
+                    item(key = "gap-${section.key()}") { GroupSeparator() }
                 }
 
-                item(key = "new-group") {
+                item(key = "task-footer") {
                     Column(
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
+                            .background(colors.bar)
+                            .padding(start = SECTION_PAD_H, top = 10.dp, end = SECTION_PAD_H),
                     ) {
                         // Diredupkan, dan tanpa aksen. "New Task" muncul sekali
                         // per bagian dan itulah tindakan yang dicari orang;
                         // "New Group" muncul sekali di kaki daftar. Kalau
                         // keduanya sama-sama beraksen, yang di kaki justru lebih
                         // menarik mata karena ia sendirian.
-                        AddRow(
+                        SecondaryActionRow(
                             label = stringResource(R.string.group_new),
-                            labelColor = colors.muted,
-                            iconColor = colors.muted,
+                            labelColor = taskFooterColor(colors.isLight),
+                            iconColor = taskFooterColor(colors.isLight),
                             onClick = { addingGroup = true },
                         )
-                    }
-                }
 
-                // FR-2.9. Barisnya hanya ada saat ada yang bisa dibersihkan, dan
-                // memakai bahasa visual yang sama dengan "New Task" — jadi tidak
-                // ada tombol baru di bilah atas, dan tidak ada tindakan merusak
-                // yang menunggu di layar saat tidak ada gunanya.
-                if (state.doneCount > 0) {
-                    item(key = "clear-completed") {
-                        Column(
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V),
-                        ) {
-                            AddRow(
+                        // FR-2.9. Barisnya hanya ada saat ada yang bisa dibersihkan.
+                        if (state.doneCount > 0) {
+                            SecondaryActionRow(
                                 label = stringResource(R.string.task_clear_done, state.doneCount),
-                                labelColor = colors.muted,
-                                icon = R.drawable.ic_delete,
-                                iconColor = colors.muted,
+                                labelColor = taskFooterColor(colors.isLight),
+                                iconColor = taskFooterColor(colors.isLight),
                                 onClick = onClearCompleted,
                             )
                         }
@@ -402,6 +388,7 @@ private fun SectionColumn(
     onDragEnd: () -> Unit,
 ) {
     val key = section.key()
+    val colors = LocalFivePadColors.current
     val indicator = MaterialTheme.colorScheme.onSurface
     val indicatorThickness = with(LocalDensity.current) { 2.dp.toPx() }
 
@@ -415,7 +402,7 @@ private fun SectionColumn(
             // mengangkat seluruh bagian, bukan barisnya saja, karena tetangga
             // yang harus dilewati adalah butir-butir daftar, bukan baris.
             .zIndex(if (carrying) 1f else 0f)
-            .padding(horizontal = SECTION_PAD_H, vertical = SECTION_PAD_V)
+            .padding(horizontal = SECTION_PAD_H)
             .onGloballyPositioned { drag.sections[key] = it.boundsInRoot() }
             // Garis sisip digambar sebagai lapisan atas, bukan sebagai baris
             // tambahan: menyisipkan elemen nyata akan menggeser semua tetangganya,
@@ -437,22 +424,18 @@ private fun SectionColumn(
                     topLeft = Offset(0f, y - here.top - indicatorThickness / 2f),
                     size = Size(size.width, indicatorThickness),
                 )
-            },
-        verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
+            }
+            .then(
+                if (carrying) Modifier else Modifier.clip(RoundedCornerShape(BLOCK_RADIUS)),
+            )
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, colors.fieldBorder, RoundedCornerShape(BLOCK_RADIUS)),
     ) {
         SectionHeader(group = section.group, onOptions = onOptions, onAdd = onAdd)
 
         if (section.todos.isNotEmpty()) {
-            // Sudut luar 12 dp memangkas baris pertama dan terakhir, sementara
-            // tiap baris tetap punya sudut 4 dp-nya sendiri.
-            Column(
-                // Pemotongan dilepas selama menyeret: sudut 12 dp memangkas
-                // barisnya begitu ia keluar dari bloknya, dan yang terlihat
-                // adalah baris yang lenyap separuh, bukan baris yang berpindah.
-                if (carrying) Modifier else Modifier.clip(RoundedCornerShape(BLOCK_RADIUS)),
-                verticalArrangement = Arrangement.spacedBy(ITEM_GAP),
-            ) {
-                section.todos.forEach { todo ->
+            Column {
+                section.todos.forEachIndexed { index, todo ->
                     val dragging = drag.todo?.id == todo.id
                     Box(
                         Modifier
@@ -475,9 +458,19 @@ private fun SectionColumn(
                             },
                             onDragEnd = onDragEnd,
                         )
+                        if (index > 0) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(colors.fieldBorder),
+                            )
+                        }
                     }
                 }
             }
+        } else {
+            Box(Modifier.fillMaxWidth().height(EMPTY_SECTION_HEIGHT))
         }
 
     }
@@ -502,8 +495,7 @@ private fun EmptyState(onAddTask: () -> Unit) {
         ) {
             Text(
                 stringResource(R.string.tasks_empty),
-                fontSize = 16.sp,
-                lineHeight = 24.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 color = colors.ink,
                 textAlign = TextAlign.Center,
             )
@@ -524,9 +516,7 @@ private fun EmptyState(onAddTask: () -> Unit) {
                 )
                 Text(
                     stringResource(R.string.task_new),
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.labelLarge,
                     color = Color.White,
                 )
             }
@@ -536,37 +526,77 @@ private fun EmptyState(onAddTask: () -> Unit) {
 
 @Composable
 private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit, onAdd: () -> Unit) {
-    val scheme = MaterialTheme.colorScheme
+    val colors = LocalFivePadColors.current
+    val addTaskLabel = stringResource(R.string.task_new)
 
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = ROW_PAD),
+            .height(SECTION_HEADER_HEIGHT)
+            .background(colors.fieldBorder)
+            .then(
+                if (group == null) {
+                    Modifier
+                        .playfulClick(onClick = onAdd)
+                        .semantics { contentDescription = addTaskLabel }
+                } else {
+                    Modifier
+                },
+            )
+            .padding(start = ROW_PAD, end = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (group != null) {
+            Box(
+                Modifier
+                    .size(Tokens.space6)
+                    .playfulClick(onClick = onOptions),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_more_vert),
+                    stringResource(R.string.group_menu),
+                    tint = taskSectionLabelColor(colors.isLight),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Box(Modifier.width(10.dp))
+        }
         Text(
-            group?.name ?: stringResource(R.string.group_none),
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = LocalFivePadColors.current.muted,
+            group?.name ?: stringResource(R.string.group_none).uppercase(),
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+            ),
+            color = taskSectionLabelColor(colors.isLight),
             modifier = Modifier.weight(1f),
         )
-        androidx.compose.material3.IconButton(onClick = onAdd) {
-            Icon(painterResource(R.drawable.ic_add), stringResource(R.string.task_new), tint = scheme.primary)
-        }
         if (group != null) {
-            androidx.compose.material3.IconButton(onClick = onOptions) {
-                Icon(painterResource(R.drawable.ic_more_vert), stringResource(R.string.group_menu),
-                    tint = LocalFivePadColors.current.muted)
+            Box(
+                Modifier
+                    .size(Tokens.space6)
+                    .playfulClick(onClick = onAdd),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painterResource(R.drawable.ic_add),
+                    stringResource(R.string.task_new),
+                    tint = colors.accent,
+                    modifier = Modifier.size(HANDLE_SIZE),
+                )
             }
         }
     }
 }
 
-/** Baris "New Task" / "New Group". Satu ketukan, satu lembar — tanpa mode sunting di tempat. */
+/**
+ * Aksi pendukung di kaki daftar.
+ *
+ * Tidak memakai kartu maupun garis tepi: dua tindakan ini jarang dipakai dan
+ * tidak boleh terlihat setara dengan tugas yang sedang dikerjakan.
+ */
 @Composable
-private fun AddRow(
+private fun SecondaryActionRow(
     label: String,
     labelColor: Color,
     onClick: () -> Unit,
@@ -576,10 +606,10 @@ private fun AddRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(ROW_RADIUS))
+            .height(FOOTER_ACTION_HEIGHT)
             .playfulClick(onClick = onClick)
-            .padding(horizontal = ROW_PAD, vertical = ADD_ROW_PAD_V),
-        horizontalArrangement = Arrangement.spacedBy(ROW_GAP),
+            .padding(horizontal = Tokens.space2),
+        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Untuk "New Task" dan "New Group" ikonnya selalu beraksen dan hanya
@@ -592,12 +622,16 @@ private fun AddRow(
         )
         Text(
             label,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            fontWeight = FontWeight.Medium,
+            style = MaterialTheme.typography.bodyMedium,
             color = labelColor,
         )
     }
+}
+
+/** A compact boundary between task groups that stays visible while dragging. */
+@Composable
+private fun GroupSeparator() {
+    Box(Modifier.fillMaxWidth().height(SECTION_GAP))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -614,6 +648,8 @@ private fun TaskRow(
     val scheme = MaterialTheme.colorScheme
     val colors = LocalFivePadColors.current
     val dismiss = rememberSwipeToDismissBoxState()
+    var expanded by rememberSaveable(todo.id) { mutableStateOf(false) }
+    var canExpand by remember(todo.id, todo.text) { mutableStateOf(false) }
 
     LaunchedEffect(dismiss.currentValue) {
         when (dismiss.currentValue) {
@@ -636,12 +672,10 @@ private fun TaskRow(
         gesturesEnabled = !dragging,
         backgroundContent = {
             val editing = dismiss.dismissDirection == SwipeToDismissBoxValue.StartToEnd
-            // Di-clip dengan bentuk yang sama seperti barisnya; tanpa ini latarnya
-            // mengintip lewat sudut membulat dan terbaca sebagai garis tipis.
+            // The section clips this rectangular swipe layer to the shared card.
             Box(
                 Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(ROW_RADIUS))
                     .background(if (editing) colors.accent else scheme.errorContainer)
                     .padding(horizontal = Tokens.space5),
                 contentAlignment = if (editing) Alignment.CenterStart else Alignment.CenterEnd,
@@ -658,7 +692,6 @@ private fun TaskRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(ROW_RADIUS))
                 .background(scheme.surfaceContainer)
                 .onGloballyPositioned { rowCoords = it }
                 // Seluruh baris adalah sasaran, bukan hanya kotak centang dan
@@ -690,14 +723,18 @@ private fun TaskRow(
             Column(Modifier.weight(1f)) {
                 Text(
                     todo.text,
-                    fontSize = 16.sp,
-                    lineHeight = 24.sp,
+                    style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
                     color = if (todo.done) {
-                        LocalFivePadColors.current.muted
+                        taskCompletedColor(colors.isLight)
                     } else {
-                        scheme.onSurface
+                        taskInk(colors.isLight)
                     },
                     textDecoration = if (todo.done) TextDecoration.LineThrough else null,
+                    maxLines = if (expanded) Int.MAX_VALUE else 2,
+                    overflow = TextOverflow.Ellipsis,
+                    onTextLayout = { result ->
+                        if (!expanded) canExpand = result.hasVisualOverflow
+                    },
                 )
 
                 todo.dueAt?.let { due ->
@@ -720,6 +757,32 @@ private fun TaskRow(
                         } else {
                             LocalFivePadColors.current.muted
                         },
+                    )
+                }
+            }
+
+            Box(
+                Modifier
+                    .size(Tokens.space6)
+                    .then(
+                        if (canExpand || expanded) {
+                            Modifier.playfulClick { expanded = !expanded }
+                        } else {
+                            Modifier
+                        },
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (canExpand || expanded) {
+                    Icon(
+                        painterResource(R.drawable.ic_chevron_forward),
+                        contentDescription = stringResource(
+                            if (expanded) R.string.task_collapse else R.string.task_expand,
+                        ),
+                        tint = taskCompletedColor(colors.isLight),
+                        modifier = Modifier
+                            .size(Tokens.space6)
+                            .graphicsLayer { rotationZ = if (expanded) -90f else 90f },
                     )
                 }
             }
@@ -786,7 +849,7 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
 
     Box(
         Modifier
-            .size(Tokens.space6)
+            .size(HANDLE_SIZE)
             .clip(CircleShape)
             .playfulClick(onClick = onToggle),
         contentAlignment = Alignment.Center,
@@ -810,14 +873,30 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
         } else {
             Box(
                 Modifier
-                    .size(19.dp)
+                    .size(HANDLE_SIZE)
                     .clip(CircleShape)
-                    .background(colors.checkboxFill)
-                    .border(1.dp, colors.checkboxStroke, CircleShape),
+                    .background(if (colors.isLight) colors.checkboxFill else Color(0xFF48484B))
+                    .border(
+                        1.dp,
+                        if (colors.isLight) colors.checkboxStroke else Color(0xFF6B6B6B),
+                        CircleShape,
+                    ),
             )
         }
     }
 }
+
+private fun taskInk(isLight: Boolean): Color =
+    if (isLight) Color(0xFF16161A) else Color.White
+
+private fun taskSectionLabelColor(isLight: Boolean): Color =
+    if (isLight) Color(0xFF66666E) else Color(0xFF7F7F82)
+
+private fun taskCompletedColor(isLight: Boolean): Color =
+    if (isLight) Color(0xFF66666E) else Color(0xFF78787A)
+
+private fun taskFooterColor(isLight: Boolean): Color =
+    if (isLight) Color(0xFF66666E) else Color(0xFF6F6F70)
 
 // ------------------------------------------------------------------- seret-lepas
 

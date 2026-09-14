@@ -127,9 +127,10 @@ import com.fivepad.app.ui.markdown.selectedLink
 import com.fivepad.app.ui.markdown.unlink
 import com.fivepad.app.ui.markdown.toggleBox
 import com.fivepad.app.ui.theme.DOT_INACTIVE_ALPHA
+import com.fivepad.app.ui.theme.Inter
 import com.fivepad.app.ui.theme.LocalFivePadColors
-import com.fivepad.app.ui.theme.PILL_ALPHA
 import com.fivepad.app.ui.theme.QUOTE_FILL_ALPHA
+import com.fivepad.app.ui.theme.Sora
 import com.fivepad.app.ui.theme.Tokens
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.delay
@@ -312,6 +313,7 @@ private fun MainScreen(
     }
 
     val notesActive = tab == TAB_NOTES
+    BackHandler(enabled = !notesActive) { tab = TAB_NOTES }
 
     // Kedua tab memakai permukaan yang sama persis. Warna slot tidak lagi
     // mengisi layar; yang membawanya tinggal titik penanda dan nama catatan.
@@ -415,18 +417,15 @@ private fun MainScreen(
                 )
             }
 
-            BottomNav(
-                modifier = Modifier.onSizeChanged { barHeightPx = it.height },
-                selected = tab,
-                doneCount = state.doneCount,
-                totalCount = state.totalCount,
-                onSelect = { tab = it },
-                // Di tab catatan pil mengikuti warna slot yang sedang terbuka;
-                // di tab tugas ia memakai aksen aplikasi. Warnanya selalu sama
-                // dengan yang dibawa bilah atas, jadi kedua ujung layar
-                // menjawab "slot mana" dengan satu warna yang sama.
-                notesColour = colors.slotAccents[pager.currentPage],
-            )
+            if (notesActive) {
+                BottomNav(
+                    modifier = Modifier.onSizeChanged { barHeightPx = it.height },
+                    selected = tab,
+                    doneCount = state.doneCount,
+                    totalCount = state.totalCount,
+                    onSelect = { tab = it },
+                )
+            }
         }
     }
 
@@ -594,7 +593,7 @@ private fun TopBar(
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(Tokens.topBarHeight)
+                .height(if (notesActive) Tokens.topBarHeight else 64.dp)
                 .background(colors.bar),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -608,7 +607,7 @@ private fun TopBar(
                 Icon(
                     painterResource(R.drawable.ic_settings),
                     contentDescription = stringResource(R.string.settings_open),
-                    tint = ink,
+                    tint = if (!notesActive && !colors.isLight) Color.White else ink,
                     modifier = Modifier.size(Tokens.space6),
                 )
             }
@@ -632,10 +631,12 @@ private fun TopBar(
                 } else {
                     Text(
                         stringResource(R.string.tab_tasks),
-                        fontSize = 22.sp,
-                        lineHeight = 29.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ink,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = Inter,
+                            fontWeight = FontWeight.Normal,
+                            lineHeight = 32.sp,
+                        ),
+                        color = if (colors.isLight) ink else Color.White,
                         textAlign = TextAlign.Center,
                     )
                 }
@@ -735,7 +736,6 @@ private fun BottomNav(
     doneCount: Int,
     totalCount: Int,
     onSelect: (Int) -> Unit,
-    notesColour: Color,
 ) {
     val colors = LocalFivePadColors.current
 
@@ -749,7 +749,7 @@ private fun BottomNav(
             NavItem(
                 selected = selected == TAB_NOTES,
                 label = stringResource(R.string.tab_notes),
-                accent = notesColour,
+                accent = colors.accent,
                 modifier = Modifier.weight(1f),
                 onClick = { onSelect(TAB_NOTES) },
                 icon = R.drawable.ic_notes,
@@ -786,42 +786,44 @@ private fun NavItem(
     onClick: () -> Unit,
     icon: Int,
 ) {
-    // Tab terpilih memakai warnanya sendiri, yang tidak terpilih memakai tinta.
-    // Pil, ikon, dan angka semuanya satu warna — kalau pilnya beraksen tapi
-    // ikonnya tidak, yang terlihat adalah noda warna, bukan penanda terpilih.
-    val tint = if (selected) accent else LocalFivePadColors.current.ink
+    // Active navigation is signalled by the rationed accent itself, without a
+    // tinted pill competing with the five note-slot colors.
+    val tint = if (selected) accent else LocalFivePadColors.current.muted
 
     Box(modifier.fillMaxHeight(), contentAlignment = Alignment.Center) {
-        Row(
+        Column(
             Modifier
                 .width(Tokens.pillWidth)
                 .height(Tokens.pillHeight)
                 .clip(RoundedCornerShape(Tokens.radiusPill))
-                .background(if (selected) accent.copy(alpha = PILL_ALPHA) else Color.Transparent)
                 .playfulClick(onClick = onClick)
                 // Ikon tanpa teks butuh label yang dibacakan pembaca layar,
                 // kalau tidak navigasinya kosong tak bernama bagi mereka.
                 .semantics {
                     contentDescription = if (badge == null) label else "$label, $badge"
                 },
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                painterResource(icon),
-                contentDescription = null,
-                tint = tint,
-                modifier = Modifier.size(Tokens.space6),
-            )
-            if (badge != null) {
-                Text(
-                    badge,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = tint,
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painterResource(icon),
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(Tokens.space6),
                 )
+                if (badge != null) {
+                    Text(
+                        badge,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = tint,
+                    )
+                }
             }
+            Text(label, style = MaterialTheme.typography.labelSmall, color = tint)
         }
     }
 }
@@ -1083,12 +1085,10 @@ private fun NotesPane(
                         // Tampilan Markdown memakai huruf lebar tetap, seperti
                         // di Figma: yang ditunjukkannya adalah berkas sumber,
                         // dan penanda yang sejajar jauh lebih mudah dibaca.
-                        // Dibiarkan kosong di tampilan biasa, bukan diisi
-                        // FontFamily.Default. Keluarga huruf yang ditetapkan di
-                        // gaya dasar membuat Compose mengabaikan keluarga huruf
-                        // pada rentang di dalamnya — dan `kode sebaris` justru
-                        // hidup dari itu.
-                        fontFamily = if (markdownView) FontFamily.Monospace else null,
+                        // Tampilan biasa memakai Inter untuk bacaan panjang;
+                        // tampilan sumber beralih ke monospace agar penanda
+                        // Markdown mudah dipindai.
+                        fontFamily = if (markdownView) FontFamily.Monospace else Inter,
                         // Tanpa ini setiap baris menyusut ke tinggi hurufnya
                         // sendiri, karena tiap baris di sini adalah satu
                         // paragraf — dan Compose memangkas sisa ruang di atas
@@ -1354,9 +1354,10 @@ private fun SlotTitleField(
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyMedium.copy(
                 color = accent,
-                fontSize = 14.sp,
+                fontFamily = Sora,
+                fontSize = 17.sp,
                 lineHeight = 24.sp,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
             ),
             cursorBrush = SolidColor(accent),
@@ -1370,9 +1371,10 @@ private fun SlotTitleField(
                     if (field.text.isEmpty()) {
                         Text(
                             stringResource(R.string.slot_label_placeholder),
-                            fontSize = 14.sp,
+                            fontFamily = Sora,
+                            fontSize = 17.sp,
                             lineHeight = 24.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = FontWeight.SemiBold,
                             color = accent.copy(alpha = colors.mutedAlpha),
                         )
                     }

@@ -32,6 +32,8 @@ Task sections have 16 dp outer gutters, 14 sp group titles, and task rows with 1
 
 Notes use 16/28 sp body typography in both source and formatted views. Markdown paragraphs explicitly retain their full line height, including blank lines, quotes, and legacy code blocks. Heading leading is 36 sp for H1, 32 sp for H2, and 30 sp for smaller headings.
 
-## Input contrast
+## Visual system refresh
 
-Shared form fields use opaque theme colors for their fill, hints, labels, and boundaries. Dark fields use a lighter charcoal surface (#3A3A40); light fields use a darker cool-gray surface (#C4C4CC). The same fill is retained across focus, disabled, and error states. Focus uses a solid outline and cursor, while unfocused boundaries remain visible. Fill-to-sheet contrast is 1.55:1 in dark mode and 1.44:1 in light mode; the boundary is additionally identified by an outline exceeding 3:1 against both adjacent surfaces. These colors apply to task and group forms and note link inputs. Material input surfaces and outlines also use the app palette instead of fallback colors.
+The Android client now uses a dark-first, conversation-inspired visual system adapted to FivePad rather than copied literally. The primary canvas is near-black (#0F0F10), content cards and fields use layered charcoal surfaces (#1E1E21), boundaries use #2A2A2E, and the single action accent is blue (#3A7BFD). The five permanent note colors remain intact because they carry product meaning, but action controls no longer compete with them.
+
+Sora carries screen titles, section names, buttons, and navigation labels. Inter carries note text, tasks, descriptions, and metadata. Task and setting rows use 16 dp corners with quiet borders; sheets use 28 dp top corners; bottom navigation uses icon-and-label states without a tinted selection pill. Light mode retains the same hierarchy with white canvas, #F1F1F3 cards, #E6E6EA boundaries, and the same blue accent.

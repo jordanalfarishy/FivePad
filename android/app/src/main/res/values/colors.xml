@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Latar ikon adaptif dan splash — sama dengan latar aplikasi. -->
-    <color name="brand_background">#19191B</color>
-    <color name="brand_background_light">#EAEAE8</color>
+    <color name="brand_background">#0F0F10</color>
+    <color name="brand_background_light">#FFFFFF</color>
 
     <!--
       Latar plat ikon peluncur — berkas "app icon - light.svg".
@@ -26,5 +26,5 @@
       #EAEAE8: bingkai pembukanya memakai warna chrome, bukan warna halaman.
       Pasangan gelapnya ada di values-night/.
     -->
-    <color name="splash_background">#F9F9F9</color>
+    <color name="splash_background">#FFFFFF</color>
 </resources>

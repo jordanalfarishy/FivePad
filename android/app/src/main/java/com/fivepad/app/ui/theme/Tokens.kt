@@ -7,9 +7,8 @@ import androidx.compose.ui.unit.sp
  * Titik pendaratan nilai desain.
  *
  * Semua jarak, radius, dan ukuran hidup di sini, bukan tersebar sebagai angka
- * ajaib di dalam composable. Saat desain Figma datang, yang berubah cukup berkas
- * ini — bukan setiap layar. Bingkai Figma berlebar 375 dipakai apa adanya,
- * karena 1 px pada @1x sama dengan 1 dp.
+ * ajaib di dalam composable. Skala empat titik dipertahankan, lalu radius dan
+ * tinggi kontrol mengikuti bahasa visual gelap dan lembut aplikasi.
  */
 object Tokens {
 
@@ -21,14 +20,15 @@ object Tokens {
     val space5 = 20.dp
     val space6 = 24.dp
 
-    /** Sisi kiri-kanan isi catatan — `p-[16px]` pada node 3:128. */
+    /** Sisi kiri-kanan isi catatan. */
     val screenPadding = space4
 
-    val radiusSm = 8.dp
-    val radiusMd = 10.dp
+    val radiusSm = 12.dp
+    val radiusMd = 16.dp
+    val radiusLg = 18.dp
     val radiusPill = 999.dp
 
-    // ---- Bilah atas catatan (node 3:99) ----
+    // ---- Bilah atas catatan ----
 
     /** Tinggi bilah atas, dan lebar kotak ikon di kedua ujungnya. */
     val topBarHeight = 56.dp
@@ -38,17 +38,17 @@ object Tokens {
     val dotRing = 2.dp
     val dotGap = space4
 
-    /** Baris judul catatan — node 5:1463. */
-    val titleRowHeight = 32.dp
+    /** Baris judul catatan memberi ruang untuk gaya nama 17 sp. */
+    val titleRowHeight = 40.dp
 
-    /** Pita warna slot di bawah baris judul — node 5:1523. */
+    /** Pita warna slot di bawah baris judul. */
     val stripeHeight = 4.dp
 
-    // ---- Bilah bawah (node 3:262) ----
+    // ---- Bilah bawah ----
 
-    val navHeight = 56.dp
-    val pillWidth = 72.dp
-    val pillHeight = 36.dp
+    val navHeight = 62.dp
+    val pillWidth = 84.dp
+    val pillHeight = 52.dp
 
     /**
      * Area sentuh minimum. Pedoman Material meminta 48 dp; titik yang hanya
