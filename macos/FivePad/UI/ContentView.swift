@@ -8,8 +8,11 @@ import SwiftUI
 /// melainkan satu desain yang tahu lebar jendelanya.
 struct ContentView: View {
     @Environment(\.fivePad) private var colors
-    @State private var slot = 1
+    @Environment(\.openWindow) private var openWindow
+    @AppStorage("selectedSlot") private var slot = 1
     @State private var tab = Tab.notes
+    @Bindable var store: Store
+    var menuBarController: MenuBarController?
 
     enum Tab { case notes, tasks }
 
@@ -35,11 +38,29 @@ struct ContentView: View {
             .background(colors.background)
         }
         .frame(minWidth: Tokens.minWindow.width, minHeight: Tokens.minWindow.height)
+        .onAppear {
+            slot = min(max(slot, 1), Note.slotCount)
+            menuBarController?.install()
+            menuBarController?.openMainWindow = {
+                openWindow(id: "main")
+            }
+        }
     }
 
     private var topBar: some View {
         ZStack {
             SlotDots(active: slot, onSelect: { slot = $0 })
+            HStack {
+                Text("FivePad")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(colors.ink)
+                Spacer()
+                Text("\(store.doneCount)/\(store.totalCount)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(colors.muted)
+                    .accessibilityLabel("\(store.doneCount) of \(store.totalCount) tasks complete")
+            }
+            .padding(.horizontal, Tokens.screenPadding)
         }
         .frame(maxWidth: .infinity)
         .frame(height: Tokens.topBarHeight)
@@ -47,15 +68,11 @@ struct ContentView: View {
     }
 
     private var notesPane: some View {
-        Text("Notes")
-            .foregroundStyle(colors.ink)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        NotesPane(store: store, slot: slot)
     }
 
     private var tasksPane: some View {
-        Text("Tasks")
-            .foregroundStyle(colors.ink)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        TasksPane(store: store)
     }
 
     private var bottomNav: some View {

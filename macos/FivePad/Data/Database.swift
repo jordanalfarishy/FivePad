@@ -92,6 +92,15 @@ enum FivePadDatabase {
             }
         }
 
+        // Kembar Room v4. Antarmuka pengingat Mac menyusul, tetapi skema lokal
+        // sudah aman menerima record Android sejak milestone pertama.
+        migrator.registerMigration("v4_todo_recurrence") { db in
+            try db.alter(table: "todos") { t in
+                t.add(column: "recurrence", .text).notNull().defaults(to: Recurrence.none.rawValue)
+                t.add(column: "recurrenceAnchorAt", .integer)
+            }
+        }
+
         return migrator
     }
 }

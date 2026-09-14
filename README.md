@@ -12,6 +12,25 @@ Open `android/` in Android Studio with Android SDK 36 and JDK 17 or newer. From 
 
 The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`. Device tests require a running emulator or Android device: `./gradlew :app:connectedDebugAndroidTest`.
 
+Open `macos/FivePad.xcodeproj` in Xcode to run the native macOS 14+ app. Its first launch creates a local GRDB database in Application Support. The current Mac milestone includes:
+
+- Five labeled, color-coded notes with 400 ms autosave.
+- A responsive main window with side-by-side Notes and Tasks panes.
+- Local task creation, grouping, completion, deletion, and completed-task clearing.
+- A native, resizable menu-bar panel with Notes/Tasks tabs, instant editor focus, quick task entry, and remembered size.
+- A configurable global quick-panel shortcut (`⌥Space` by default), Escape/outside-click dismissal, and `⌘1`–`⌘5` note shortcuts.
+- Dark and light appearance settings.
+
+From the repository root, a non-signing verification build can be run with:
+
+```sh
+xcodebuild -project macos/FivePad.xcodeproj -scheme FivePad \
+  -configuration Debug -derivedDataPath /tmp/FivePadDerivedData \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+Task reminders, note history UI, import/export, release signing, and Mac–Android synchronization remain subsequent Mac milestones.
+
 ## Documentation
 
 - [Product requirements](PRD.md): product scope and requirements.

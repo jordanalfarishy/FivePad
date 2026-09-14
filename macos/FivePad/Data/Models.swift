@@ -34,12 +34,23 @@ struct Todo: Codable, FetchableRecord, PersistableRecord, Identifiable, Sendable
     var position: Double
     var groupId: String?
     var dueAt: Int64?
+    var recurrence: Recurrence = .none
+    var recurrenceAnchorAt: Int64?
     var updatedAt: Int64 = Date.nowMillis
     var clientUpdatedAt: Int64 = Date.nowMillis
     var deviceId: String?
     var deletedAt: Int64?
 
     static let maxTextLength = 500
+}
+
+/// Nilai mentahnya sama dengan enum Room agar payload sinkronisasi nanti dapat
+/// lewat tanpa translasi khusus platform.
+enum Recurrence: String, Codable, DatabaseValueConvertible, CaseIterable, Sendable {
+    case none = "NONE"
+    case daily = "DAILY"
+    case weekly = "WEEKLY"
+    case monthly = "MONTHLY"
 }
 
 /// Grup tugas. Sengaja **tanpa** kolom induk, sama seperti Android: tanpa kolom

@@ -14,7 +14,7 @@ import SwiftUI
 @MainActor
 enum Snapshot {
 
-    static func runIfRequested() {
+    static func runIfRequested(store: Store) {
         guard let folder = ProcessInfo.processInfo.environment["FIVEPAD_SNAPSHOT"] else { return }
         let sizes: [(String, CGSize)] = [
             ("wide", CGSize(width: 900, height: 620)),
@@ -22,15 +22,15 @@ enum Snapshot {
         ]
         for mode in ThemeMode.allCases {
             for (name, size) in sizes {
-                render(theme: mode, size: size, to: "\(folder)/\(mode.rawValue.lowercased())-\(name).png")
+                render(store: store, theme: mode, size: size, to: "\(folder)/\(mode.rawValue.lowercased())-\(name).png")
             }
         }
         exit(0)
     }
 
-    private static func render(theme: ThemeMode, size: CGSize, to path: String) {
+    private static func render(store: Store, theme: ThemeMode, size: CGSize, to path: String) {
         let colors = FivePadColors.of(theme)
-        let view = ContentView()
+        let view = ContentView(store: store, menuBarController: nil)
             .environment(\.fivePad, colors)
             .frame(width: size.width, height: size.height)
 
