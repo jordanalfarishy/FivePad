@@ -230,6 +230,7 @@ fun TasksScreen(
                                 label = stringResource(R.string.task_clear_done, state.doneCount),
                                 labelColor = taskFooterColor(colors.isLight),
                                 iconColor = taskFooterColor(colors.isLight),
+                                icon = R.drawable.ic_delete,
                                 onClick = onClearCompleted,
                             )
                         }

@@ -1,28 +1,24 @@
 package com.fivepad.app.ui
 
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import com.fivepad.app.data.Recurrence
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,6 +30,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldColors
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,7 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,21 +47,22 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
-import androidx.compose.material3.Button
-import androidx.compose.material3.TextFieldColors
+import androidx.compose.ui.unit.sp
 import com.fivepad.app.R
+import com.fivepad.app.data.Recurrence
 import com.fivepad.app.data.Todo
 import com.fivepad.app.ui.markdown.MarkdownAction
 import com.fivepad.app.ui.theme.LocalFivePadColors
 import com.fivepad.app.ui.theme.Tokens
+import kotlinx.coroutines.launch
 
 /** Satu tindakan di dalam [OptionsSheet]. */
 data class SheetAction(
@@ -84,7 +82,7 @@ data class SheetAction(
  * lebih dulu daripada kata, dan "hapus" yang salah ketuk tidak bisa ditarik kembali.
  */
 @Composable
-internal fun SheetRow(
+private fun SheetRow(
     label: String,
     icon: Painter?,
     tint: Color,
@@ -165,7 +163,7 @@ fun OptionsSheet(
             Modifier
                 .fillMaxWidth()
                 .navigationBarsPadding()
-                .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = Tokens.space4),
         ) {
             SheetTitle(title)
@@ -472,6 +470,7 @@ fun TaskEditorSheet(
     var reminderOpen by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val focus = remember { FocusRequester() }
 
     ModalBottomSheet(
@@ -520,7 +519,9 @@ fun TaskEditorSheet(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                     keyboardActions = KeyboardActions(onDone = {
-                        if (text.isBlank()) return@KeyboardActions
+                        if (text.isBlank()) {
+                            return@KeyboardActions
+                        }
                         onConfirm(text, due, recurrence)
                         if (repeatable) {
                             text = ""
@@ -535,13 +536,15 @@ fun TaskEditorSheet(
                         .padding(horizontal = Tokens.space5)
                         .focusRequester(focus),
                 )
-                SheetRow(
+                ReminderActionButton(
                     label = due?.let { DueDates.format(it) }
                         ?: stringResource(R.string.reminder_add_optional),
                     description = due?.let { stringResource(recurrence.labelRes()) },
-                    icon = painterResource(R.drawable.ic_schedule),
-                    tint = scheme.onSurface,
-                    onClick = { keyboard?.hide(); reminderOpen = true },
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                        reminderOpen = true
+                    },
                 )
                 Row(
                     Modifier.fillMaxWidth()
