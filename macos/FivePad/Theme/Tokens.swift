@@ -16,7 +16,9 @@ enum Tokens {
     /// Sisi kiri-kanan isi catatan.
     static let screenPadding = space4
 
-    static let radiusSm: CGFloat = 8
+    static let radiusSm: CGFloat = 12
+    static let radiusMd: CGFloat = 16
+    static let radiusLg: CGFloat = 18
     static let radiusPill: CGFloat = 999
 
     // Bilah atas
@@ -24,29 +26,21 @@ enum Tokens {
     static let dot: CGFloat = 24
     static let dotRing: CGFloat = 2
     static let dotGap = space4
-    static let titleRowHeight: CGFloat = 32
+    static let titleRowHeight: CGFloat = 40
     static let stripeHeight: CGFloat = 4
 
     // Bilah bawah
-    static let navHeight: CGFloat = 56
-    static let pillWidth: CGFloat = 72
-    static let pillHeight: CGFloat = 36
+    static let navHeight: CGFloat = 62
+    static let pillWidth: CGFloat = 84
+    static let pillHeight: CGFloat = 52
 
-    // Daftar tugas — node 3:377
-    static let sectionPadH: CGFloat = 8
-    static let sectionPadV: CGFloat = 4
-    static let itemGap: CGFloat = 2
-    static let blockRadius: CGFloat = 12
-    static let rowRadius: CGFloat = 4
-    static let rowPad: CGFloat = 12
-    static let rowGap: CGFloat = 8
-    static let separatorHeight: CGFloat = 7
-    static let handleSize: CGFloat = 20
-    static let addRowPadV: CGFloat = 14
-    static let emptyButtonRadius: CGFloat = 35
+    /// Area sentuh/klik minimum yang wajar — titik slot 24 pt jauh di
+    /// bawahnya, jadi sasaran kliknya diperbesar tanpa mengubah ukuran
+    /// lingkaran yang tampak.
+    static let touchTarget: CGFloat = 48
 
     static let bodyTextSize: CGFloat = 16
-    static let bodyLineHeight: CGFloat = 24
+    static let bodyLineHeight: CGFloat = 28
     static let captionTextSize: CGFloat = 12
 
     /// FR-5.1: jendela tidak boleh lebih kecil dari ini.

@@ -9,6 +9,7 @@ struct FivePadApp: App {
     private let menuBarController: MenuBarController
 
     init() {
+        FivePadFont.registerIfNeeded()
         do {
             let store = Store(queue: try FivePadDatabase.open())
             self.store = store

@@ -28,14 +28,16 @@ struct NotesPane: View {
             HStack(spacing: Tokens.space3) {
                 TextField("Note \(slot)", text: label)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 15, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                    .fivePadStyle(FivePadText.headerName)
                     .foregroundStyle(colors.slotAccents[slot - 1])
 
                 Spacer()
 
                 if bodyText.wrappedValue.count >= Note.bodyWarnLength {
                     Text("\(bodyText.wrappedValue.count.formatted()) / \(Note.maxBodyLength.formatted())")
-                        .font(.caption.monospacedDigit())
+                        .fivePadStyle(FivePadText.meta)
+                        .monospacedDigit()
                         .foregroundStyle(colors.muted)
                 }
             }

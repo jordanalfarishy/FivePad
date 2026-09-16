@@ -52,11 +52,12 @@ struct ContentView: View {
             SlotDots(active: slot, onSelect: { slot = $0 })
             HStack {
                 Text("FivePad")
-                    .font(.system(size: 14, weight: .semibold))
+                    .fivePadStyle(FivePadText.headerName)
                     .foregroundStyle(colors.ink)
                 Spacer()
                 Text("\(store.doneCount)/\(store.totalCount)")
-                    .font(.caption.monospacedDigit())
+                    .fivePadStyle(FivePadText.meta)
+                    .monospacedDigit()
                     .foregroundStyle(colors.muted)
                     .accessibilityLabel("\(store.doneCount) of \(store.totalCount) tasks complete")
             }
@@ -95,7 +96,7 @@ struct ContentView: View {
                 .frame(width: Tokens.pillWidth, height: Tokens.pillHeight)
                 .background(
                     RoundedRectangle(cornerRadius: Tokens.radiusPill)
-                        .fill(selected ? accent.opacity(pillAlpha) : .clear),
+                        .fill(.clear),
                 )
         }
         .buttonStyle(.plain)

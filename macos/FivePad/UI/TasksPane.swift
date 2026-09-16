@@ -1,5 +1,14 @@
 import SwiftUI
 
+// TODO(stage 5): replaced by the Android-matched task-row rewrite —
+// temporary shim so the build stays green after Tokens.swift dropped these.
+private let itemGap: CGFloat = 2
+private let rowPad: CGFloat = 12
+private let rowGap: CGFloat = 8
+private let rowRadius: CGFloat = 4
+private let sectionPadV: CGFloat = 4
+private let blockRadius: CGFloat = 12
+
 struct TasksPane: View {
     @Environment(\.fivePad) private var colors
     @Bindable var store: Store
@@ -98,7 +107,7 @@ struct TasksPane: View {
     }
 
     private func taskBlock(title: String?, todos: [Todo]) -> some View {
-        VStack(spacing: Tokens.itemGap) {
+        VStack(spacing: itemGap) {
             if let title {
                 HStack {
                     Text(title)
@@ -106,12 +115,12 @@ struct TasksPane: View {
                         .foregroundStyle(colors.muted)
                     Spacer()
                 }
-                .padding(.horizontal, Tokens.rowPad)
+                .padding(.horizontal, rowPad)
                 .padding(.vertical, Tokens.space2)
             }
 
             ForEach(todos) { todo in
-                HStack(spacing: Tokens.rowGap) {
+                HStack(spacing: rowGap) {
                     Button { store.toggleTodo(todo) } label: {
                         Image(systemName: todo.done ? "checkmark.circle.fill" : "circle")
                             .font(.system(size: 17))
@@ -131,12 +140,12 @@ struct TasksPane: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Delete \(todo.text)")
                 }
-                .padding(Tokens.rowPad)
-                .background(RoundedRectangle(cornerRadius: Tokens.rowRadius).fill(colors.row))
+                .padding(rowPad)
+                .background(RoundedRectangle(cornerRadius: rowRadius).fill(colors.row))
             }
         }
-        .padding(Tokens.sectionPadV)
-        .background(RoundedRectangle(cornerRadius: Tokens.blockRadius).fill(colors.bar))
+        .padding(sectionPadV)
+        .background(RoundedRectangle(cornerRadius: blockRadius).fill(colors.bar))
     }
 
     private func addTask() {

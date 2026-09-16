@@ -179,6 +179,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_ATSApplicationFontsPath = Resources/Fonts;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				MARKETING_VERSION = 0.1.0;
@@ -196,6 +197,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_ATSApplicationFontsPath = Resources/Fonts;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				MARKETING_VERSION = 0.1.0;

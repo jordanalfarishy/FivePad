@@ -66,7 +66,7 @@ struct MenuBarPanel: View {
                 .focused($quickTaskFocused)
                 .onSubmit(addQuickTask)
             Text("↩")
-                .font(.caption)
+                .fivePadStyle(FivePadText.meta)
                 .foregroundStyle(colors.muted)
         }
         .padding(.horizontal, Tokens.space3)
@@ -83,7 +83,8 @@ struct MenuBarPanel: View {
             panelTab(.tasks, title: "Tasks", symbol: "checklist", accent: colors.accent)
             Spacer()
             Text("\(store.doneCount)/\(store.totalCount)")
-                .font(.caption.monospacedDigit())
+                .fivePadStyle(FivePadText.meta)
+                .monospacedDigit()
                 .foregroundStyle(colors.muted)
         }
         .padding(.horizontal, Tokens.space3)
@@ -101,13 +102,13 @@ struct MenuBarPanel: View {
             quickTaskFocused = false
         } label: {
             Label(title, systemImage: symbol)
-                .font(.caption.weight(.medium))
+                .fivePadStyle(FivePadText.tab)
                 .foregroundStyle(selected ? accent : colors.muted)
                 .padding(.horizontal, Tokens.space3)
                 .frame(height: 30)
                 .background(
                     RoundedRectangle(cornerRadius: Tokens.radiusPill)
-                        .fill(selected ? accent.opacity(pillAlpha) : .clear),
+                        .fill(.clear),
                 )
         }
         .buttonStyle(.plain)
