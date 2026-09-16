@@ -26,7 +26,7 @@ struct MenuBarPanel: View {
                 if tab == .notes {
                     NotesPane(store: store, slot: slot, autofocus: true)
                 } else {
-                    TasksPane(store: store, showsComposer: false)
+                    TasksPane(store: store)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

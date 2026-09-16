@@ -93,6 +93,12 @@ struct NotesPane: View {
                 ProgressView().controlSize(.small)
             }
         }
+        .overlay(alignment: .bottom) {
+            if store.clearedSlot?.slot == slot {
+                UndoBanner(message: "Note cleared", onUndo: store.undoClearSlot)
+            }
+        }
+        .animation(.default, value: store.clearedSlot)
         .sheet(isPresented: $showFormatSheet) {
             FormatSheet(markdownView: $markdownView, accent: accent) { action in
                 pendingOperation = .action(action)
