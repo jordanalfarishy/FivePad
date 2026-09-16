@@ -43,6 +43,9 @@ final class Store {
 
     /// Teks yang sedang diketik per slot; inilah sumber kebenaran bagi editor.
     var drafts: [Int: String] = [:]
+    /// Label juga harus dimiliki editor. Membaca label langsung dari hasil
+    /// pengamatan basis data dapat menggemakan nilai lama di tengah ketikan.
+    private var labelDrafts: [Int: String] = [:]
 
     /// Slot yang baru dikosongkan, tersedia untuk diurungkan 5 detik (FR-1.11).
     private(set) var clearedSlot: ClearedSlot?
@@ -74,7 +77,7 @@ final class Store {
     var doneCount: Int { todos.filter(\.done).count }
     var totalCount: Int { todos.count }
 
-    func label(slot: Int) -> String { notes.first { $0.slot == slot }?.label ?? "" }
+    func label(slot: Int) -> String { labelDrafts[slot] ?? notes.first { $0.slot == slot }?.label ?? "" }
     func draft(slot: Int) -> String { drafts[slot] ?? "" }
 
     func updateDraft(slot: Int, body: String) {
@@ -123,8 +126,19 @@ final class Store {
         }
     }
 
+    /// Menurunkan seluruh ketikan yang masih menunggu debounce ke disk.
+    /// Dipanggil sebelum ekspor/impor dan saat aplikasi kehilangan aktivitas
+    /// atau berhenti, sehingga jeda 400 ms tidak pernah menjadi jendela
+    /// kehilangan data.
+    func flushDrafts() {
+        for slot in 1...Note.slotCount where drafts[slot] != nil {
+            saveDraft(slot: slot)
+        }
+    }
+
     func updateLabel(slot: Int, label: String) {
         let value = String(label.prefix(Note.maxLabelLength))
+        labelDrafts[slot] = value
         let now = Date.nowMillis
         write { db in
             try db.execute(
@@ -137,13 +151,15 @@ final class Store {
     // MARK: - Kosongkan slot dan urungkan (FR-1.11)
 
     func clearSlot(_ slot: Int) {
-        pendingNoteSaves[slot]?.cancel()
-        pendingNoteSaves[slot] = nil
-        guard let body = notes.first(where: { $0.slot == slot })?.body, !body.isEmpty else { return }
+        // Simpan ketikan terbaru lebih dulu. Mengambil isi dari `notes` di sini
+        // berisiko memakai hasil observasi yang tertinggal hingga satu putaran
+        // run loop dan membuang karakter terakhir pengguna.
+        saveDraft(slot: slot)
         let now = Date.nowMillis
-        let revisionId: String
+        let revisionId: String?
         do {
-            revisionId = try queue.write { db -> String in
+            revisionId = try queue.write { db -> String? in
+                guard let body = try Note.fetchOne(db, key: slot)?.body, !body.isEmpty else { return nil }
                 let id = try Self.snapshot(db, slot: slot, body: body)
                 try db.execute(
                     sql: "UPDATE notes SET body = '', updatedAt = ?, clientUpdatedAt = ? WHERE slot = ?",
@@ -155,6 +171,7 @@ final class Store {
             assertionFailure("clearSlot failed: \(error)")
             return
         }
+        guard let revisionId else { return }
         drafts[slot] = ""
         clearedSlotUndoTask?.cancel()
         clearedSlot = ClearedSlot(slot: slot, revisionId: revisionId)
@@ -193,6 +210,9 @@ final class Store {
     /// dicadangkan lebih dulu, jadi pemulihan itu sendiri bisa diurungkan.
     @discardableResult
     func restoreRevision(_ id: String) -> Note? {
+        // Riwayat tidak boleh menimpa ketikan yang masih menunggu debounce;
+        // simpan dulu agar versi yang tergusur ikut masuk riwayat.
+        flushDrafts()
         do {
             let restored = try queue.write { db -> Note? in
                 guard let revision = try NoteRevision.fetchOne(db, key: id) else { return nil }
@@ -209,7 +229,7 @@ final class Store {
     func deleteHistory(slot: Int) {
         do {
             try queue.write { db in
-                try NoteRevision.filter(Column("slot") == slot).deleteAll(db)
+                _ = try NoteRevision.filter(Column("slot") == slot).deleteAll(db)
             }
         } catch {
             assertionFailure("deleteHistory failed: \(error)")
@@ -256,14 +276,21 @@ final class Store {
     /// Menyalurkan draft yang belum tersimpan lebih dulu, supaya ekspor tidak
     /// pernah ketinggalan ketikan yang masih menunggu jeda 400 ms.
     func exportNotes() throws -> Data {
-        for slot in 1...Note.slotCount { saveDraft(slot: slot) }
-        return try NoteBackupCodec.encode(notes)
+        flushDrafts()
+        // ValueObservation dikirim asinkron ke main queue. Membaca `notes`
+        // tepat setelah penulisan dapat mengekspor nilai sebelum penulisan;
+        // baca snapshot transaksional langsung dari basis data sebagai gantinya.
+        let current = try queue.read { db in
+            try Note.order(Column("slot")).fetchAll(db)
+        }
+        return try NoteBackupCodec.encode(current)
     }
 
     /// Mengimpor lima catatan sekaligus. Isi lama tiap slot dicadangkan lebih
     /// dulu sebagai revisi, sama seperti tindakan tulis lain.
     func importNotes(_ data: Data) throws {
         let imported = try NoteBackupCodec.decode(data)
+        flushDrafts()
         try queue.write { db in
             let now = Date.nowMillis
             for note in imported {
@@ -277,7 +304,10 @@ final class Store {
                 )
             }
         }
-        for note in imported { drafts[note.slot] = note.body }
+        for note in imported {
+            drafts[note.slot] = note.body
+            labelDrafts[note.slot] = note.label
+        }
     }
 
     func backupList() -> [URL] { backupStore.list() }
@@ -321,6 +351,9 @@ final class Store {
             // yang sama datang lagi dari pengamatan.
             for note in notes where self.drafts[note.slot] == nil {
                 self.drafts[note.slot] = note.body
+            }
+            for note in notes where self.labelDrafts[note.slot] == nil {
+                self.labelDrafts[note.slot] = note.label
             }
             self.scheduleBackup()
         }
@@ -391,9 +424,9 @@ final class Store {
 
     /// Menyunting teks, jatuh tempo, dan pengulangan sekaligus — lewat lembar
     /// yang sama, bukan dua langkah terpisah (FR-2.4).
-    func editTodo(_ todo: Todo, text: String, dueAt: Int64?, recurrence: Recurrence) {
+    func editTodo(_ todo: Todo, text: String, dueAt: Int64?, recurrence: Recurrence) -> Todo? {
         let trimmed = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Todo.maxTextLength))
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty else { return nil }
         let repeatValue: Recurrence = dueAt == nil ? .none : recurrence
         let anchor: Int64? = if repeatValue == .none {
             nil
@@ -415,6 +448,14 @@ final class Store {
         }()
         write { db in try updated.update(db) }
         refreshReminder(for: updated)
+        return updated
+    }
+
+    /// Menjadwalkan ulang setelah dialog izin sistem selesai. Penjadwalan
+    /// pertama boleh terjadi sebelum izin tersedia dan ditolak diam-diam oleh
+    /// sistem, jadi jalur pasca-izin ini wajib ada untuk pengingat pertama.
+    func scheduleReminder(for todo: Todo) {
+        refreshReminder(for: todo)
     }
 
     private func refreshReminder(for todo: Todo) {
@@ -432,7 +473,21 @@ final class Store {
     func clearCompleted() {
         let done = todos.filter(\.done)
         guard !done.isEmpty else { return }
-        for todo in done { softDelete(todo) }
+        let now = Date.nowMillis
+        do {
+            try queue.write { db in
+                for todo in done {
+                    try db.execute(
+                        sql: "UPDATE todos SET deletedAt = ?, updatedAt = ?, clientUpdatedAt = ? WHERE id = ?",
+                        arguments: [now, now, now, todo.id],
+                    )
+                }
+            }
+        } catch {
+            assertionFailure("clearCompleted failed: \(error)")
+            return
+        }
+        for todo in done { Reminders.cancel(id: todo.id) }
         offerTodoUndo(done)
     }
 

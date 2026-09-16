@@ -184,6 +184,7 @@ struct MarkdownTextView: NSViewRepresentable {
         textView.isAutomaticTextReplacementEnabled = false
         textView.isAutomaticLinkDetectionEnabled = false
         textView.textContainerInset = NSSize(width: 0, height: Tokens.space3)
+        textView.textContainer?.lineFragmentPadding = 0
         textView.drawsBackground = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -278,18 +279,11 @@ struct MarkdownTextView: NSViewRepresentable {
         }
 
         func applyEdit(_ edit: MarkdownEdit, on tv: MarkdownNSTextView) {
-            guard let palette = currentPalette else { return }
-            tv.string = edit.text
-            lastPushed = edit.text
-            textBinding.wrappedValue = edit.text
-            restyle(tv, sourceMode: lastSourceMode, palette: palette, preserveSelection: false)
-            let length = (edit.text as NSString).length
-            let clamped = NSRange(
-                location: min(edit.selection.location, length),
-                length: min(edit.selection.length, max(length - min(edit.selection.location, length), 0)),
-            )
-            tv.setSelectedRange(clamped)
-            tv.scrollRangeToVisible(clamped)
+            guard currentPalette != nil else { return }
+            // Lewat jalur perubahan NSTextView biasa agar satu aksi format
+            // tetap satu langkah Undo. Mengganti `tv.string` langsung akan
+            // membuang riwayat undo editor.
+            tv.apply(edit)
         }
 
         private func restyle(_ tv: MarkdownNSTextView, sourceMode: Bool, palette: MarkdownPalette, preserveSelection: Bool) {

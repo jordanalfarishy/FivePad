@@ -22,7 +22,7 @@ struct SlotDots: View {
     @State private var clearingSlot: Int?
 
     var body: some View {
-        HStack(spacing: Tokens.dotGap) {
+        HStack(spacing: 0) {
             ForEach(1...Note.slotCount, id: \.self) { slot in
                 dot(slot)
                     .contextMenu { menu(for: slot) }
@@ -49,24 +49,30 @@ struct SlotDots: View {
 
     private func dot(_ slot: Int) -> some View {
         let selected = slot == active
-        return Circle()
-            .fill(colors.slotAccents[slot - 1])
-            .overlay(Circle().strokeBorder(colors.dotStroke, lineWidth: 1))
-            .opacity(selected ? 1 : dotInactiveAlpha)
-            .frame(width: Tokens.dot, height: Tokens.dot)
-            .background {
-                if selected {
-                    Circle()
-                        .fill(colors.dotRing)
-                        .frame(
-                            width: Tokens.dot + Tokens.dotRing * 2,
-                            height: Tokens.dot + Tokens.dotRing * 2,
-                        )
+        return Button { onSelect(slot) } label: {
+            Circle()
+                .fill(colors.slotAccents[slot - 1])
+                .overlay(Circle().strokeBorder(colors.dotStroke, lineWidth: 1))
+                .opacity(selected ? 1 : dotInactiveAlpha)
+                .frame(width: Tokens.dot, height: Tokens.dot)
+                .background {
+                    if selected {
+                        Circle()
+                            .fill(colors.dotRing)
+                            .frame(
+                                width: Tokens.dot + Tokens.dotRing * 2,
+                                height: Tokens.dot + Tokens.dotRing * 2,
+                            )
+                    }
                 }
-            }
-            .contentShape(Circle())
-            .onTapGesture { onSelect(slot) }
-            .accessibilityLabel(selected ? "Slot \(slot), active" : "Slot \(slot)")
+        }
+        .buttonStyle(.plain)
+        .frame(width: Tokens.touchTarget, height: Tokens.touchTarget)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(selected ? "Slot \(slot), active" : "Slot \(slot)")
+        .accessibilityValue(selected ? "Selected" : "")
+        .accessibilityAddTraits(.isButton)
     }
 
     @ViewBuilder

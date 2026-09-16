@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Sora dan Inter — berkas yang sama dengan Android
 /// (`android/app/src/main/res/font/*_variable.ttf`), dibundel di
-/// `Resources/Fonts/` dan didaftarkan lewat `ATSApplicationFontsPath`.
+/// `Resources/Fonts/` di sumber. Xcode meratakan isi folder sumber daya ke
+/// akar bundle, jadi pendaftaran mencari akar bundle lebih dulu.
 ///
 /// Sora membawa judul layar, nama bagian, tombol, dan label navigasi. Inter
 /// membawa teks catatan, tugas, deskripsi, dan metadata — persis pembagian
@@ -23,15 +24,14 @@ enum FivePadFont {
     static let interItalic = "Inter-Italic"
     static let interBoldItalic = "Inter-Italic_Bold-Italic"
 
-    /// `ATSApplicationFontsPath` biasanya cukup sendirian, tapi pendaftaran
-    /// eksplisit ini menjaga instans bernama pada fon variabel tetap
-    /// ditemukan di setiap versi macOS — dan tidak berbahaya dipanggil dua
-    /// kali, karena `CTFontManagerRegisterFontsForURL` menolak berkas yang
-    /// sudah terdaftar tanpa efek samping lain.
+    /// Pendaftaran eksplisit menjaga instans bernama pada fon variabel tetap
+    /// ditemukan di setiap versi macOS. Setiap berkas dicoba sendiri: adanya
+    /// Sora di sistem tidak boleh menyebabkan Inter dilewati.
     static func registerIfNeeded() {
-        guard NSFontManager.shared.availableMembers(ofFontFamily: "Sora") == nil else { return }
         for name in ["sora_variable", "inter_variable", "inter_italic_variable"] {
-            guard let url = Bundle.main.url(forResource: name, withExtension: "ttf", subdirectory: "Fonts") else {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "ttf")
+                ?? Bundle.main.url(forResource: name, withExtension: "ttf", subdirectory: "Fonts")
+            else {
                 continue
             }
             CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)

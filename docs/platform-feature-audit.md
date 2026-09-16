@@ -1,6 +1,6 @@
 # Platform feature audit — Android vs. macOS
 
-Reviewed 16 September 2026. Scope: full source review of `android/app/src/main` (~30 Kotlin files, ~7300 lines, cross-checked with `./gradlew lintDebug`/`compileDebugKotlin`/`testDebugUnitTest`) and `macos/FivePad` (13 Swift files, ~1900 lines, cross-checked with an `xcodebuild` verification build). Findings are checked against `PRD.md` §7–§8 (requirement ownership and IDs) and the existing `docs/mobile-notes-feature-audit.md` / `docs/android-ui.md`.
+Reviewed 17 September 2026. Scope: full source review of `android/app/src/main` and the current `macos/FivePad` implementation (33 Swift files, ~4,900 lines), cross-checked with Android verification and clean macOS Debug/Release builds. Findings are checked against `PRD.md` §7–§8 and the existing `docs/mobile-notes-feature-audit.md` / `docs/android-ui.md`.
 
 ## Cleanup performed in this pass
 
@@ -40,18 +40,28 @@ Per PRD §7 these apply to Android: FR-1 (five slots), FR-2 (tasks), FR-6 (Andro
 
 ## Feature audit — macOS (FR-1, FR-2, FR-4, FR-5, FR-7)
 
-Per PRD §7 these apply to macOS: FR-1, FR-2, FR-4 (menu bar, macOS-only), FR-5 (main window, macOS-only), FR-7. The PRD's own "Status per 15 September 2026" note is accurate and current — this section corroborates it against the actual code rather than superseding it.
+Per PRD §7 these apply to macOS: FR-1, FR-2, FR-4 (menu bar, macOS-only), FR-5 (main window, macOS-only), and FR-7. The six macOS commits after the original 16 September audit materially changed this result, so the table below supersedes the older "core only" assessment.
 
 | Area | Status | Notes |
 |---|---|---|
-| FR-1 five note slots | 🟡 core only | Five slots, per-slot label/body, 24,000/50,000-char limits, autosave-on-blur/slot-switch all implemented ([`Store.swift`](macos/FivePad/Data/Store.swift), [`NotesPane.swift`](macos/FivePad/UI/NotesPane.swift)). **Missing entirely**: Markdown rendering (FR-1.7), the plain/Markdown view toggle (FR-1.14), the formatting menu (FR-1.15/1.15a), list-continuation on Enter (FR-1.16), link insertion/opening (FR-1.17/1.18), and clear-with-undo (FR-1.11) — the `note_revisions` table and `NoteRevision` model exist in the schema (mirroring Android's Room schema for future sync parity) but no code path ever reads or writes them yet. `TextEditor` is a completely plain text field today. |
-| FR-2 task list | 🟡 core only | Add/toggle/delete tasks, create groups, "no group" vs. named groups all work ([`TasksPane.swift`](macos/FivePad/UI/TasksPane.swift)). **Missing**: editing an existing task's text (FR-2.4 — no double-click handler), drag-to-reorder (FR-2.7), due dates and reminders (FR-2.10/2.11 — `Todo.dueAt` and `Recurrence` exist in the schema but nothing in `Store.swift` sets them and no UI shows them), renaming/deleting a group (FR-2.15 only supports create), auto-sink of completed tasks (FR-2.8). |
-| FR-4 menu bar & quick panel | 🟡 | FR-4.1–4.6 (status item, panel layout, shared data source with main window, global shortcut w/ conflict detection, autofocus, Esc/outside-click dismiss) and FR-4.9 (quick task entry) are all implemented (`MenuBarController.swift`, `MenuBarPanel.swift`). Missing: show-at-cursor (4.7), always-on-top (4.8), drag-to-menu-bar-icon (4.10), launch-at-login (4.11), hide-dock-icon (4.12), right-click menu (4.13). |
-| FR-5 main window | 🟡 | Responsive side-by-side/stacked layout, min size, light/dark theme all implemented (`ContentView.swift`). Missing: adjustable editor font size (5.2), focus mode (5.3). |
-| FR-7 settings & data | 🟡 minimal | Only Appearance and quick-panel-shortcut controls exist ([`FivePadApp.swift`](macos/FivePad/FivePadApp.swift)'s `MacSettingsView`) — no language picker, no update-check/terms/privacy links, no export/import, no local backups. Android's `SettingsScreen.kt` is a reasonable reference for what's missing. |
+| FR-1 five note slots | ✅ P0 / 🟡 P1 | Five database-constrained slots, label/body limits, warning threshold, 400 ms autosave plus lifecycle flush, Markdown styling/source mode, all formatting actions, list continuation, clickable links and checkboxes, slot actions, history, and clear-with-undo are implemented. Remaining: drag text onto a slot (P2), cross-slot search (P2), and exact marker-hiding parity with FR-1.14 (the Mac intentionally dims markers so AppKit selection offsets remain stable). |
+| FR-2 task list | ✅ P0 / 🟡 P1 | Add/edit/toggle/delete, due dates, recurrence, local reminders, groups with rename/delete/reorder, cross-group task drag, auto-sink, clear-completed and undo are implemented. Remaining: the setting to disable auto-sink (P1), a richer insertion indicator/edge autoscroll during drag, and the 500-active-task archival cap (P2). |
+| FR-4 menu bar & quick panel | ✅ P0 / 🟡 P1 | Status item, shared store, resizable remembered panel, global shortcut with conflict reporting, autofocus, Escape/outside-click save-and-dismiss, quick task entry, and the right-click menu are implemented. Remaining: show-at-cursor, detachable always-on-top behavior, text drop onto the status item, launch at login, and optional Dock-icon hiding. |
+| FR-5 main window | ✅ P0 / 🟡 P1 | Responsive side-by-side/stacked layout, minimum size, and light/dark themes are implemented. Adjustable editor font size, focus mode, and follow-system appearance remain. |
+| FR-7 settings & data | 🟡 | In-app and standard macOS Settings share one implementation with theme, language-system-settings link, shortcut choice, update/terms/privacy links, login placeholder, JSON note import/export, preview, and seven rotating local backups. Archives are still notes-only; the PRD also requires task Markdown/JSON export. Mac strings are not yet externalized/localized. |
 | FR-3 accounts & sync | ❌ (expected) | Same as Android — M2, not started. |
 
-**Bottom line**: macOS is at the milestone the PRD's own status note describes — solid local CRUD scaffolding with the menu-bar panel's core interaction loop working — but is well behind Android on FR-1/FR-2 feature depth (no Markdown, no task editing/reordering/due-dates) and on FR-7 (no settings beyond theme+shortcut, no import/export/backup). Since FR-1/FR-2/FR-7 are spec'd as shared requirements ("Semua" in §7), closing that gap — rather than starting FR-3 sync — is the more literal reading of what M1 asks for before M2 begins.
+### macOS correctness fixes from the 17 September re-audit
+
+- Made label editing editor-owned, preventing asynchronous GRDB observations from replaying older labels over fast typing.
+- Flushed pending drafts before termination, backgrounding, clear, restore, import, and export; exports now read the committed database snapshot instead of stale observed state.
+- Re-schedule the first task reminder after notification authorization succeeds.
+- Made clear-completed one database transaction.
+- Added the SQLite `slot BETWEEN 1 AND 5` constraint through a preserving migration.
+- Fixed bundled variable-font discovery after Xcode flattened the resource directory.
+- Preserved native Undo for Markdown formatting and enlarged slot hit targets.
+
+**Bottom line**: the local Mac product is now substantially feature-complete through M1 and much of M3/M4, and its highest-risk local persistence paths have been hardened. It is not release-complete: synchronization (the product's core cross-platform differentiator), localization, task-inclusive portability, advanced menu-bar options, app artwork/signing, and formal automated macOS test/CI coverage remain.
 
 ## Recommended next steps (not done in this pass)
 

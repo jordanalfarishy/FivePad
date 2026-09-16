@@ -15,11 +15,12 @@ The debug APK is written to `android/app/build/outputs/apk/debug/app-debug.apk`.
 Open `macos/FivePad.xcodeproj` in Xcode to run the native macOS 14+ app. Its first launch creates a local GRDB database in Application Support. The current Mac milestone includes:
 
 - Five labeled, color-coded notes with 400 ms autosave.
+- Live Markdown styling, source view, formatting actions, clickable links and checkboxes, version history, and clear-with-undo.
 - A responsive main window with side-by-side Notes and Tasks panes.
-- Local task creation, grouping, completion, deletion, and completed-task clearing.
+- Local task creation/editing, due dates, recurring reminders, grouping, drag reorder, completion, deletion, and completed-task clearing with undo.
 - A native, resizable menu-bar panel with Notes/Tasks tabs, instant editor focus, quick task entry, and remembered size.
 - A configurable global quick-panel shortcut (`⌥Space` by default), Escape/outside-click dismissal, and `⌘1`–`⌘5` note shortcuts.
-- Dark and light appearance settings.
+- Dark/light appearance settings plus JSON note import/export and seven-day local note backups.
 
 From the repository root, a non-signing verification build can be run with:
 
@@ -29,7 +30,7 @@ xcodebuild -project macos/FivePad.xcodeproj -scheme FivePad \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-Task reminders, note history UI, import/export, release signing, and Mac–Android synchronization remain subsequent Mac milestones.
+Mac–Android synchronization, cross-slot search, the remaining advanced menu-bar options, task-inclusive archives, localization, app artwork, and release signing remain subsequent Mac milestones.
 
 ## Documentation
 

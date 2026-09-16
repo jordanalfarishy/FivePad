@@ -76,7 +76,7 @@ struct NotesPane: View {
                 },
                 focusSignal: focusSignal,
             )
-            .padding(.horizontal, Tokens.screenPadding - Tokens.space3)
+            .padding(.horizontal, Tokens.screenPadding)
             .background(colors.background)
             .accessibilityLabel("Note \(slot) editor")
         }

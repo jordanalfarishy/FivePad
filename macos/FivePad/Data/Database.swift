@@ -101,6 +101,26 @@ enum FivePadDatabase {
             }
         }
 
+        // P1: tepat lima slot ditegakkan oleh SQLite, bukan hanya oleh UI.
+        // SQLite tidak dapat menambahkan CHECK ke tabel yang sudah ada, jadi
+        // tabel dibangun ulang sekali sambil mempertahankan seluruh datanya.
+        migrator.registerMigration("v5_note_slot_constraint") { db in
+            try db.execute(sql: """
+                CREATE TABLE notes_checked (
+                    slot INTEGER PRIMARY KEY CHECK (slot BETWEEN 1 AND 5),
+                    label TEXT NOT NULL DEFAULT '',
+                    body TEXT NOT NULL DEFAULT '',
+                    updatedAt INTEGER NOT NULL,
+                    clientUpdatedAt INTEGER NOT NULL,
+                    deviceId TEXT
+                );
+                INSERT INTO notes_checked (slot, label, body, updatedAt, clientUpdatedAt, deviceId)
+                    SELECT slot, label, body, updatedAt, clientUpdatedAt, deviceId FROM notes;
+                DROP TABLE notes;
+                ALTER TABLE notes_checked RENAME TO notes;
+                """)
+        }
+
         return migrator
     }
 }

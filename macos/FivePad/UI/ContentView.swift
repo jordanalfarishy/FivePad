@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Jendela utama — FR-5.1.
@@ -9,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @Environment(\.fivePad) private var colors
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("selectedSlot") private var slot = 1
     @State private var tab = Tab.notes
     @State private var showSettings = false
@@ -42,6 +44,12 @@ struct ContentView: View {
             menuBarController?.openMainWindow = {
                 openWindow(id: "main")
             }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { store.flushDrafts() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            store.flushDrafts()
         }
     }
 

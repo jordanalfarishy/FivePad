@@ -260,8 +260,8 @@ struct TasksPane: View {
         switch target {
         case .newTask(let groupId):
             TaskEditorSheet(title: "New Task", confirmLabel: "Add", repeatable: true) { text, due, recurrence in
-                store.addTodo(text: text, groupId: groupId, dueAt: due, recurrence: recurrence)
-                requestReminderPermissionIfNeeded(due: due)
+                let todo = store.addTodo(text: text, groupId: groupId, dueAt: due, recurrence: recurrence)
+                requestReminderPermissionIfNeeded(todo)
             }
         case .editTask(let todo):
             TaskEditorSheet(
@@ -271,8 +271,8 @@ struct TasksPane: View {
                 initialRecurrence: todo.recurrence,
                 confirmLabel: "Save",
             ) { text, due, recurrence in
-                store.editTodo(todo, text: text, dueAt: due, recurrence: recurrence)
-                requestReminderPermissionIfNeeded(due: due)
+                let updated = store.editTodo(todo, text: text, dueAt: due, recurrence: recurrence)
+                requestReminderPermissionIfNeeded(updated)
             }
         case .newGroup:
             TextPromptSheet(title: "New Group", placeholder: "Group name", maxLength: TodoGroup.maxNameLength, confirmLabel: "Add") { name in
@@ -292,9 +292,14 @@ struct TasksPane: View {
     }
 
     /// Diminta setelah tugas tersimpan, bukan saat tanggalnya dipilih (FR-2.11).
-    private func requestReminderPermissionIfNeeded(due: Int64?) {
-        guard due != nil else { return }
-        Task { _ = await Reminders.ensureAuthorization() }
+    private func requestReminderPermissionIfNeeded(_ todo: Todo?) {
+        guard let todo, todo.dueAt != nil else { return }
+        Task {
+            guard await Reminders.ensureAuthorization() else { return }
+            // `add` sebelum izin dapat ditolak sistem. Ulangi setelah dialog
+            // selesai supaya pengingat pertama benar-benar terdaftar.
+            store.scheduleReminder(for: todo)
+        }
     }
 
     private func moveGroup(_ group: TodoGroup, direction: Int) {
