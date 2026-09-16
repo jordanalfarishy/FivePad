@@ -39,56 +39,21 @@ struct FivePadApp: App {
         .windowResizability(.contentMinSize)
         .commands { FivePadCommands(store: store, menuBarController: menuBarController) }
 
+        // Isi yang sama dengan lembar Pengaturan di dalam aplikasi (ikon roda
+        // gigi) — satu sumber kebenaran, bukan dua yang bisa menyimpang.
         Settings {
-            MacSettingsView(menuBarController: menuBarController)
+            SettingsView(store: store, menuBarController: menuBarController, context: .scene)
                 .environment(\.fivePad, colors)
                 .preferredColorScheme(colors.isLight ? .light : .dark)
         }
     }
 }
 
-private struct MacSettingsView: View {
-    @AppStorage("theme") private var theme = ThemeMode.dark.rawValue
-    @AppStorage(MenuBarController.shortcutPreference) private var shortcut = MenuBarController.Shortcut.optionSpace.rawValue
-    @State private var shortcutError: String?
-    let menuBarController: MenuBarController
-
-    var body: some View {
-        Form {
-            Picker("Appearance", selection: $theme) {
-                Text("Dark").tag(ThemeMode.dark.rawValue)
-                Text("Light").tag(ThemeMode.light.rawValue)
-            }
-            .pickerStyle(.segmented)
-
-            Picker("Quick panel shortcut", selection: $shortcut) {
-                ForEach(MenuBarController.Shortcut.allCases) { option in
-                    Text(option.title).tag(option.rawValue)
-                }
-            }
-
-            if let shortcutError {
-                Label(shortcutError, systemImage: "exclamationmark.triangle.fill")
-                    .foregroundStyle(.orange)
-                    .font(.caption)
-            } else {
-                Text("The shortcut opens or closes the menu-bar panel from any app.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(24)
-        .frame(width: 380)
-        .onAppear { shortcutError = menuBarController.shortcutError }
-        .onChange(of: shortcut) {
-            menuBarController.registerShortcut()
-            shortcutError = menuBarController.shortcutError
-        }
-    }
-}
-
 private struct FivePadCommands: Commands {
     @AppStorage("selectedSlot") private var slot = 1
+    /// FR-1.5: `⌘\` kembali ke slot yang sebelumnya aktif — menekannya dua
+    /// kali membawa kembali ke tempat semula, seperti sakelar biasa.
+    @AppStorage("previousSlot") private var previousSlot = 1
     let store: Store
     let menuBarController: MenuBarController
 
@@ -104,14 +69,27 @@ private struct FivePadCommands: Commands {
             slotButton(3)
             slotButton(4)
             slotButton(5)
+            Divider()
+            Button("Switch to Previous Note", action: switchToPrevious)
+                .keyboardShortcut("\\", modifiers: .command)
         }
     }
 
     private func slotButton(_ newSlot: Int) -> some View {
         Button("Open Note \(newSlot)") {
+            guard newSlot != slot else { return }
             store.saveDraft(slot: slot)
+            previousSlot = slot
             slot = newSlot
         }
         .keyboardShortcut(KeyEquivalent(Character(String(newSlot))), modifiers: .command)
+    }
+
+    private func switchToPrevious() {
+        guard previousSlot != slot else { return }
+        store.saveDraft(slot: slot)
+        let target = previousSlot
+        previousSlot = slot
+        slot = target
     }
 }

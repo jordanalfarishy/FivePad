@@ -11,6 +11,7 @@ struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
     @AppStorage("selectedSlot") private var slot = 1
     @State private var tab = Tab.notes
+    @State private var showSettings = false
     @Bindable var store: Store
     var menuBarController: MenuBarController?
 
@@ -18,24 +19,21 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let sideBySide = geometry.size.width >= Tokens.sideBySideWidth
-
-            VStack(spacing: 0) {
-                topBar
-                SlotStripe(slot: slot, colour: colors.slotAccents[slot - 1])
-
-                if sideBySide {
-                    HStack(spacing: 0) {
-                        notesPane
-                        Divider().overlay(colors.hairline)
-                        tasksPane.frame(width: 375)
-                    }
+            ZStack {
+                if showSettings {
+                    SettingsView(
+                        store: store,
+                        menuBarController: menuBarController,
+                        context: .inApp,
+                        onBack: { showSettings = false },
+                    )
+                    .transition(.move(edge: .trailing))
                 } else {
-                    if tab == .notes { notesPane } else { tasksPane }
-                    bottomNav
+                    mainContent(sideBySide: geometry.size.width >= Tokens.sideBySideWidth)
+                        .transition(.move(edge: .leading))
                 }
             }
-            .background(colors.background)
+            .animation(.easeInOut(duration: 0.28), value: showSettings)
         }
         .frame(minWidth: Tokens.minWindow.width, minHeight: Tokens.minWindow.height)
         .onAppear {
@@ -47,21 +45,47 @@ struct ContentView: View {
         }
     }
 
+    private func mainContent(sideBySide: Bool) -> some View {
+        VStack(spacing: 0) {
+            topBar
+            SlotStripe(slot: slot, colour: colors.slotAccents[slot - 1])
+
+            if sideBySide {
+                HStack(spacing: 0) {
+                    notesPane
+                    Divider().overlay(colors.hairline)
+                    tasksPane.frame(width: 375)
+                }
+            } else {
+                if tab == .notes { notesPane } else { tasksPane }
+                bottomNav
+            }
+        }
+        .background(colors.background)
+    }
+
     private var topBar: some View {
         ZStack {
-            SlotDots(store: store, active: slot, onSelect: { slot = $0 })
-            HStack {
-                Text("FivePad")
-                    .fivePadStyle(FivePadText.headerName)
+            if tab == .notes {
+                SlotDots(store: store, active: slot, onSelect: { slot = $0 })
+            } else {
+                Text("Tasks")
+                    .fivePadStyle(FivePadText.screenTitle)
                     .foregroundStyle(colors.ink)
-                Spacer()
-                Text("\(store.doneCount)/\(store.totalCount)")
-                    .fivePadStyle(FivePadText.meta)
-                    .monospacedDigit()
-                    .foregroundStyle(colors.muted)
-                    .accessibilityLabel("\(store.doneCount) of \(store.totalCount) tasks complete")
             }
-            .padding(.horizontal, Tokens.screenPadding)
+            HStack {
+                Button { showSettings = true } label: {
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(colors.muted)
+                        .frame(width: Tokens.topBarHeight, height: Tokens.topBarHeight)
+                }
+                .buttonStyle(.plain)
+                .help("Settings")
+
+                Spacer()
+
+                Color.clear.frame(width: Tokens.topBarHeight, height: Tokens.topBarHeight)
+            }
         }
         .frame(maxWidth: .infinity)
         .frame(height: Tokens.topBarHeight)
@@ -78,28 +102,40 @@ struct ContentView: View {
 
     private var bottomNav: some View {
         HStack(spacing: 0) {
-            navPill(.notes, accent: colors.slotAccents[slot - 1], symbol: "list.clipboard.fill")
-            navPill(.tasks, accent: colors.accent, symbol: "list.bullet.rectangle.fill")
+            navItem(.notes, title: "Notes", accent: colors.slotAccents[slot - 1], symbol: "note.text")
+            navItem(
+                .tasks,
+                title: "Tasks",
+                accent: colors.accent,
+                symbol: "checklist",
+                badge: store.totalCount > 0 ? "\(store.doneCount)/\(store.totalCount)" : nil,
+            )
         }
         .frame(height: Tokens.navHeight)
         .background(colors.bar)
         .overlay(alignment: .top) { Rectangle().fill(colors.hairline).frame(height: 1) }
     }
 
-    private func navPill(_ which: Tab, accent: Color, symbol: String) -> some View {
+    private func navItem(_ which: Tab, title: String, accent: Color, symbol: String, badge: String? = nil) -> some View {
         let selected = tab == which
-        let tint = selected ? accent : colors.ink
+        let tint = selected ? accent : colors.muted
         return Button { tab = which } label: {
-            Image(systemName: symbol)
-                .font(.system(size: 17))
-                .foregroundStyle(tint)
-                .frame(width: Tokens.pillWidth, height: Tokens.pillHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: Tokens.radiusPill)
-                        .fill(.clear),
-                )
+            VStack(spacing: 2) {
+                HStack(spacing: 4) {
+                    Image(systemName: symbol).font(.system(size: 17))
+                    if let badge {
+                        Text(badge)
+                            .fivePadStyle(FivePadText.meta)
+                            .monospacedDigit()
+                    }
+                }
+                Text(title).fivePadStyle(FivePadText.tab)
+            }
+            .foregroundStyle(tint)
+            .frame(width: Tokens.pillWidth, height: Tokens.pillHeight)
         }
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
+        .accessibilityLabel(badge.map { "\(title), \($0)" } ?? title)
     }
 }

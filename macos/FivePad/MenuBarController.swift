@@ -59,7 +59,10 @@ final class MenuBarController: NSObject, NSWindowDelegate {
             button.imagePosition = .imageOnly
             button.target = self
             button.action = #selector(togglePanel)
-            button.sendAction(on: [.leftMouseUp])
+            // Klik kiri membuka/menutup panel; klik kanan membuka menu ringkas
+            // (FR-4.13) — dibedakan lewat jenis peristiwa saat ini, bukan dua
+            // action terpisah, supaya kedua klik tetap satu status item.
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
         registerShortcut()
@@ -97,7 +100,45 @@ final class MenuBarController: NSObject, NSWindowDelegate {
     }
 
     @objc func togglePanel() {
+        if NSApp.currentEvent?.type == .rightMouseUp {
+            showStatusMenu()
+            return
+        }
         if panel?.isVisible == true { closePanel() } else { showPanel() }
+    }
+
+    /// FR-4.13: kelima slot, Pengaturan, dan Keluar. Menu dipasang lalu
+    /// dilepas lagi setelah tampil, supaya klik kiri berikutnya tetap
+    /// membuka/menutup panel alih-alih menu ini.
+    private func showStatusMenu() {
+        let menu = NSMenu()
+        for slotNumber in 1...Note.slotCount {
+            let item = NSMenuItem(title: "Open Note \(slotNumber)", action: #selector(selectSlotFromMenu(_:)), keyEquivalent: "")
+            item.tag = slotNumber
+            item.target = self
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        let settings = NSMenuItem(title: "Settings…", action: #selector(openSettingsFromMenu), keyEquivalent: ",")
+        settings.target = self
+        menu.addItem(settings)
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Quit FivePad", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+
+        statusItem?.menu = menu
+        statusItem?.button?.performClick(nil)
+        DispatchQueue.main.async { [weak self] in self?.statusItem?.menu = nil }
+    }
+
+    @objc private func selectSlotFromMenu(_ sender: NSMenuItem) {
+        closePanel()
+        UserDefaults.standard.set(sender.tag, forKey: "selectedSlot")
+        showPanel()
+    }
+
+    @objc private func openSettingsFromMenu() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
     }
 
     func closePanel() {
