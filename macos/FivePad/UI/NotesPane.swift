@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct NotesPane: View {
@@ -5,9 +6,19 @@ struct NotesPane: View {
     @Bindable var store: Store
     let slot: Int
     var autofocus = false
-    @FocusState private var editorFocused: Bool
+
+    /// Berlaku untuk kelima slot sekaligus — ini soal cara membaca, bukan isi
+    /// catatannya — sama seperti `AppPreferences.markdownView` di Android.
+    @AppStorage("markdownView") private var markdownView = false
+
+    @State private var pendingOperation: MarkdownPendingOperation?
+    @State private var showFormatSheet = false
+    @State private var showLinkSheet = false
+    @State private var linkInitialLabel = ""
+    @State private var focusSignal = 0
 
     private var note: Note? { store.notes.first { $0.slot == slot } }
+    private var accent: Color { colors.slotAccents[slot - 1] }
 
     private var label: Binding<String> {
         Binding(
@@ -30,7 +41,7 @@ struct NotesPane: View {
                     .textFieldStyle(.plain)
                     .multilineTextAlignment(.center)
                     .fivePadStyle(FivePadText.headerName)
-                    .foregroundStyle(colors.slotAccents[slot - 1])
+                    .foregroundStyle(accent)
 
                 Spacer()
 
@@ -40,34 +51,63 @@ struct NotesPane: View {
                         .monospacedDigit()
                         .foregroundStyle(colors.muted)
                 }
+
+                Button { showFormatSheet = true } label: {
+                    Image(systemName: "textformat")
+                        .foregroundStyle(colors.muted)
+                }
+                .buttonStyle(.plain)
+                .help("Format")
             }
             .padding(.horizontal, Tokens.screenPadding)
             .frame(height: Tokens.titleRowHeight + Tokens.space3)
             .background(colors.bar)
 
-            TextEditor(text: bodyText)
-                .font(.system(size: Tokens.bodyTextSize))
-                .lineSpacing(5)
-                .scrollContentBackground(.hidden)
-                .foregroundStyle(colors.ink)
-                .padding(.horizontal, Tokens.screenPadding - 5)
-                .padding(.vertical, Tokens.space3)
-                .background(colors.background)
-                .accessibilityLabel("Note \(slot) editor")
-                .focused($editorFocused)
+            MarkdownTextView(
+                text: bodyText,
+                sourceMode: markdownView,
+                palette: MarkdownPalette(colors: colors, slotAccent: NSColor(accent)),
+                pendingOperation: pendingOperation,
+                onActionHandled: { pendingOperation = nil },
+                onLinkOpen: openLink,
+                onRequestLink: { initial in
+                    linkInitialLabel = initial
+                    showLinkSheet = true
+                },
+                focusSignal: focusSignal,
+            )
+            .padding(.horizontal, Tokens.screenPadding - Tokens.space3)
+            .background(colors.background)
+            .accessibilityLabel("Note \(slot) editor")
         }
         .onDisappear { store.saveDraft(slot: slot) }
-        .onChange(of: slot) { oldSlot, _ in store.saveDraft(slot: oldSlot) }
-        .onAppear {
-            if autofocus { Task { @MainActor in editorFocused = true } }
+        .onChange(of: slot) { oldSlot, _ in
+            store.saveDraft(slot: oldSlot)
+            if autofocus { focusSignal += 1 }
         }
-        .onChange(of: slot) {
-            if autofocus { editorFocused = true }
+        .onAppear {
+            if autofocus { focusSignal += 1 }
         }
         .overlay {
             if note == nil {
                 ProgressView().controlSize(.small)
             }
         }
+        .sheet(isPresented: $showFormatSheet) {
+            FormatSheet(markdownView: $markdownView, accent: accent) { action in
+                pendingOperation = .action(action)
+            }
+        }
+        .sheet(isPresented: $showLinkSheet) {
+            LinkSheet(initialLabel: linkInitialLabel, accent: accent) { label, url in
+                pendingOperation = .insertLink(label: label, url: url)
+            }
+        }
+    }
+
+    private func openLink(_ raw: String) {
+        let withScheme = raw.contains("://") ? raw : "https://\(raw)"
+        guard let url = URL(string: withScheme) else { return }
+        NSWorkspace.shared.open(url)
     }
 }
