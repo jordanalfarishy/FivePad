@@ -24,17 +24,12 @@ struct FivePadColors {
     let bar: Color
     /// Kartu baris: tugas, pengaturan, dan isi popover.
     let row: Color
-    /// Pita pemisah antar bagian.
-    let separator: Color
     let ink: Color
-    let checkboxFill: Color
     let checkboxStroke: Color
     /// Aksen per slot. Berbeda antar tema agar kontrasnya tetap ada.
     let slotAccents: [Color]
     /// Aksen tindakan.
     let accent: Color
-    /// Teks dan ikon di ATAS aksen yang terisi penuh.
-    let onAccent: Color
     /// Opasitas teks sekunder — nilai terendah yang mencapai 4,5:1 di tema itu.
     let mutedAlpha: Double
 
@@ -42,21 +37,16 @@ struct FivePadColors {
     var muted: Color { ink.opacity(mutedAlpha) }
     var dotStroke: Color { ink.opacity(0.24) }
     var dotRing: Color { ink }
-    var dragHandle: Color { ink.opacity(0.1) }
-    var checkedFill: Color { accent }
 
     static let dark = FivePadColors(
         isLight: false,
         background: Color(hex: 0x19191B),
         bar: Color(hex: 0x232324),
         row: Color(hex: 0x242525),
-        separator: Color(hex: 0x131314),
         ink: .white,
-        checkboxFill: Color(hex: 0x48484B),
         checkboxStroke: Color(hex: 0x6B6B6B),
         slotAccents: [0xEF7A5A, 0xE0A63F, 0x63BC85, 0x48BEDD, 0xA186D6].map { Color(hex: $0) },
         accent: Color(hex: 0xFF5242),
-        onAccent: Color(hex: 0x19191B),
         mutedAlpha: 0.47,
     )
 
@@ -65,21 +55,15 @@ struct FivePadColors {
         background: Color(hex: 0xEAEAE8),
         bar: Color(hex: 0xF9F9F9),
         row: .white,
-        separator: Color(hex: 0xDDDDDA),
         ink: Color(hex: 0x25242C),
-        checkboxFill: Color(hex: 0xEFEFED),
         checkboxStroke: Color(hex: 0xD7D7D7),
         slotAccents: [0xDB2F00, 0xA06700, 0x1A8442, 0x0E7D9B, 0x5320B7].map { Color(hex: $0) },
         accent: Color(hex: 0xC71C0D),
-        onAccent: .white,
         mutedAlpha: 0.65,
     )
 
     static func of(_ mode: ThemeMode) -> FivePadColors { mode == .light ? .light : .dark }
 }
-
-/// Tepi kotak centang yang tercentang — selalu lebih terang dari isiannya.
-let checkedStroke = Color(hex: 0xFF4332)
 
 /// Opasitas titik slot yang tidak aktif. Lihat catatan panjangnya di Android.
 let dotInactiveAlpha = 0.40

@@ -36,5 +36,6 @@ Task reminders, note history UI, import/export, release signing, and Mac–Andro
 - [Product requirements](PRD.md): product scope and requirements.
 - [Android UI notes](docs/android-ui.md): current formatting, sheet, and interaction behavior.
 - [Mobile Notes audit](docs/mobile-notes-feature-audit.md): feature coverage, recovery rules, and historical verification.
+- [Platform feature audit](docs/platform-feature-audit.md): Android vs. macOS status against the PRD, and a code-cleanup log.
 
 Mac–Android synchronization remains pending. Local note archives contain notes and labels, not tasks or settings.

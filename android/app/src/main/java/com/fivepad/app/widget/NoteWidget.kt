@@ -73,11 +73,11 @@ class NoteWidget : AppWidgetProvider() {
                 val slot = prefs.getInt("slot-$id", app.preferences.lastSlot).coerceIn(1, Note.SLOT_COUNT)
                 val note = notes.firstOrNull { it.slot == slot } ?: return@forEach
                 val views = RemoteViews(context.packageName, R.layout.note_widget)
-                views.setInt(R.id.widget_root, "setBackgroundColor", if (dark) 0xFF232324.toInt() else 0xFFF9F9F9.toInt())
+                views.setInt(R.id.widget_root, "setBackgroundColor", if (dark) 0xFF0F0F10.toInt() else Color.WHITE)
                 views.setTextViewText(R.id.widget_title, note.label.ifEmpty { context.getString(R.string.slot_description, slot) })
                 views.setTextColor(R.id.widget_title, accents[slot - 1])
                 views.setTextViewText(R.id.widget_body, note.body.take(600).ifEmpty { context.getString(R.string.widget_empty) })
-                views.setTextColor(R.id.widget_body, if (dark) Color.WHITE else 0xFF25242C.toInt())
+                views.setTextColor(R.id.widget_body, if (dark) 0xFFECECEE.toInt() else 0xFF16161A.toInt())
                 val open = Intent(context, MainActivity::class.java).apply {
                     action = Intent.ACTION_VIEW
                     data = Uri.parse("fivepad://slot/$slot")

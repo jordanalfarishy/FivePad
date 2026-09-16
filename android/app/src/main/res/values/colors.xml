@@ -22,9 +22,9 @@
     <color name="icon_background">#FFA910</color>
 
     <!--
-      Latar layar pembuka versi terang — node Figma 6:2162. #F9F9F9, bukan
-      #EAEAE8: bingkai pembukanya memakai warna chrome, bukan warna halaman.
-      Pasangan gelapnya ada di values-night/.
+      Latar layar pembuka versi terang — node Figma 6:2162. Mengikuti warna
+      chrome (LightColors.bar), bukan warna latar isi. Pasangan gelapnya ada
+      di values-night/.
     -->
     <color name="splash_background">#FFFFFF</color>
 </resources>

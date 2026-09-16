@@ -18,9 +18,7 @@
 
     <!-- Format teks -->
     <string name="format_title">Teks</string>
-    <string name="format_view_markdown">Lihat sebagai Markdown</string>
     <string name="format_view_markdown_short">Markdown</string>
-    <string name="format_view_normal">Lihat sebagai teks biasa</string>
     <string name="format_sub_header">Subjudul</string>
     <string name="format_link">Tautan</string>
     <string name="link_label">Teks</string>
@@ -86,7 +84,6 @@
     <string name="reminder_title">Tugas jatuh tempo</string>
     <string name="due_remove">Hapus pengingat</string>
     <string name="due_overdue">Terlambat</string>
-    <string name="permission_notifications_denied">Pengingat butuh izin notifikasi. Kamu bisa memberikannya di pengaturan sistem.</string>
     <string name="move_up">Naikkan</string>
     <string name="move_down">Turunkan</string>
     <string name="reminder_time">Waktu pengingat</string>

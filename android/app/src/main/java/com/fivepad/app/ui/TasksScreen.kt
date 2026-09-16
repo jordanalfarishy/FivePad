@@ -219,8 +219,8 @@ fun TasksScreen(
                         // menarik mata karena ia sendirian.
                         SecondaryActionRow(
                             label = stringResource(R.string.group_new),
-                            labelColor = taskFooterColor(colors.isLight),
-                            iconColor = taskFooterColor(colors.isLight),
+                            labelColor = colors.muted,
+                            iconColor = colors.muted,
                             onClick = { addingGroup = true },
                         )
 
@@ -228,8 +228,8 @@ fun TasksScreen(
                         if (state.doneCount > 0) {
                             SecondaryActionRow(
                                 label = stringResource(R.string.task_clear_done, state.doneCount),
-                                labelColor = taskFooterColor(colors.isLight),
-                                iconColor = taskFooterColor(colors.isLight),
+                                labelColor = colors.muted,
+                                iconColor = colors.muted,
                                 icon = R.drawable.ic_delete,
                                 onClick = onClearCompleted,
                             )
@@ -557,7 +557,7 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit, onAdd: () ->
                 Icon(
                     painterResource(R.drawable.ic_more_vert),
                     stringResource(R.string.group_menu),
-                    tint = taskSectionLabelColor(colors.isLight),
+                    tint = colors.muted,
                     modifier = Modifier.size(18.dp),
                 )
             }
@@ -569,7 +569,7 @@ private fun SectionHeader(group: TodoGroup?, onOptions: () -> Unit, onAdd: () ->
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
             ),
-            color = taskSectionLabelColor(colors.isLight),
+            color = colors.muted,
             modifier = Modifier.weight(1f),
         )
         if (group != null) {
@@ -726,9 +726,9 @@ private fun TaskRow(
                     todo.text,
                     style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
                     color = if (todo.done) {
-                        taskCompletedColor(colors.isLight)
+                        colors.muted
                     } else {
-                        taskInk(colors.isLight)
+                        colors.ink
                     },
                     textDecoration = if (todo.done) TextDecoration.LineThrough else null,
                     maxLines = if (expanded) Int.MAX_VALUE else 2,
@@ -780,7 +780,7 @@ private fun TaskRow(
                         contentDescription = stringResource(
                             if (expanded) R.string.task_collapse else R.string.task_expand,
                         ),
-                        tint = taskCompletedColor(colors.isLight),
+                        tint = colors.muted,
                         modifier = Modifier
                             .size(Tokens.space6)
                             .graphicsLayer { rotationZ = if (expanded) -90f else 90f },
@@ -876,28 +876,12 @@ private fun Checkbox(done: Boolean, onToggle: () -> Unit) {
                 Modifier
                     .size(HANDLE_SIZE)
                     .clip(CircleShape)
-                    .background(if (colors.isLight) colors.checkboxFill else Color(0xFF48484B))
-                    .border(
-                        1.dp,
-                        if (colors.isLight) colors.checkboxStroke else Color(0xFF6B6B6B),
-                        CircleShape,
-                    ),
+                    .background(colors.checkboxFill)
+                    .border(1.dp, colors.checkboxStroke, CircleShape),
             )
         }
     }
 }
-
-private fun taskInk(isLight: Boolean): Color =
-    if (isLight) Color(0xFF16161A) else Color.White
-
-private fun taskSectionLabelColor(isLight: Boolean): Color =
-    if (isLight) Color(0xFF66666E) else Color(0xFF7F7F82)
-
-private fun taskCompletedColor(isLight: Boolean): Color =
-    if (isLight) Color(0xFF66666E) else Color(0xFF78787A)
-
-private fun taskFooterColor(isLight: Boolean): Color =
-    if (isLight) Color(0xFF66666E) else Color(0xFF6F6F70)
 
 // ------------------------------------------------------------------- seret-lepas
 
