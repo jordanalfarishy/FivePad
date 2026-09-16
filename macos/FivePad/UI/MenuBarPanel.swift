@@ -44,7 +44,7 @@ struct MenuBarPanel: View {
 
     private var topBar: some View {
         HStack(spacing: Tokens.space3) {
-            SlotDots(active: slot, onSelect: selectSlot)
+            SlotDots(store: store, active: slot, onSelect: selectSlot)
             Spacer(minLength: Tokens.space2)
             Button(action: openMainWindow) {
                 Image(systemName: "macwindow")

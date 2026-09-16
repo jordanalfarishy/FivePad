@@ -49,7 +49,7 @@ struct ContentView: View {
 
     private var topBar: some View {
         ZStack {
-            SlotDots(active: slot, onSelect: { slot = $0 })
+            SlotDots(store: store, active: slot, onSelect: { slot = $0 })
             HStack {
                 Text("FivePad")
                     .fivePadStyle(FivePadText.headerName)
